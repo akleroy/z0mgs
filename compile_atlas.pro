@@ -63,79 +63,14 @@ pro compile_atlas $
 
         ;counter, ii, n_pgc, 'Unit conversion '
         pgc_name = pgc_list[ii]
-        print, ii*1.0/n_pgc, ':', pgc_name
-
-        infile = out_dir+pgc_name+'_w3_mjysr.fits'       
-        outfile = out_dir+pgc_name+'_mask.fits'
-
-        test = file_search(infile, count=ct)
-        if ct eq 0 then begin
-           infile = out_dir+pgc_name+'_w1_mjysr.fits' 
-           test = file_search(infile, count=ct)
-           if ct eq 0 then begin
-              infile = out_dir+pgc_name+'_w2_mjysr.fits' 
-              test = file_search(infile, count=ct)
-              if ct eq 0 then begin
-                 infile = out_dir+pgc_name+'_w4_mjysr.fits' 
-                 test = file_search(infile, count=ct)
-                 if ct eq 0 then begin
-                    continue
-                 endif
-              endif
-           endif
-        endif
-
-;       Fracture this into a program        
-
-        map = readfits(infile, hdr, /silent)
-        if n_elements(map) eq 1 then $
-           continue
-
-        make_axes, hdr, ri=ri, di=di
-        
+        print, ii*1.0/n_pgc, ':', pgc_name                
         this_dat = all_data[where(all_data.pgc eq pgc_num[ii])]
 
-        pa = this_dat.posang_deg
-        incl = this_dat.incl_deg        
-
-        if finite(incl) eq 0 then begin
-           incl = 0.0           
-        endif
-        if incl gt 60 then begin
-           incl = 60.
-        endif
-
-        if finite(pa) eq 0 then begin
-           pa = 0.0
-           incl = 0.0
-        endif
-        
-        xctr = this_dat.ra_deg
-        yctr = this_dat.dec_deg
-
-        gal_vec = [pa, incl, xctr, yctr]
-        deproject, ri, di, gal_vec, rgrid=rgrid
-
-        fid_rad = this_dat.r25_deg        
-        if fid_rad lt 10./3600. or finite(fid_rad) eq 0 then begin
-           fid_rad = 10./3600.
-        endif
-
-        gal_ind = where(rgrid lt fid_rad*3., gal_ct)
-        mask = finite(map)
-        mask[gal_ind] = 10B
-        bk_ind = where(rgrid gt fid_rad*3. and rgrid lt fid_rad*6., bk_ct)
-        mask[bk_ind] = 100B
-
-        if keyword_set(show) then begin
-           disp, map, max=0.5, min=0, /sq, xstyle=5, ystyle=5
-           contour, mask, lev=[2,11,101], /overplot, color=cgcolor('red')
-        endif
-
-        sxaddpar, hdr, 'BUNIT', 'MASK'
-        writefits, outfile, mask, hdr
-
-        ;ch = get_kbrd()
+        build_unwise_mask $
+           , pgc = pgc_list[ii] $
+           , galdata = this_dat $
+           , outfile = outfile $
+           , /show
 
      endfor     
 
