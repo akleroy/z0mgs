@@ -1,9 +1,11 @@
 pro compile_atlas $
    , units = do_units $
    , mask = do_mask $
+   , catquery = do_catquery $
    , bksub = do_bksub $
    , convol = do_convol $
-   , show = show
+   , show = show $
+   , just = just
 
   in_dir = '../unwise/dlang_custom/z0mgs/PGC/'
   out_dir = '../unwise/atlas/'
@@ -32,6 +34,10 @@ pro compile_atlas $
 
         pgc_name = pgc_list[ii]
 
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
         for band = 1, 4 do begin
            
            infile = in_dir+pgc_name+'/'+'unwise-'+pgc_name+'-w'+str(band)+'-img-m.fits'
@@ -50,6 +56,44 @@ pro compile_atlas $
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; QUERY IRSA CATALOGS
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_catquery) then begin
+
+     all_data = gal_data(/all)
+
+     for ii = 0, n_pgc-1 do begin
+
+        counter, ii, n_pgc, 'Catalog query '
+
+        pgc_name = pgc_list[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+        
+        this_dat = all_data[where(all_data.pgc eq pgc_num[ii])]        
+
+        coords = [this_dat.ra_deg, this_dat.dec_deg]
+
+        radius = all_data.r25_deg*3600.*5.
+
+        outfile = out_dir+'../catalogs/'+pgc_name+'_allwise_cat.txt'
+
+        z0mgs_query_irsa_cat $
+           , coords $
+           , catalog='allwise_p3as_psd' $
+           , radius=radius $
+           , radunits='arcsec' $
+           , outfile=outfile $
+           , /noread
+        
+     endfor
+          
+  endif  
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; MAKE A BASIC MASK
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
@@ -63,6 +107,11 @@ pro compile_atlas $
 
         ;counter, ii, n_pgc, 'Unit conversion '
         pgc_name = pgc_list[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
         print, ii*1.0/n_pgc, ':', pgc_name                
         this_dat = all_data[where(all_data.pgc eq pgc_num[ii])]
 
@@ -93,6 +142,10 @@ pro compile_atlas $
         counter, ii, n_pgc, 'Background subtraction '
 
         pgc_name = pgc_list[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
 
         maskfile = out_dir+pgc_name+'_mask.fits'
         test = file_search(maskfile, count=ct)

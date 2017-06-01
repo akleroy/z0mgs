@@ -1,5 +1,5 @@
 pro build_unwise_mask $
-   , pgc=pgc $
+   , pgc=pgc_name $
    , galdata=this_dat $
    , outfile=outfile $
    , show=show
@@ -10,7 +10,7 @@ pro build_unwise_mask $
      outfile = atlas_dir+pgc_name+'_mask.fits'
   
   if n_elements(this_dat) eq 0 then begin
-     this_dat = gal_data('PGC'+str(pgc))
+     this_dat = gal_data(pgc_name)
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -45,6 +45,7 @@ pro build_unwise_mask $
 ; IDENTIFY THE REGION NEAR THE GALAXY
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
 
+  map = wise1
   hdr = w1_hdr
 
 ; Work out coordinates
@@ -88,17 +89,19 @@ pro build_unwise_mask $
 
 ; Label < 3 r25 (galaxy) and 3-6 r25 (background)
 
-  gal_ind = where(rgrid lt fid_rad*3., gal_ct)
+  gal_ind = where(rgrid lt fid_rad*2., gal_ct)
   mask = finite(map)
   mask[gal_ind] = 10B
-  bk_ind = where(rgrid ge fid_rad*3. and rgrid lt fid_rad*4., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*2. and rgrid lt fid_rad*3., bk_ct)
   mask[bk_ind] = 100B
-  bk_ind = where(rgrid ge fid_rad*4. and rgrid lt fid_rad*5., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*3. and rgrid lt fid_rad*4., bk_ct)
   mask[bk_ind] = 110B
-  bk_ind = where(rgrid ge fid_rad*5. and rgrid lt fid_rad*6., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*4. and rgrid lt fid_rad*5., bk_ct)
   mask[bk_ind] = 120B
-  bk_ind = where(rgrid ge fid_rad*6. and rgrid lt fid_rad*7., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*5. and rgrid lt fid_rad*6., bk_ct)
   mask[bk_ind] = 130B
+  bk_ind = where(rgrid ge fid_rad*6. and rgrid lt fid_rad*7., bk_ct)
+  mask[bk_ind] = 140B
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; 
@@ -112,7 +115,7 @@ pro build_unwise_mask $
 
      disp, map, max=0.5, min=0, /sq, xstyle=5, ystyle=5
 
-     contour, mask, lev=[2,11,101], /overplot, color=cgcolor('red')
+     contour, mask, lev=[2,11,101,111,121,131], /overplot, color=cgcolor('red')
 
   endif
 
