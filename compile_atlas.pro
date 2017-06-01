@@ -77,7 +77,7 @@ pro compile_atlas $
 
         coords = [this_dat.ra_deg, this_dat.dec_deg]
 
-        radius = all_data.r25_deg*3600.*5.
+        radius = this_dat.r25_deg*3600.*5.
 
         outfile = out_dir+'../catalogs/'+pgc_name+'_allwise_cat.txt'
 
@@ -87,8 +87,11 @@ pro compile_atlas $
            , radius=radius $
            , radunits='arcsec' $
            , outfile=outfile $
+           , query=url $
            , /noread
         
+        print, url
+
      endfor
           
   endif  
