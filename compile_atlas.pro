@@ -28,6 +28,8 @@ pro compile_atlas $
 
   if keyword_set(do_units) then begin
      
+     openw, 1, 'filesnotfound.txt'
+
      for ii = 0, n_pgc-1 do begin
 
         counter, ii, n_pgc, 'Unit conversion '
@@ -42,6 +44,13 @@ pro compile_atlas $
            
            infile = in_dir+pgc_name+'/'+'unwise-'+pgc_name+'-w'+str(band)+'-img-m.fits'
 
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              printf, 1, pgc_name, band, infile
+              print, 'NOT FOUND: ', pgc_name, band, ' ', infile
+              continue
+           endif
+
            outfile = out_dir+pgc_name+'_w'+str(band)+'_mjysr.fits'
 
            convert_unwise_to_mjysr $
@@ -52,6 +61,8 @@ pro compile_atlas $
         endfor
 
      endfor
+
+     close, 1
 
   endif
 
@@ -190,5 +201,53 @@ pro compile_atlas $
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   !p.multi=0
+
+  !p.multi=[0,2,1]
+
+  if keyword_set(do_convol) then begin
+
+     all_data = gal_data(/all)
+
+     for ii = 0, n_pgc-1 do begin
+
+        counter, ii, n_pgc, 'Convolution '
+
+        pgc_name = pgc_list[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, pgc_name
+        for band = 1, 4 do begin
+
+           infile = out_dir+pgc_name+'_w'+str(band)+'_bksub.fits'
+           outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
+
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              message, 'File not found '+infile
+              continue
+           endif
+
+           conv_z0mg_galaxy, $
+              infile=infile, $
+              start_psf='w'+str(band), $
+              end_psf='g15', $
+              outfile=outfile
+           
+           before = readfits(infile)
+           after = readfits(outfile)
+
+           loadct, 33
+           disp, before, /sq, max=1, min=0
+           disp, after, /sq, max=1, min=0
+
+        endfor
+        
+     endfor
+          
+  endif
+
 
 end
