@@ -9,7 +9,7 @@ pro extract_unwise_stamp $
    , show=show $
    , pause=pause
 
-  index_dir = '/data/tycho/0/leroy.42/allsky/code/'
+  index_dir = '/data/tycho/0/leroy.42/allsky/z0mgs/'
   data_dir = '/data/tycho/0/leroy.42/allsky/unwise/sorted_tiles/'
   
  ; CALIBRATION TO GO FROM VEGAS TO ABMAG
