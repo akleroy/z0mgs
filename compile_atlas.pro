@@ -226,7 +226,13 @@ pro compile_atlas $
 
            test = file_search(infile, count=ct)
            if ct eq 0 then begin
-              message, 'File not found '+infile
+              message, 'File not found '+infile, /info
+              continue
+           endif
+
+           test = readfits(infile, hdr)
+           if test[0] eq -1 then begin
+              message, "Problematic FITS file. Skipping.", /info
               continue
            endif
 
