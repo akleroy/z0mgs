@@ -15,13 +15,19 @@ Current available instruments:
 
 Current problems:
     No extrapolation of response function
-        Response function range: MIPS_24  (18.01, 32.21)
-                                 MIPS_70  (49.96, 111.02)
-                                 MIPS_160 (100.09, 199.92)
-                                 PACS_70  (2.50, 500.0)
-                                 PACS_100 (13.49, 500.0)
-                                 PACS_160 (13.49, 500.0)
-                                 SPIRE    (166.67, 1000)
+        Response function range: MIPS_24    (18.01, 32.21)
+                                 MIPS_70    (49.96, 111.02)
+                                 MIPS_160   (100.09, 199.92)
+                                 PACS_70    (2.50, 500.0)
+                                 PACS_100   (13.49, 500.0)
+                                 PACS_160   (13.49, 500.0)
+                                 SPIRE      (166.67, 1000)
+                                 PLANCK_350 (190, 593E3)
+                                 PLANCK_550 (51, 593E3)
+                                 PLANCK_850 (40, 593E3)
+                                 PLANCK_1400(38, 593E3)
+                                 PLANCK_2100(38, 593E3)
+                                 PLANCK_3000(36, 593E3)
     Unable to reproduce color correction factors in PACS_160 for T <= 7K
 
 Note:
@@ -35,7 +41,9 @@ from astropy.constants import h, k_B, c
 # Reference wavelength for each instrument
 ref_wl = {'SPIRE_500': 500, 'SPIRE_350': 350, 'SPIRE_250': 250,
           'PACS_160': 160, 'PACS_100': 100, 'PACS_70': 70,
-          'MIPS_160': 155.899, 'MIPS_70': 71.440, 'MIPS_24': 23.675}
+          'MIPS_160': 155.899, 'MIPS_70': 71.440, 'MIPS_24': 23.675,
+          'PLANCK_350': 350, 'PLANCK_550': 550, 'PLANCK_850': 850,
+          'PLANCK_1400': 1400, 'PLANCK_2100': 2100, 'PLANCK_3000': 3000}
 
 
 # Main function
@@ -84,6 +92,8 @@ def z0mg_RSRF(wl, s, bands=['SPIRE_350', 'SPIRE_500']):
             bands[i] = bands[i][:4].upper() + '_' + num
         elif bands[i][:5].upper() in ['SPIRE']:
             bands[i] = bands[i][:5].upper() + '_' + num
+        elif bands[i][:6].upper() in ['PLANCK']:
+            bands[i] = bands[i][:6].upper() + '_' + num
         if bands[i] not in ref_wl.keys():
             raise ValueError('The instrument \"' + bands[i] +
                              "\" is currently not supported")
@@ -99,6 +109,17 @@ def z0mg_RSRF(wl, s, bands=['SPIRE_350', 'SPIRE_500']):
     def B_10000K(wl):
         temp = (h * c / (wl * u.um) / k_B / (10000 * u.K)).decompose().value
         return 1 / (np.exp(temp) - 1) / wl**3
+
+    # Derivation of Planck radiation at 2.7255K
+    def b_pl_nu(wl):
+        hv, cv, kv = h.value, c.value, k_B.value
+        T = 2.7255
+        nu = (c / wl / u.um).to(u.Hz).value
+        exp_hnukT = np.exp(hv * nu / kv / T)
+        return (2 * hv * nu**3 / cv**2 / (exp_hnukT - 1)) * \
+            (exp_hnukT / (exp_hnukT - 1)) * \
+            (hv * nu / kv / T**2)
+
     #
     for band in bands:
         #
@@ -122,6 +143,11 @@ def z0mg_RSRF(wl, s, bands=['SPIRE_350', 'SPIRE_500']):
             results.append(cumtrapz(s[mask] * rsrf, wlb)[-1] /
                            cumtrapz(rsrf * B_10000K(wlb) /
                                     B_10000K(ref_wl[band]) / wlb**2, wlb)[-1])
+        elif band in ['PLANCK_850', 'PLANCK_1400', 'PLANCK_2100',
+                      'PLANCK_3000']:
+            results.append(cumtrapz(s[mask] * rsrf, wlb)[-1] /
+                           cumtrapz(rsrf * b_pl_nu(wlb) /
+                                    b_pl_nu(ref_wl[band]) / wlb**2, wlb)[-1])
         else:
             results.append(cumtrapz(s[mask] * rsrf, wlb)[-1] /
                            cumtrapz(rsrf / wlb / ref_wl[band], wlb)[-1])
