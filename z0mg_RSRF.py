@@ -146,8 +146,7 @@ def z0mg_RSRF(wl, s, bands=['SPIRE_350', 'SPIRE_500']):
         elif band in ['PLANCK_850', 'PLANCK_1400', 'PLANCK_2100',
                       'PLANCK_3000']:
             results.append(cumtrapz(s[mask] * rsrf, wlb)[-1] /
-                           cumtrapz(rsrf * b_pl_nu(wlb) /
-                                    b_pl_nu(ref_wl[band]) / wlb**2, wlb)[-1])
+                           cumtrapz(rsrf * b_pl_nu(wlb) / wlb**2, wlb)[-1])
         else:
             results.append(cumtrapz(s[mask] * rsrf, wlb)[-1] /
                            cumtrapz(rsrf / wlb / ref_wl[band], wlb)[-1])
