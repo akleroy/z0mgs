@@ -89,23 +89,19 @@ pro build_unwise_mask $
 
 ; Label < 3 r25 (galaxy) and 3-6 r25 (background)
 
-  gal_ind = where(rgrid lt fid_rad*2., gal_ct)
+  gal_ind = where(rgrid lt fid_rad*1., gal_ct)
   mask = finite(map)
   mask[gal_ind] = 10B
-  bk_ind = where(rgrid ge fid_rad*2. and rgrid lt fid_rad*3., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*1. and rgrid lt fid_rad*2., bk_ct)
   mask[bk_ind] = 100B
-  bk_ind = where(rgrid ge fid_rad*3. and rgrid lt fid_rad*4., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*2. and rgrid lt fid_rad*3., bk_ct)
   mask[bk_ind] = 110B
-  bk_ind = where(rgrid ge fid_rad*4. and rgrid lt fid_rad*5., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*3. and rgrid lt fid_rad*4., bk_ct)
   mask[bk_ind] = 120B
-  bk_ind = where(rgrid ge fid_rad*5. and rgrid lt fid_rad*6., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*4. and rgrid lt fid_rad*5., bk_ct)
   mask[bk_ind] = 130B
-  bk_ind = where(rgrid ge fid_rad*6. and rgrid lt fid_rad*7., bk_ct)
+  bk_ind = where(rgrid ge fid_rad*5. and rgrid lt fid_rad*6., bk_ct)
   mask[bk_ind] = 140B
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; 
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SHOW IF REQUESTED

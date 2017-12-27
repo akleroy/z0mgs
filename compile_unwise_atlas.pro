@@ -1,11 +1,13 @@
-pro compile_atlas $
+pro compile_unwise_atlas $
    , units = do_units $
    , mask = do_mask $
    , catquery = do_catquery $
    , bksub = do_bksub $
    , convol = do_convol $
+   , stats = do_stats $
    , show = show $
-   , just = just
+   , just = just $
+   , tag = tag
 
   in_dir = '../unwise/dlang_custom/z0mgs/PGC/'
   out_dir = '../unwise/atlas/'
@@ -27,6 +29,12 @@ pro compile_atlas $
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   if keyword_set(do_units) then begin
+
+     if n_elements(tag) gt 0 then begin                
+        all_data = gal_data(tag=tag)
+     endif else begin
+        all_data = gal_data(/all)
+     endelse
      
      openw, 1, 'filesnotfound.txt'
 
@@ -72,7 +80,11 @@ pro compile_atlas $
 
   if keyword_set(do_catquery) then begin
 
-     all_data = gal_data(/all)
+     if n_elements(tag) gt 0 then begin                
+        all_data = gal_data(tag=tag)
+     endif else begin
+        all_data = gal_data(/all)
+     endelse
 
      for ii = 0, n_pgc-1 do begin
 
@@ -115,24 +127,31 @@ pro compile_atlas $
 
   if keyword_set(do_mask) then begin
 
-     all_data = gal_data(/all)
+     if n_elements(tag) gt 0 then begin                
+        all_data = gal_data(tag=tag)
+     endif else begin
+        all_data = gal_data(/all)
+     endelse
 
      for ii = 0, n_pgc-1 do begin
 
-        ;counter, ii, n_pgc, 'Unit conversion '
+        counter, ii, n_pgc, 'Preliminary mask construction '
+
         pgc_name = pgc_list[ii]
 
         if n_elements(just) gt 0 then $
            if total(pgc_name eq just) eq 0 then $
               continue
 
-        print, ii*1.0/n_pgc, ':', pgc_name                
-        this_dat = all_data[where(all_data.pgc eq pgc_num[ii])]
+        this_ind = where(all_data.pgc eq pgc_num[ii], ct)
+        if ct eq 0 then continue
+        this_dat = all_data[this_ind]
 
+        maskfile = out_dir+pgc_name+'_mask.fits'
         build_unwise_mask $
            , pgc = pgc_list[ii] $
            , galdata = this_dat $
-           , outfile = outfile $
+           , outfile = maskfile $
            , /show
 
      endfor     
@@ -145,11 +164,13 @@ pro compile_atlas $
 ; RUN A BACKGROUND SUBTRACTION OUTSIDE THE MASK
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  !p.multi=[0,4,5]
-
   if keyword_set(do_bksub) then begin
 
-     all_data = gal_data(/all)
+     if n_elements(tag) gt 0 then begin                
+        all_data = gal_data(tag=tag)
+     endif else begin
+        all_data = gal_data(/all)
+     endelse
 
      for ii = 0, n_pgc-1 do begin
 
@@ -160,6 +181,10 @@ pro compile_atlas $
         if n_elements(just) gt 0 then $
            if total(pgc_name eq just) eq 0 then $
               continue
+
+        this_ind = where(all_data.pgc eq pgc_num[ii], ct)
+        if ct eq 0 then continue
+        this_dat = all_data[this_ind]
 
         maskfile = out_dir+pgc_name+'_mask.fits'
         test = file_search(maskfile, count=ct)
@@ -175,20 +200,25 @@ pro compile_atlas $
               continue
            map = readfits(infile, hdr, /silent)
 
-           bkind = where(mask eq 100)
-           bklev = median(map[bkind])
-           rms = mad(map[bkind])
-           map -= bklev
-           sxaddpar, hdr, 'NOISE', rms
-           sxaddpar, hdr, 'BKGRD', bklev
+           bksub = $
+              bkfit( $
+              map=map $
+              , mask=mask $
+              , rejected=rejected $
+              , niter=5 $
+              , thresh=3.0 $
+              , method='PLANE' $
+              , coefs=coefs)
 
-           outfile =  out_dir+pgc_name+'_w'+str(band)+'_bksub.fits'
+           sxaddpar, hdr, 'BKPLANE0', coefs[0]
+           sxaddpar, hdr, 'BKPLANE1', coefs[1]
+           sxaddpar, hdr, 'BKPLANE2', coefs[2]
+           
+           outfile = out_dir+pgc_name+'_w'+str(band)+'_bksub.fits'
+           writefits, outfile, bksub, hdr
 
-           writefits, outfile, map, hdr
-
-           if keyword_set(show) then begin
-              disp, map, /sq, xstyle=5, ystyle=5, min=-3.*rms, max=3.*rms
-           endif
+           outfile = out_dir+pgc_name+'_w'+str(band)+'_rejected.fits'
+           writefits, outfile, rejected*1.0, hdr
            
         endfor
         
@@ -206,19 +236,25 @@ pro compile_atlas $
 
   if keyword_set(do_convol) then begin
 
-     all_data = gal_data(/all)
+     if n_elements(tag) gt 0 then begin                
+        all_data = gal_data(tag=tag)
+     endif else begin
+        all_data = gal_data(/all)
+     endelse
 
      for ii = 0, n_pgc-1 do begin
 
         counter, ii, n_pgc, 'Convolution '
 
-        pgc_name = pgc_list[ii]
-
         if n_elements(just) gt 0 then $
            if total(pgc_name eq just) eq 0 then $
               continue
 
-        print, pgc_name
+        this_ind = where(all_data.pgc eq pgc_num[ii], ct)
+        if ct eq 0 then continue
+        this_dat = all_data[this_ind]
+
+        pgc_name = pgc_list[ii]
         for band = 1, 4 do begin
 
            infile = out_dir+pgc_name+'_w'+str(band)+'_bksub.fits'
@@ -241,19 +277,93 @@ pro compile_atlas $
               start_psf='w'+str(band), $
               end_psf='g15', $
               outfile=outfile
+
+           infile = out_dir+pgc_name+'_w'+str(band)+'_rejected.fits'
+           outfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss15.fits'
+
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              message, 'File not found '+infile, /info
+              continue
+           endif
+
+           test = readfits(infile, hdr)
+           if test[0] eq -1 then begin
+              message, "Problematic FITS file. Skipping.", /info
+              continue
+           endif
+
+           conv_z0mg_galaxy, $
+              infile=infile, $
+              start_psf='w'+str(band), $
+              end_psf='g15', $
+              outfile=outfile
            
-           before = readfits(infile)
-           after = readfits(outfile)
-
-           loadct, 33
-           disp, before, /sq, max=1, min=0
-           disp, after, /sq, max=1, min=0
-
         endfor
         
      endfor
           
   endif
 
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; RUN STATISTICS
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=0
+
+  if keyword_set(do_stats) then begin
+
+     if n_elements(tag) gt 0 then begin                
+        all_data = gal_data(tag=tag)
+     endif else begin
+        all_data = gal_data(/all)
+     endelse
+
+     for ii = 0, n_pgc-1 do begin
+
+        counter, ii, n_pgc, 'Statistics '
+
+        pgc_name = pgc_list[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        this_ind = where(all_data.pgc eq pgc_num[ii], ct)
+        if ct eq 0 then continue
+        this_dat = all_data[this_ind]
+
+        print, pgc_name
+        for band = 1, 4 do begin
+
+           infile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
+           maskfile = out_dir+pgc_name+'_mask.fits'
+           rejectfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss15.fits'
+           outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
+
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              message, 'File not found '+infile, /info
+              continue
+           endif
+
+           test = file_search(maskfile, count=ct)
+           if ct eq 0 then begin
+              message, 'Mask not found '+infile, /info
+              continue
+           endif
+           
+           z0mgs_stat_image $
+              , infile=infile $
+              , outfile=outfile $
+              , mask=maskfile $
+              , reject=rejectfile $
+              , /print
+
+        endfor
+        
+     endfor
+          
+  endif
 
 end
