@@ -4,6 +4,7 @@ pro fetch_all_galex_tiles $
    , out_dir=out_dir $
    , in_file=in_file $
    , rrhr=rrhr $
+   , intbgsub=intbgsub $
    , only=only
 
 ; Fetch the all GALEX tiles based off of CAS job output.
@@ -42,6 +43,22 @@ pro fetch_all_galex_tiles $
         if strpos(this_line,'-int.fits') eq -1 then $
            continue
         new_line = mg_streplace(this_line,'-int.fits','-rrhr.fits')
+        if n_elements(new_lines) eq 0 then $
+           new_lines = new_line $
+        else $
+           new_lines = [new_lines, new_line]
+     endfor
+     lines = new_lines
+     nlines = n_elements(lines)
+  endif
+
+  if keyword_set(intbgsub) then begin
+     print, "I am replacing all -int.fits strings with -intbgsub.fits"
+     for ii = 0, nlines-1 do begin
+        this_line = lines[ii]
+        if strpos(this_line,'-int.fits') eq -1 then $
+           continue
+        new_line = mg_streplace(this_line,'-int.fits','-intbgsub.fits')
         if n_elements(new_lines) eq 0 then $
            new_lines = new_line $
         else $

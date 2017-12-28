@@ -5,6 +5,8 @@ pro compile_unwise_atlas $
    , bksub = do_bksub $
    , convol = do_convol $
    , stats = do_stats $
+   , isophot = do_isophot $
+   , slice = do_slice $
    , show = show $
    , just = just $
    , tag = tag
@@ -116,7 +118,7 @@ pro compile_unwise_atlas $
         print, url
 
      endfor
-          
+     
   endif  
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -223,7 +225,7 @@ pro compile_unwise_atlas $
         endfor
         
      endfor
-          
+     
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -255,31 +257,43 @@ pro compile_unwise_atlas $
         this_dat = all_data[this_ind]
 
         pgc_name = pgc_list[ii]
+
         for band = 1, 4 do begin
 
            infile = out_dir+pgc_name+'_w'+str(band)+'_bksub.fits'
+
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              message, 'File not found '+infile, /info
+              continue
+           endif
+
+           test = readfits(infile, hdr)
+           if test[0] eq -1 then begin
+              message, "Problematic FITS file. Skipping.", /info
+              continue
+           endif
+
            outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
 
-           test = file_search(infile, count=ct)
-           if ct eq 0 then begin
-              message, 'File not found '+infile, /info
-              continue
-           endif
-
-           test = readfits(infile, hdr)
-           if test[0] eq -1 then begin
-              message, "Problematic FITS file. Skipping.", /info
-              continue
-           endif
-
            conv_z0mg_galaxy, $
               infile=infile, $
               start_psf='w'+str(band), $
               end_psf='g15', $
               outfile=outfile
+
+           if band le 3 then begin
+              outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
+              conv_z0mg_galaxy, $
+                 infile=infile, $
+                 start_psf='w'+str(band), $
+                 end_psf='g7p5', $
+                 outfile=outfile
+           endif
+
+;          Convolve the rejected pixel file, too.
 
            infile = out_dir+pgc_name+'_w'+str(band)+'_rejected.fits'
-           outfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss15.fits'
 
            test = file_search(infile, count=ct)
            if ct eq 0 then begin
@@ -293,16 +307,27 @@ pro compile_unwise_atlas $
               continue
            endif
 
+           outfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss15.fits'
+
            conv_z0mg_galaxy, $
               infile=infile, $
               start_psf='w'+str(band), $
               end_psf='g15', $
               outfile=outfile
+
+           if band le 3 then begin
+              outfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss7p5.fits'              
+              conv_z0mg_galaxy, $
+                 infile=infile, $
+                 start_psf='w'+str(band), $
+                 end_psf='g7p5', $
+                 outfile=outfile
+           endif
            
         endfor
         
      endfor
-          
+     
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -360,10 +385,124 @@ pro compile_unwise_atlas $
               , reject=rejectfile $
               , /print
 
+           if band le 3 then begin
+
+              infile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
+              maskfile = out_dir+pgc_name+'_mask.fits'
+              rejectfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss7p5.fits'
+              outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
+
+              test = file_search(infile, count=ct)
+              if ct eq 0 then begin
+                 message, 'File not found '+infile, /info
+                 continue
+              endif
+
+              test = file_search(maskfile, count=ct)
+              if ct eq 0 then begin
+                 message, 'Mask not found '+infile, /info
+                 continue
+              endif
+              
+              z0mgs_stat_image $
+                 , infile=infile $
+                 , outfile=outfile $
+                 , mask=maskfile $
+                 , reject=rejectfile $
+                 , /print
+
+           endif
+
         endfor
         
      endfor
-          
+     
   endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; ISOPHOTAL FITTING
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=0
+
+  if keyword_set(do_isophot) then begin
+
+     if n_elements(tag) gt 0 then begin                
+        all_data = gal_data(tag=tag)
+     endif else begin
+        all_data = gal_data(/all)
+     endelse
+
+     for ii = 0, n_pgc-1 do begin
+
+        counter, ii, n_pgc, 'Isophotal fitting '
+
+        pgc_name = pgc_list[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        this_ind = where(all_data.pgc eq pgc_num[ii], ct)
+        if ct eq 0 then continue
+        this_dat = all_data[this_ind]
+
+        band = 1
+        infile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
+        z0mgs_isophot_fit $
+           , outfile = '../measurements/'+pgc_name+'_isofit.txt' $
+           , outimage = '../measurements/'+pgc_name+'_isofit.png' $
+           , infile = infile $
+           , gal_data = this_dat $
+           , /show
+
+     endfor
+
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; SLICES
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=0
+
+  if keyword_set(do_slice) then begin
+
+     if n_elements(tag) gt 0 then begin                
+        all_data = gal_data(tag=tag)
+     endif else begin
+        all_data = gal_data(/all)
+     endelse
+
+     for ii = 0, n_pgc-1 do begin
+
+        counter, ii, n_pgc, 'Slice construction '
+
+        pgc_name = pgc_list[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        this_ind = where(all_data.pgc eq pgc_num[ii], ct)
+        if ct eq 0 then continue
+        this_dat = all_data[this_ind]
+
+        band = 1
+        infile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
+        z0mgs_image_slice $
+           , outfile = '../measurements/'+pgc_name+'_slice.txt' $
+           , outimage = '../measurements/'+pgc_name+'_slice.png' $
+           , infile = infile $
+           , gal_data = this_dat $
+           , /show        
+
+     endfor
+
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; PHOTOMETRY
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 end
