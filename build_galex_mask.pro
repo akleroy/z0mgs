@@ -1,10 +1,10 @@
-pro build_unwise_mask $
+pro build_galex_mask $
    , pgc=pgc_name $
    , galdata=this_dat $
    , outfile=outfile $
    , show=show
 
-  atlas_dir = '../unwise/atlas/'
+  atlas_dir = '../galex/atlas/'
 
   if n_elements(outfile) eq 0 then $
      outfile = atlas_dir+pgc_name+'_mask.fits'
@@ -17,18 +17,14 @@ pro build_unwise_mask $
 ; READ IN THE NATIVE RESOLUTION DATA
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
   
-  wise1 = readfits(atlas_dir+pgc_name+'_w1_mjysr.fits' , w1_hdr, /silent)
-  if wise1[0] eq -1 then w1_found = 0 else w1_found = 1
+  fuv = readfits(atlas_dir+pgc_name+'_fuv_cutout.fits' , fuv_hdr)
+  if fuv[0] eq -1 then fuv_found = 0 else fuv_found = 1
 
-  if w1_found eq 0 then begin
-     message, 'No WISE image found in the atlas. Returning.', /info
-     return
-  endif
+  nuv = readfits(atlas_dir+pgc_name+'_nuv_cutout.fits' , nuv_hdr)
+  if nuv[0] eq -1 then nuv_found = 0 else nuv_found = 1
 
-; Add logic for missing some bands but not all.
-
-  if w1_found eq 0 then begin
-     message, 'Some WISE data missing. Returning. Will fix this case later', /info
+  if fuv_found eq 0 and nuv_found eq 0 then begin
+     message, 'No GALEX image found in the atlas. Returning.', /info
      return
   endif
 
@@ -36,8 +32,8 @@ pro build_unwise_mask $
 ; IDENTIFY THE REGION NEAR THE GALAXY
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
 
-  map = wise1
-  hdr = w1_hdr
+  map = nuv
+  hdr = nuv_hdr
 
 ; Work out coordinates
   make_axes, hdr, ri=ri, di=di

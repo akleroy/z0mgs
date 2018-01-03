@@ -1,11 +1,14 @@
-function bkfit $
+function bkfit_galex $
    , map=map $   
    , mask=mask $
+   , wt=wt $
+   , kernel=kernel $
    , method=method $
    , niter=niter $
    , thresh=thresh $
    , rejected=rejected $
    , coefs=coefs $
+   , pause=pause $
    , show=show
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -16,11 +19,21 @@ function bkfit $
      niter = 5
   if n_elements(thresh) eq 0 then $
      thresh = 3.0
+  if n_elements(kernel) eq 0 then $
+     kernel=3
 
   sz = size(map)
   x = findgen(sz[1]) # (fltarr(sz[2])+1.0)
   y = (fltarr(sz[1])+1.0) #  findgen(sz[2])
   
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; MAKE A COPY
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  orig = map
+  map = smooth(map, kernel, /nan)
+  noiselike = 1./sqrt(wt/median(wt))
+
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; OUTLIER REJECTING MEDIAN FIT
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -30,9 +43,10 @@ function bkfit $
      bkind = where(rejected eq 0, ct)
      if ct eq 0 then continue
      vec = map[bkind]
-     rms = mad(vec)
+     wtvec = noiselike[bkind]
+     rms = mad(vec/noiselike)
      med = median(vec)
-     bad_ind = where(abs(vec-med) gt thresh*rms, bad_ct)
+     bad_ind = where(abs(vec-med)/wtvec gt thresh*rms, bad_ct)
      if bad_ct gt 0 then $
         rejected[bkind[bad_ind]] = 1B
   endfor
@@ -46,44 +60,13 @@ function bkfit $
         !p.multi=0
         disp, bksub, max=rms*5., min=-5.*rms
         contour, rejected, /overplot, lev=[1], color=cgcolor('red')
+        if keyword_set(pause) then begin
+           print, "Hit a key."
+           ch = get_kbrd(1)
+        endif
      endif
 
      return, bksub
   endif
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; PLANE FIT
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-  for ii = 0, niter-1 do begin
-     bkind = where(rejected eq 0, ct)
-     if ct eq 0 then continue
-     this_x = x[bkind]
-     this_y = y[bkind]
-     vec = map[bkind]
-     
-     coefs = planefit(this_x,this_y,vec,0., yfit)
-     resid = vec - yfit
-     rms = mad(resid)
-     bad_ind = where(abs(resid) gt thresh*rms, bad_ct)
-     if bad_ct gt 0 then $
-        rejected[bkind[bad_ind]] = 1B     
-  endfor
-
-  fit = coefs[0] + coefs[1]*x + coefs[2]*y
-  bksub = map-fit
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; SHOW IF REQUESTED
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-  if keyword_set(show) then begin
-     loadct, 0
-     !p.multi=0
-     disp, bksub, max=rms*5., min=-5.*rms
-     contour, rejected, /overplot, lev=[1], color=cgcolor('red')
-  endif
-
-  return, bksub
 
 end
