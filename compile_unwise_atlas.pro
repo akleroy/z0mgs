@@ -8,7 +8,8 @@ pro compile_unwise_atlas $
    , just = just $
    , tag = tag $
    , start = start_num $
-   , stop = stop_num
+   , stop = stop_num $
+   , incremental = incremental
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
@@ -25,7 +26,9 @@ pro compile_unwise_atlas $
      , pgc_num = pgc_num $
      , dat = gal_data $
      , start = start_num $
-     , stop = stop_num
+     , stop = stop_num $
+     , exclude = ['PGC17223']
+     
   n_pgc = n_elements(pgc_list)
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -58,6 +61,11 @@ pro compile_unwise_atlas $
            endif
 
            outfile = out_dir+pgc_name+'_w'+str(band)+'_mjysr.fits'
+
+           if keyword_set(incremental) then begin
+              test = file_search(outfile, count=test_ct)
+              if test_ct gt 0 then continue
+           endif
 
            convert_unwise_to_mjysr $
               , infile = infile $
@@ -92,6 +100,12 @@ pro compile_unwise_atlas $
         print, ''
 
         maskfile = out_dir+pgc_name+'_mask.fits'
+
+        if keyword_set(incremental) then begin
+           test = file_search(maskfile, count=test_ct)
+           if test_ct gt 0 then continue
+        endif
+
         build_unwise_mask $
            , pgc = pgc_list[ii] $
            , galdata = this_dat $
@@ -118,15 +132,21 @@ pro compile_unwise_atlas $
         print, ''
         print, 'Background subtraction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
-        
-        maskfile = out_dir+pgc_name+'_mask.fits'
-        test = file_search(maskfile, count=ct)
-        if ct eq 0 then $
-           continue
-        mask = readfits(maskfile, /silent, mask_hdr)
-        
+                
         for band = 1, 4 do begin
            
+           outfile = out_dir+pgc_name+'_w'+str(band)+'_bksub.fits'
+           if keyword_set(incremental) then begin
+              test = file_search(outfile, count=test_ct)
+              if test_ct gt 0 then continue
+           endif
+
+           maskfile = out_dir+pgc_name+'_mask.fits'
+           test = file_search(maskfile, count=ct)
+           if ct eq 0 then $
+              continue
+           mask = readfits(maskfile, /silent, mask_hdr)
+
            infile = out_dir+pgc_name+'_w'+str(band)+'_mjysr.fits'
            test = file_search(infile, count=ct)
            if ct eq 0 then $
@@ -180,6 +200,21 @@ pro compile_unwise_atlas $
 
         for band = 1, 4 do begin
 
+           if keyword_set(incremental) then begin
+              outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
+              test_1 = file_search(outfile, count=test_ct_1)
+
+              if band le 3 then begin                 
+                 outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
+                 test_2 = file_search(outfile, count=test_ct_2)
+                 found = test_ct_1 gt 0 and test_ct_2 gt 0
+              endif else begin
+                 found = test_ct_1 gt 0
+              endelse
+
+              if found then continue
+           endif
+
            infile = out_dir+pgc_name+'_w'+str(band)+'_bksub.fits'
 
            test = file_search(infile, count=ct)
@@ -204,6 +239,7 @@ pro compile_unwise_atlas $
 
            if band le 3 then begin
               outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
+
               conv_z0mg_galaxy, $
                  infile=infile, $
                  start_psf='w'+str(band), $
@@ -227,8 +263,6 @@ pro compile_unwise_atlas $
               continue
            endif
 
-           outfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss15.fits'
-
            conv_z0mg_galaxy, $
               infile=infile, $
               start_psf='w'+str(band), $
@@ -237,6 +271,12 @@ pro compile_unwise_atlas $
 
            if band le 3 then begin
               outfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss7p5.fits'              
+
+              if keyword_set(incremental) then begin
+                 test = file_search(outfile, count=test_ct)
+                 if test_ct gt 0 then continue
+              endif
+              
               conv_z0mg_galaxy, $
                  infile=infile, $
                  start_psf='w'+str(band), $
@@ -267,39 +307,53 @@ pro compile_unwise_atlas $
         print, 'Runnings stats for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
 
-        for band = 1, 4 do begin
+        first_read = 1B
 
-           maskfile = out_dir+pgc_name+'_mask.fits'
-           test = file_search(maskfile, count=ct)
-           if ct eq 0 then begin
-              message, 'Mask not found '+infile, /info
-              continue
-           endif
+        for band = 1, 4 do begin
            
-           for res = 0, 2, do begin
+           for res = 0, 2 do begin
 
               if res eq 1 and band eq 4 then continue
               
-              if res eq 0 then res_str = ''
+              if res eq 0 then res_str = '_bksub'
               if res eq 1 then res_str = '_gauss7p5'
               if res eq 2 then res_str = '_gauss15'
               
               infile = out_dir+pgc_name+'_w'+str(band)+res_str+'.fits'
               rejectfile = out_dir+pgc_name+'_w'+str(band)+'_rejected'+res_str+'.fits'
-              outfile = out_dir+pgc_name+'_w'+str(band)+res_str+'.fits'
+              if res eq 0 then $
+                 rejectfile = out_dir+pgc_name+'_w'+str(band)+'_rejected.fits'
+              outfile = infile
 
               test = file_search(infile, count=ct)
               if ct eq 0 then begin
                  message, 'File not found '+infile, /info
                  continue
               endif
+
+              if keyword_set(incremental) then begin
+                 hdr = headfits(outfile)
+                 test = sxpar(hdr, 'MEDALL', count=kwd_ct)
+                 if kwd_ct gt 0 then begin
+                    continue            
+                 endif     
+              endif
+              
+              if first_read then begin
+                 first_read = 0B
+                 maskfile = out_dir+pgc_name+'_mask.fits'
+                 test = file_search(maskfile, count=ct)
+                 if ct eq 0 then begin
+                    message, 'Mask not found '+infile, /info
+                    continue
+                 endif
+              endif
            
               z0mgs_stat_image $
                  , infile=infile $
                  , outfile=outfile $
                  , mask=maskfile $
-                 , reject=rejectfile $
-                 , /print
+                 , reject=rejectfile
 
            endfor
 

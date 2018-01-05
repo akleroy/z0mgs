@@ -6,7 +6,8 @@ pro build_galaxy_list $
    , pgc_num = out_pgc_num $
    , dat = out_gal_data $
    , start = start_num $
-   , stop = stop_num
+   , stop = stop_num $
+   , exclude = exclude
 
   if n_elements(in_dir) eq 0 then begin    
      in_dir = '../unwise/dlang_custom/z0mgs/PGC/'
@@ -37,6 +38,10 @@ pro build_galaxy_list $
      counter, ii, n_pgc, 'Building sample '
           
      pgc_name = pgc_list[ii]
+     if n_elements(exclude) gt 0 then begin
+        if total(pgc_name eq exclude) gt 0 then $
+           continue
+     endif
 
      if n_elements(just) gt 0 then $
         if total(pgc_name eq just) eq 0 then $

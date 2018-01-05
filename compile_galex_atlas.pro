@@ -26,7 +26,8 @@ pro compile_galex_atlas $
      , pgc_num = pgc_num $
      , dat = gal_data $
      , start = start_num $
-     , stop = stop_num
+     , stop = stop_num $
+     , exclude = ['PGC17223']
   n_pgc = n_elements(pgc_list)
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%

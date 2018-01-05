@@ -17,27 +17,23 @@ pro build_unwise_mask $
 ; READ IN THE NATIVE RESOLUTION DATA
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
   
-  wise1 = readfits(atlas_dir+pgc_name+'_w1_mjysr.fits' , w1_hdr, /silent)
-  if wise1[0] eq -1 then w1_found = 0 else w1_found = 1
+  map = readfits(atlas_dir+pgc_name+'_w1_mjysr.fits' , hdr, /silent)
+  if map[0] eq -1 then found = 0 else found = 1
 
-  if w1_found eq 0 then begin
+  if found eq 0 then begin
+
+;    Based on my checks, no galaxy misses more than one band.
+     map = readfits(atlas_dir+pgc_name+'_w2_mjysr.fits' , hdr, /silent)
+     if map[0] eq -1 then found = 0 else found = 1
+
      message, 'No WISE image found in the atlas. Returning.', /info
      return
   endif
 
-; Add logic for missing some bands but not all.
-
-  if w1_found eq 0 then begin
-     message, 'Some WISE data missing. Returning. Will fix this case later', /info
-     return
-  endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; IDENTIFY THE REGION NEAR THE GALAXY
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
-
-  map = wise1
-  hdr = w1_hdr
 
 ; Work out coordinates
   make_axes, hdr, ri=ri, di=di

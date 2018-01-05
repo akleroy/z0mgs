@@ -31,37 +31,59 @@ pro z0mgs_stat_image $
 
   for ii = 0, 4 do begin
      if ii eq 0 then begin
-        ind = where(mask ne 10 and mask ne 100)
+        ind = where(mask ne 10 and mask ne 100, ct)
         ext = 'ALL'
      endif
      if ii eq 1 then begin
         ind = where(mask ne 10 and mask ne 100 and $
-                    quarters eq 1)
+                    quarters eq 1, ct)
         ext = 'Q1'
      endif
      if ii eq 2 then begin
         ind = where(mask ne 10 and mask ne 100 and $
-                    quarters eq 2)
+                    quarters eq 2, ct)
         ext = 'Q2'
      endif
      if ii eq 3 then begin
         ind = where(mask ne 10 and mask ne 100 and $
-                    quarters eq 3)
+                    quarters eq 3, ct)
         ext = 'Q3'
      endif
      if ii eq 4 then begin
         ind = where(mask ne 10 and mask ne 100 and $
-                    quarters eq 4)
+                    quarters eq 4, ct)
         ext = 'Q4'
      endif
      
+     if ct eq 0 then begin
+        sxaddpar, hdr, 'MED'+ext, -999.
+        sxaddpar, hdr, 'MEAN'+ext, -999.
+        sxaddpar, hdr, 'MAD'+ext, -999.
+        sxaddpar, hdr, 'STD'+ext, -999.
+        sxaddpar, hdr, 'MAX'+ext, -999.
+        sxaddpar, hdr, 'REJ'+ext, -999.
+        continue
+     endif
+
      vec = image[ind]
      rej_frac = total(rej_mask[ind]*1.0 / (n_elements(ind)*1.0))
-         
+
+     sxaddpar, hdr, 'STD'+ext, stddev(vec)
+     sxaddpar, hdr, 'MAX'+ext, max(vec,/nan)
      sxaddpar, hdr, 'MED'+ext, median(vec)
      sxaddpar, hdr, 'MEAN'+ext, mean(vec,/nan)
-     sxaddpar, hdr, 'MAD'+ext, mad(vec[where(rej_mask[ind] eq 0)])
-     sxaddpar, hdr, 'STD'+ext, stddev(vec)
+     ok_ind = where(rej_mask[ind] eq 0, ok_ct)
+     if ok_ct gt 6 then begin
+        sxaddpar, hdr, 'MAD'+ext, mad(vec[ok_ind])
+     endif else begin
+        sxaddpar, hdr, 'MED'+ext, -999.
+        sxaddpar, hdr, 'MEAN'+ext, -999.
+        sxaddpar, hdr, 'MAD'+ext, -999.
+        sxaddpar, hdr, 'STD'+ext, -999.
+        sxaddpar, hdr, 'MAX'+ext, -999.
+        sxaddpar, hdr, 'REJ'+ext, -999.
+        continue
+     endelse
      sxaddpar, hdr, 'REJ'+ext, rej_frac
 
      if keyword_set(do_print) then begin
@@ -71,10 +93,6 @@ pro z0mgs_stat_image $
      endif
 
   endfor
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; AGGREGATE STATISTICS
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; INTO HEADER AND WRITE TO DISK
