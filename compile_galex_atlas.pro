@@ -9,7 +9,8 @@ pro compile_galex_atlas $
    , just = just $
    , tag = tag $
    , start = start_num $
-   , stop = stop_num
+   , stop = stop_num $
+   , incremental = incremental
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
@@ -47,41 +48,73 @@ pro compile_galex_atlas $
         print, 'Extracting GALEX cutouts '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
 
-        extract_galex_stamp $
-           , /fuv $
-           , ra_ctr = this_dat.ra_deg $
-           , dec_ctr = this_dat.dec_deg $
-           , size_deg = (this_dat.r25_deg*6.0) > (655.*2.75/3600.) $
-           , index = index_file $
-           , image = image $
-           , weight = weight $
-           , hdr = hdr $
-           , /useint $
-           , /show
-        
-        outfile = out_dir + pgc_name+'_fuv_cutout.fits'
-        writefits, outfile, image, hdr
+        found = 0B
+        if keyword_set(incremental) then begin
+           outfile = out_dir + pgc_name+'_fuv_cutout.fits'
+           test = file_search(outfile, count=im_ct)
 
-        outfile = out_dir + pgc_name+'_fuv_weight.fits'
-        writefits, outfile, weight, hdr
+           outfile = out_dir + pgc_name+'_fuv_weight.fits'
+           test = file_search(outfile, count=wt_ct)
 
-        extract_galex_stamp $
-           , fuv=0 $
-           , ra_ctr = this_dat.ra_deg $
-           , dec_ctr = this_dat.dec_deg $
-           , size_deg = (this_dat.r25_deg*6.0) > (655.*2.75/3600.) $
-           , index = index_file $
-           , image = image $
-           , weight = weight $
-           , hdr = hdr $
-           , /useint $
-           , /show
-        
-        outfile = out_dir + pgc_name+'_nuv_cutout.fits'
-        writefits, outfile, image, hdr
+           found = (im_ct eq 1 and wt_ct eq 1)
+        endif
 
-        outfile = out_dir + pgc_name+'_nuv_weight.fits'
-        writefits, outfile, weight, hdr
+        if keyword_set(incremental) eq 0 or $
+           found eq 0 then begin
+
+           extract_galex_stamp $
+              , /fuv $
+              , ra_ctr = this_dat.ra_deg $
+              , dec_ctr = this_dat.dec_deg $
+              , size_deg = (this_dat.r25_deg*6.0) > (655.*2.75/3600.) $
+              , index = index_file $
+              , image = image $
+              , weight = weight $
+              , hdr = hdr $
+              , /useint $
+              , /show
+           
+           outfile = out_dir + pgc_name+'_fuv_cutout.fits'
+           writefits, outfile, image, hdr
+
+           outfile = out_dir + pgc_name+'_fuv_weight.fits'
+           writefits, outfile, weight, hdr
+
+        endif
+
+        found = 0B
+        if keyword_set(incremental) then begin
+           outfile = out_dir + pgc_name+'_nuv_cutout.fits'
+           test = file_search(outfile, count=im_ct)
+
+           outfile = out_dir + pgc_name+'_nuv_weight.fits'
+           test = file_search(outfile, count=wt_ct)
+
+           found = (im_ct eq 1 and wt_ct eq 1)
+        endif
+
+        if keyword_set(incremental) eq 0 or $
+           found eq 0 then begin
+
+           extract_galex_stamp $
+              , fuv=0 $
+              , ra_ctr = this_dat.ra_deg $
+              , dec_ctr = this_dat.dec_deg $
+              , size_deg = (this_dat.r25_deg*6.0) > (655.*2.75/3600.) $
+              , index = index_file $
+              , image = image $
+              , weight = weight $
+              , hdr = hdr $
+              , /useint $
+              , /show
+           
+           outfile = out_dir + pgc_name+'_nuv_cutout.fits'
+           writefits, outfile, image, hdr
+
+           outfile = out_dir + pgc_name+'_nuv_weight.fits'
+           writefits, outfile, weight, hdr
+
+        endif
 
      endfor
 
@@ -107,6 +140,12 @@ pro compile_galex_atlas $
         print, ''
 
         maskfile = out_dir+pgc_name+'_mask.fits'
+
+        if keyword_set(incremental) then begin
+           test = file_search(maskfile, count=test_ct)
+           if test_ct gt 0 then continue
+        endif
+
         build_galex_mask $
            , pgc = pgc_list[ii] $
            , galdata = this_dat $
@@ -134,16 +173,34 @@ pro compile_galex_atlas $
         print, 'Running GALEX inventory '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
 
-        maskfile = out_dir+pgc_name+'_mask.fits'
-        test = file_search(maskfile, count=ct)
-        if ct eq 0 then $
-           continue
-        mask = readfits(maskfile, /silent, mask_hdr)
-
         for jj = 0, 1 do begin
            
            if jj eq 0 then band = 'fuv'
            if jj eq 1 then band = 'nuv'
+           
+           im_file = out_dir+pgc_name+'_'+band+'_cutout.fits'
+
+           if keyword_set(incremental) then begin
+              im_hdr = headfits(im_file)
+              dummy = sxpar(hdr, 'SKIP', count=count_skip)
+              dummy = sxpar(hdr, 'MEANINT', count=count_int)
+              dummy = sxpar(hdr, 'FRACCOV', count=count_cov)
+              if count_skip ge 1 and count_int ge 1 and count_cov ge 1 then $
+                 continue
+           endif
+
+           maskfile = out_dir+pgc_name+'_mask.fits'
+           test = file_search(maskfile, count=ct)
+           if ct eq 0 then $
+              continue
+           mask = readfits(maskfile, /silent, mask_hdr)
+
+           im = readfits(im_file, hdr, /silent)
+
+           gal_ind = where(mask eq 10, gal_ct)
+           if gal_ct eq 0 then begin
+              print, "No pixels inside the galaxy for "+pgc_name
+           endif
 
            rrhr_file = out_dir+pgc_name+'_'+band+'_weight.fits'
            test = file_search(rrhr_file, count=ct)
@@ -152,14 +209,6 @@ pro compile_galex_atlas $
               continue
            endif
            rrhr = readfits(rrhr_file, /silent, rrhr_hdr)
-
-           im_file = out_dir+pgc_name+'_'+band+'_cutout.fits'
-           im = readfits(im_file, hdr, /silent)
-
-           gal_ind = where(mask eq 10, gal_ct)
-           if gal_ct eq 0 then begin
-              print, "No pixels inside the galaxy for "+pgc_name
-           endif
 
            mean_int = mean(rrhr[gal_ind])
            frac_covered = total(finite(im[gal_ind]) and $
@@ -239,8 +288,7 @@ pro compile_galex_atlas $
               , thresh=3.0 $
               , method='MEDIAN' $
               , coefs=coefs $
-              , /show $
-              , /pause)
+              , show=show)
 
            sxaddpar, hdr, 'BKPLANE0', coefs[0]
            
@@ -285,21 +333,20 @@ pro compile_galex_atlas $
            if jj eq 0 then band = 'fuv'
            if jj eq 1 then band = 'nuv'
 
+           infile = out_dir+pgc_name+'_'+band+'_bksub.fits'
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              message, 'File not found '+infile, /info
+              continue
+           endif
+
            for mm = 0, 2 do begin
 
               if mm eq 0 then ext = 'bksub'
               if mm eq 1 then ext = 'weight'
               if mm eq 2 then ext = 'rejected'
 
-              infile = $
-                 in_dir+strcompress(this_data.name,/rem)+'_'+ $
-                 band+'_'+ext+'.fits'
-
-              test = file_search(infile, count=ct)
-              if ct eq 0 then begin
-                 message, 'File not found '+infile, /info
-                 continue
-              endif
+              infile = out_dir+pgc_name+'_'+band+'_'+ext+'.fits'
 
               test = readfits(infile, hdr)
               if test[0] eq -1 then begin
@@ -308,24 +355,46 @@ pro compile_galex_atlas $
               endif
 
               outfile = $
-                 in_dir+strcompress(this_data.name,/rem)+'_'+ $
+                 out_dir+pgc_name+'_'+$
                  band+'_'+ext+'_gauss15.fits'
               
               conv_z0mg_galaxy, $
                  infile=infile, $
-                 start_psf='band', $
+                 start_psf=band, $
                  end_psf='g15', $
                  outfile=outfile
               
               conv_image = $
                  readfits(outfile, conv_hdr)
-                         
+              
               hastrom, conv_image, conv_hdr, target_hdr $
                        , cubic=-0.5, interp=2, missing=!values.f_nan
 
               alignfile = $
-                 in_dir+strcompress(this_data.name,/rem)+'_'+ $
+                 out_dir+pgc_name+'_'+$
                  band+'_'+ext+'_gauss15_align.fits'
+              
+              writefits, alignfile, conv_image, conv_hdr
+
+              outfile = $
+                 out_dir+pgc_name+'_'+$
+                 band+'_'+ext+'_gauss7p5.fits'
+              
+              conv_z0mg_galaxy, $
+                 infile=infile, $
+                 start_psf=band, $
+                 end_psf='g7p5', $
+                 outfile=outfile
+              
+              conv_image = $
+                 readfits(outfile, conv_hdr)
+              
+              hastrom, conv_image, conv_hdr, target_hdr $
+                       , cubic=-0.5, interp=2, missing=!values.f_nan
+
+              alignfile = $
+                 out_dir+pgc_name+'_'+ $
+                 band+'_'+ext+'_gauss7p5_align.fits'
               
               writefits, alignfile, conv_image, conv_hdr
 

@@ -44,8 +44,10 @@ function bkfit_galex $
      if ct eq 0 then continue
      vec = map[bkind]
      wtvec = noiselike[bkind]
-     rms = mad(vec/noiselike)
+     rms = mad(vec/wtvec)
+;rms = stddev(vec/wtvec,/nan)
      med = median(vec)
+;med = mean(vec, /nan)
      bad_ind = where(abs(vec-med)/wtvec gt thresh*rms, bad_ct)
      if bad_ct gt 0 then $
         rejected[bkind[bad_ind]] = 1B
@@ -58,7 +60,8 @@ function bkfit_galex $
      if keyword_set(show) then begin
         loadct, 0
         !p.multi=0
-        disp, bksub, max=rms*5., min=-5.*rms
+        rms = stddev(bksub,/nan)
+        disp, bksub, max=rms*3., min=-3.*rms
         contour, rejected, /overplot, lev=[1], color=cgcolor('red')
         if keyword_set(pause) then begin
            print, "Hit a key."
