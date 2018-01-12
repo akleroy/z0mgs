@@ -405,5 +405,88 @@ pro compile_galex_atlas $
      endfor
      
   endif
-  
+ 
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; RUN STATISTICS
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=0
+
+  if keyword_set(do_stats) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        print, ''
+        print, 'Runnings stats for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        first_read = 1B
+
+        for jj = 0, 1 do begin
+
+           if jj eq 0 then band = 'fuv'
+           if jj eq 1 then band = 'nuv'
+
+           for res = 0, 2 do begin
+
+              if res eq 0 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_bksub.fits'
+                 rejectfile = out_dir+pgc_name+'_'+band+'_rejected.fits'
+                 weightfile = out_dir+pgc_name+'_'+band+'_weight.fits'
+              endif
+              if res eq 1 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_bksub_gauss7p5_align.fits'
+                 rejectfile = out_dir+pgc_name+'_'+band+'_rejected_gauss7p5_align.fits'
+                 weightfile = out_dir+pgc_name+'_'+band+'_weight_gauss7p5_align.fits'
+              endif
+              if res eq 2 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_bksub_gauss15_align.fits'
+                 rejectfile = out_dir+pgc_name+'_'+band+'_rejected_gauss15_align.fits'
+                 weightfile = out_dir+pgc_name+'_'+band+'_weight_gauss15_align.fits'
+              endif
+              outfile = infile
+
+              test = file_search(infile, count=ct)
+              if ct eq 0 then begin
+                 message, 'File not found '+infile, /info
+                 continue
+              endif
+
+              if keyword_set(incremental) then begin
+                 hdr = headfits(outfile)
+                 test = sxpar(hdr, 'MEDALL', count=kwd_ct)
+                 if kwd_ct gt 0 then begin
+                    continue            
+                 endif     
+              endif
+              
+              if first_read then begin
+                 first_read = 0B
+                 maskfile = out_dir+pgc_name+'_mask.fits'
+                 test = file_search(maskfile, count=ct)
+                 if ct eq 0 then begin
+                    message, 'Mask not found '+infile, /info
+                    continue
+                 endif
+              endif
+           
+              z0mgs_stat_image $
+                 , infile=infile $
+                 , outfile=outfile $
+                 , mask=maskfile $
+                 , reject=rejectfile $
+                 , weight=weightfile $
+                 , /galex
+
+           endfor
+
+        endfor
+        
+     endfor
+     
+  endif
+
 end

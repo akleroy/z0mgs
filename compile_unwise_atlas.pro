@@ -1,8 +1,9 @@
 pro compile_unwise_atlas $
    , units = do_units $
    , mask = do_mask $
-   , bksub = do_bksub $
+   , bksub = do_bksub $   
    , convol = do_convol $
+   , second = do_second_bkfit $
    , stats = do_stats $
    , show = show $
    , just = just $
@@ -289,6 +290,75 @@ pro compile_unwise_atlas $
      endfor
      
   endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; RECENTER BACKGROUND
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=0
+
+  !p.multi=[0,2,4]
+
+  if keyword_set(do_second_bkfit) then begin
+     
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        print, ''
+        print, 'Convolutions for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        for band = 1, 4 do begin
+
+           infile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
+           maskfile = out_dir+pgc_name+'_mask.fits'
+           rejfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss15.fits'              
+
+           outfile = infile
+
+           test = readfits(infile, hdr)
+           if test[0] eq -1 then begin
+              message, "Problematic FITS file. Skipping.", /info
+              continue
+           endif
+
+           if keyword_set(incremental) then begin
+              hdr = headfits(infile)
+              test = sxpar(hdr, 'BKGRD2', count=kwd_ct)
+              if kwd_ct gt 0 then begin
+                 continue            
+              endif     
+           endif
+          
+           map = readfits(infile, hdr, /silent)
+           mask = readfits(maskfile, /silent)
+           rejected = readfits(rejfile, /silent)
+
+           offset = $
+              bkfit_hist( $
+              map=map $   
+              , mask=mask $
+              , rejected=rejected $
+              , thresh=0.1 $
+              , show=show)
+           if finite(offset) eq 0 then begin
+              sxaddpar, hdr, 'BKGRD2', 0.0, 'Histogram fit'
+              writefits, outfile, map, hdr
+           endif else begin
+              map -= offset
+              sxaddpar, hdr, 'BKGRD2', offset, 'Histogram fit'
+              writefits, outfile, map, hdr
+           endelse
+
+        endfor     
+        
+     endfor
+
+  endif
+
+  !p.multi=0
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; RUN STATISTICS
