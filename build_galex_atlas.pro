@@ -2,8 +2,8 @@ pro compile_galex_atlas $
    , cutouts = do_cutouts $
    , mask = do_mask $
    , inventory=do_inv $
-   , bksub = do_bksub $
    , convol = do_convol $
+   , bksub = do_bksub $
    , stats = do_stats $
    , show = show $
    , just = just $
@@ -220,7 +220,8 @@ pro compile_galex_atlas $
 
            sxaddpar, hdr, 'SKIP', skip, 'PROCESS / NOT'
            sxaddpar, hdr, 'MEANINT', mean_int, 'SECONDS'
-           sxaddpar, rrhr_hdr, 'FRACCOV', mean_int, 'FRACTION OF GALAXY COVERED'
+           sxaddpar, hdr, 'FRACCOV', frac_covered, 'SECONDS'
+           sxaddpar, rrhr_hdr, 'FRACCOV', frac_covered, 'FRACTION OF GALAXY COVERED'
            
            writefits, rrhr_file, rrhr, rrhr_hdr
            writefits, im_file, im, hdr
@@ -229,76 +230,6 @@ pro compile_galex_atlas $
 
      endfor
 
-  endif
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; BACKGROUND SUBTRACTION
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-  if keyword_set(do_bksub) then begin
-
-     for ii = 0, n_pgc-1 do begin
-
-        pgc_name = pgc_list[ii]
-        this_dat = gal_data[ii]
-
-        print, ''
-        print, 'Background subtraction '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
-        print, ''
-
-        maskfile = out_dir+pgc_name+'_mask.fits'
-        test = file_search(maskfile, count=ct)
-        if ct eq 0 then $
-           continue
-        mask = readfits(maskfile, /silent, mask_hdr)
-        
-        for band = 1, 2 do begin           
-
-           if band eq 1 then begin
-              infile = out_dir+pgc_name+'_fuv_cutout.fits'
-              wtfile = out_dir+pgc_name+'_fuv_weight.fits'
-              outfile = out_dir+pgc_name+'_fuv_bksub.fits'
-              rejfile = out_dir+pgc_name+'_fuv_rejected.fits'
-           endif
-           if band eq 2 then begin
-              infile = out_dir+pgc_name+'_nuv_cutout.fits'
-              wtfile = out_dir+pgc_name+'_nuv_weight.fits'
-              outfile = out_dir+pgc_name+'_nuv_bksub.fits'
-              rejfile = out_dir+pgc_name+'_nuv_rejected.fits'
-           endif
-           test = file_search(infile, count=ct)
-           if ct eq 0 then $
-              continue
-           map = readfits(infile, hdr, /silent)
-           wt = readfits(wtfile, /silent)
-
-           if sxpar(hdr,'SKIP') then begin
-              print, "Skipping "+infile
-              continue
-           endif
-
-           bksub = $
-              bkfit_galex( $
-              map=map $
-              , mask=mask $
-              , wt=wt $
-              , kernel=5 $
-              , rejected=rejected $
-              , niter=5 $
-              , thresh=3.0 $
-              , method='MEDIAN' $
-              , coefs=coefs $
-              , show=show)
-
-           sxaddpar, hdr, 'BKPLANE0', coefs[0]
-           
-           writefits, outfile, bksub, hdr
-           writefits, rejfile, rejected*1.0, hdr
-           
-        endfor
-        
-     endfor
-     
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -333,20 +264,25 @@ pro compile_galex_atlas $
            if jj eq 0 then band = 'fuv'
            if jj eq 1 then band = 'nuv'
 
-           infile = out_dir+pgc_name+'_'+band+'_bksub.fits'
+           infile = out_dir+pgc_name+'_'+band+'_cutout.fits'
            test = file_search(infile, count=ct)
            if ct eq 0 then begin
               message, 'File not found '+infile, /info
               continue
            endif
 
-           for mm = 0, 2 do begin
+           for mm = 0, 1 do begin
 
-              if mm eq 0 then ext = 'bksub'
-              if mm eq 1 then ext = 'weight'
-              if mm eq 2 then ext = 'rejected'
-
-              infile = out_dir+pgc_name+'_'+band+'_'+ext+'.fits'
+              if mm eq 0 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_cutout.fits'
+                 outfile = out_dir+pgc_name+'_'+band+'_gauss15.fits'
+                 alignfile = out_dir+pgc_name+'_'+band+'_gauss15_align.fits'
+              endif
+              if mm eq 1 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_weight.fits'
+                 outfile = out_dir+pgc_name+'_'+band+'_weight_gauss15.fits'
+                 alignfile = out_dir+pgc_name+'_'+band+'_weight_gauss15_align.fits'
+              endif
 
               test = readfits(infile, hdr)
               if test[0] eq -1 then begin
@@ -354,10 +290,6 @@ pro compile_galex_atlas $
                  continue
               endif
 
-              outfile = $
-                 out_dir+pgc_name+'_'+$
-                 band+'_'+ext+'_gauss15.fits'
-              
               conv_z0mg_galaxy, $
                  infile=infile, $
                  start_psf=band, $
@@ -369,32 +301,6 @@ pro compile_galex_atlas $
               
               hastrom, conv_image, conv_hdr, target_hdr $
                        , cubic=-0.5, interp=2, missing=!values.f_nan
-
-              alignfile = $
-                 out_dir+pgc_name+'_'+$
-                 band+'_'+ext+'_gauss15_align.fits'
-              
-              writefits, alignfile, conv_image, conv_hdr
-
-              outfile = $
-                 out_dir+pgc_name+'_'+$
-                 band+'_'+ext+'_gauss7p5.fits'
-              
-              conv_z0mg_galaxy, $
-                 infile=infile, $
-                 start_psf=band, $
-                 end_psf='g7p5', $
-                 outfile=outfile
-              
-              conv_image = $
-                 readfits(outfile, conv_hdr)
-              
-              hastrom, conv_image, conv_hdr, target_hdr $
-                       , cubic=-0.5, interp=2, missing=!values.f_nan
-
-              alignfile = $
-                 out_dir+pgc_name+'_'+ $
-                 band+'_'+ext+'_gauss7p5_align.fits'
               
               writefits, alignfile, conv_image, conv_hdr
 
@@ -406,6 +312,75 @@ pro compile_galex_atlas $
      
   endif
  
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; BACKGROUND SUBTRACTION
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_bksub) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        print, ''
+        print, 'Background subtraction '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        maskfile = out_dir+pgc_name+'_mask.fits'
+        test = file_search(maskfile, count=ct)
+        if ct eq 0 then $
+           continue
+        mask = readfits(maskfile, /silent, mask_hdr)
+        
+        for band = 1, 2 do begin           
+
+           if band eq 1 then begin
+              infile = out_dir+pgc_name+'_fuv_gauss15_align.fits'
+              wtfile = out_dir+pgc_name+'_fuv_weight_gauss15_align.fits'
+              outfile = out_dir+pgc_name+'_fuv_bksub.fits'
+              rejfile = out_dir+pgc_name+'_fuv_rejected.fits'
+           endif
+           if band eq 2 then begin
+              infile = out_dir+pgc_name+'_nuv_gauss15_align.fits'
+              wtfile = out_dir+pgc_name+'_nuv_weight_gauss15_align.fits'
+              outfile = out_dir+pgc_name+'_nuv_bksub.fits'
+              rejfile = out_dir+pgc_name+'_nuv_rejected.fits'
+           endif
+           test = file_search(infile, count=ct)
+           if ct eq 0 then $
+              continue
+           map = readfits(infile, hdr, /silent)
+           wt = readfits(wtfile, /silent)
+
+           if sxpar(hdr,'SKIP') then begin
+              print, "Skipping "+infile
+              continue
+           endif
+
+           bksub = $
+              bkfit_galex( $
+              map=map $
+              , mask=mask $
+              , wt=wt $
+              , rejected=rejected $
+              , niter=5 $
+              , thresh=3.0 $
+              , method='MEDIAN' $
+              , coefs=coefs $
+              , show=show)
+
+           sxaddpar, hdr, 'BKPLANE0', coefs[0]
+           
+           writefits, outfile, bksub, hdr
+           writefits, rejfile, rejected*1.0, hdr
+           
+        endfor
+        
+     endfor
+     
+  endif
+
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; RUN STATISTICS
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -430,58 +405,40 @@ pro compile_galex_atlas $
            if jj eq 0 then band = 'fuv'
            if jj eq 1 then band = 'nuv'
 
-           for res = 0, 2 do begin
-
-              if res eq 0 then begin
-                 infile = out_dir+pgc_name+'_'+band+'_bksub.fits'
-                 rejectfile = out_dir+pgc_name+'_'+band+'_rejected.fits'
-                 weightfile = out_dir+pgc_name+'_'+band+'_weight.fits'
-              endif
-              if res eq 1 then begin
-                 infile = out_dir+pgc_name+'_'+band+'_bksub_gauss7p5_align.fits'
-                 rejectfile = out_dir+pgc_name+'_'+band+'_rejected_gauss7p5_align.fits'
-                 weightfile = out_dir+pgc_name+'_'+band+'_weight_gauss7p5_align.fits'
-              endif
-              if res eq 2 then begin
-                 infile = out_dir+pgc_name+'_'+band+'_bksub_gauss15_align.fits'
-                 rejectfile = out_dir+pgc_name+'_'+band+'_rejected_gauss15_align.fits'
-                 weightfile = out_dir+pgc_name+'_'+band+'_weight_gauss15_align.fits'
-              endif
-              outfile = infile
-
-              test = file_search(infile, count=ct)
-              if ct eq 0 then begin
-                 message, 'File not found '+infile, /info
-                 continue
-              endif
-
-              if keyword_set(incremental) then begin
-                 hdr = headfits(outfile)
-                 test = sxpar(hdr, 'MEDALL', count=kwd_ct)
-                 if kwd_ct gt 0 then begin
-                    continue            
-                 endif     
-              endif
-              
-              if first_read then begin
-                 first_read = 0B
-                 maskfile = out_dir+pgc_name+'_mask.fits'
-                 test = file_search(maskfile, count=ct)
-                 if ct eq 0 then begin
-                    message, 'Mask not found '+infile, /info
-                    continue
-                 endif
-              endif
+           infile = out_dir+pgc_name+'_'+band+'_bksub.fits'
+           rejectfile = out_dir+pgc_name+'_'+band+'_rejected.fits'
+           weightfile = out_dir+pgc_name+'_'+band+'_weight_gauss15_align.fits'
+           outfile = infile
            
-              z0mgs_stat_image $
-                 , infile=infile $
-                 , outfile=outfile $
-                 , mask=maskfile $
-                 , reject=rejectfile $
-                 , weight=weightfile $
-                 , /galex
-
-           endfor
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              message, 'File not found '+infile, /info
+              continue
+           endif
+           
+           if keyword_set(incremental) then begin
+              hdr = headfits(outfile)
+              test = sxpar(hdr, 'MEDALL', count=kwd_ct)
+              if kwd_ct gt 0 then begin
+                 continue            
+              endif     
+           endif
+              
+           maskfile = out_dir+pgc_name+'_mask.fits'
+           test = file_search(maskfile, count=ct)
+           if ct eq 0 then begin
+              message, 'Mask not found '+infile, /info
+              continue
+           endif
+           
+           z0mgs_stat_image $
+              , infile=infile $
+              , outfile=outfile $
+              , mask=maskfile $
+              , reject=rejectfile $
+              , weight=weightfile $
+              , quarters=0B $
+              , /galex
 
         endfor
         

@@ -423,7 +423,8 @@ pro compile_unwise_atlas $
                  , infile=infile $
                  , outfile=outfile $
                  , mask=maskfile $
-                 , reject=rejectfile
+                 , reject=rejectfile $
+                 , /quarters
 
            endfor
 
