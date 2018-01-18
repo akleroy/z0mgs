@@ -68,7 +68,7 @@ pro z0mgs_profile $
   printf, lun, '# Inclination_deg: ' + string(incl, format='(F8.3)')
   printf, lun, '# R.A._center_deg: ' + string(dat.ra_deg, format='(F10.5)')
   printf, lun, '# Dec._center_deg: ' + string(dat.dec_deg, format='(F10.5)')
-  printf, lun, '# Steradian_per_pix: ' + string(sr_per_pix, format='(F10.5)')
+  printf, lun, '# Steradian_per_pix: ' + string(sr_per_pix, format='(F14.10)')
   printf, lun, '# Binsize_arcsec: ' + string(rbin, format='(F5.2)')
   printf, lun, '# Galaxy_r25_arcsec: '+ string(dat.r25_deg*3600., format='(F6.1)')
   printf, lun, '# Column_1: Radius at middle of bin'
@@ -109,12 +109,12 @@ pro z0mgs_profile $
      prof_band = strcompress(val[1], /rem)
      prof_file = strcompress(val[2], /rem)
      prof_pa = float(val[3])
-     prof_incl = float(val[3])
-     prof_ra = float(val[4])
-     prof_dec = float(val[5])
-     prof_srpix = float(val[6])
-     prof_rbin = float(val[7])
-     prof_r25as = float(val[8])
+     prof_incl = float(val[4])
+     prof_ra = float(val[5])
+     prof_dec = float(val[6])
+     prof_srpix = float(val[7])
+     prof_rbin = float(val[8])
+     prof_r25as = float(val[9])
 
      readcol, outfile, comment = '#' $
               , prof_rmid, prof_flux, prof_mean, prof_med $
