@@ -75,7 +75,7 @@ pro z0mgs_photometry_batch $
         if keyword_set(do_galex) then begin
 
            infile = galex_dir+pgc_name+'_fuv_gauss15_align.fits'
-           outfile = prof_dir+pgc_name+'_fuv_prof.txt'
+           outfile = prof_dir+pgc_name+'_fuv_isohpot.txt'
 
            z0mgs_isophotes $
               , infile=infile $
@@ -144,7 +144,7 @@ pro z0mgs_photometry_batch $
 
         if keyword_set(do_galex) then begin
 
-           infile = galex_dir+pgc_name+'_fuv_gauss15_align.fits'
+           infile = galex_dir+pgc_name+'_fuv_bksub_gauss15_align.fits'
            outfile = prof_dir+pgc_name+'_fuv_prof.txt'
 
            z0mgs_profile $
@@ -155,7 +155,7 @@ pro z0mgs_photometry_batch $
               , band='FUV' $
               , show=show
 
-           infile = galex_dir+pgc_name+'_nuv_gauss15_align.fits'
+           infile = galex_dir+pgc_name+'_nuv_bksub_gauss15_align.fits'
            outfile = prof_dir+pgc_name+'_nuv_prof.txt'
 
            z0mgs_profile $
