@@ -6,7 +6,8 @@ pro z0mgs_stat_image $
    , weight=wtfile $
    , thresh=rej_thresh $
    , print=do_print $
-   , galex=galex
+   , galex=galex $
+   , quarters=quarters
   
   if n_elements(rej_thresh) eq 0 then $
      rej_thresh = 0.2
@@ -39,6 +40,9 @@ pro z0mgs_stat_image $
   fin_image = finite(image)
 
   for ii = 0, 4 do begin
+     if keyword_set(quarters) eq 0 and $
+        ii gt 0 then $
+           continue
      if ii eq 0 then begin
         ind = where(mask ne 10 and mask ne 100 and $
                     fin_image, ct)
@@ -75,6 +79,8 @@ pro z0mgs_stat_image $
         if keyword_set(galex) then begin
            sxaddpar, hdr, 'FLATMAD'+ext, -999.
            sxaddpar, hdr, 'FLATSTD'+ext, -999.           
+           sxaddpar, hdr, 'MEANWT'+ext, -999.
+           sxaddpar, hdr, 'MEDWT'+ext, -999.
         endif
         continue
      endif
@@ -91,6 +97,8 @@ pro z0mgs_stat_image $
      sxaddpar, hdr, 'MEAN'+ext, mean(vec,/nan)
      if keyword_set(galex) then begin
         sxaddpar, hdr, 'FLATSTD'+ext, stddev(flat_vec, /nan)
+        sxaddpar, hdr, 'MEANWT'+ext, mean(weight[ind]) 
+        sxaddpar, hdr, 'MEDWT'+ext, median(weight[ind])
      endif
 
      ok_ind = where(rej_mask[ind] eq 0, ok_ct)
@@ -109,6 +117,8 @@ pro z0mgs_stat_image $
         if keyword_set(galex) then begin
            sxaddpar, hdr, 'FLATMAD'+ext, -999.
            sxaddpar, hdr, 'FLATSTD'+ext, -999.           
+           sxaddpar, hdr, 'MEANWT'+ext, -999.
+           sxaddpar, hdr, 'MEDWT'+ext, -999.
         endif
         continue
      endelse

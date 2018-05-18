@@ -3,7 +3,9 @@ pro plot_unwise_noise
   perc_lo = 2.0/1000.
   perc_hi = 1.0 - perc_lo
 
-  restore, '../measurements/unwise_stats_with_dat.idl', /v
+;  restore, '../measurements/unwise_stats_with_dat.idl', /v
+  tab = mrdfits('../measurements/delivery_index.fits',1,h)
+  b = tab.gb_deg
 
   plot, findgen(10), title='!6Test'
 
@@ -13,27 +15,31 @@ pro plot_unwise_noise
         xmin = -3.0
         xmax = -1.0
         binsize = 0.01
+        stat = tab.rms_wise1
      endif
      if this_band eq 1 then begin
         xmin = -3.0
         xmax = -1.0
         binsize = 0.01
+        stat = tab.rms_wise2
      endif
      if this_band eq 2 then begin
         xmin = -2.5
         xmax = -0.5
         binsize = 0.01
+        stat = tab.rms_wise3
      endif
      if this_band eq 3 then begin
         xmin = -1.5
         xmax = 0.0
         binsize = 0.01
+        stat = tab.rms_wise4
      endif
 
      high_b = where(abs(b) gt 40.)
      low_b = where(abs(b) le 40.)
 
-     vec = alog10((stats[*,2,this_band,0].rms)[high_b])
+     vec = (alog10(stat))[high_b]
      bins_15 = bin_data(vec, vec*0.0+1.0 $
                         , xmin=xmin, xmax=xmax, binsize=binsize, /nan)
      vec = vec[sort(vec)]
@@ -43,12 +49,12 @@ pro plot_unwise_noise
      print, '... 50: ', 10.^(vec[round(n*0.50)])
      print, '... 84: ', 10.^(vec[round(n*0.84)])
 
-     vec = alog10((stats[*,2,this_band,0].rms)[low_b])
+     vec = (alog10(stat))[low_b]
      bins_15_lowb = bin_data(vec, vec*0.0+1.0 $
                              , xmin=xmin, xmax=xmax, binsize=binsize, /nan)
 
      psfile = '../plots/unwise_noise_band'+str(this_band+1)+'.eps'
-     ps, /def, /ps, xs=8, ys=8, /color, /encaps $
+     ps, /def, /ps, xs=8, ys=4, /color, /encaps $
          , file=psfile
 
      plot $

@@ -72,13 +72,12 @@ build_delivery, /wise
 build_delivery, /index
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; BUILD THE HIGHER LEVEL DATA PRODUCTS
+; BUILD THE INTENSITY DATABASE
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-; Build radial profiles
+; Sample the maps and build the intensity table.
+build_intensity_table
 
 
-; Get galaxy-integrated properties: sizes, shapes, fluxes
 
-; Make the line of sight intensity data base
 

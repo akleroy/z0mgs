@@ -30,7 +30,7 @@ pro z0mgs_isophotes $
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   rms = sxpar(hdr, 'MADALL', count=rmsct)
-  if rmsct eq 0 then begin
+  if rmsct eq 0 or rms lt 0. or finite(rms) eq 0 then begin
      print, 'No noise measurement in header.'
      rms = mad(map)
   endif
@@ -63,7 +63,7 @@ pro z0mgs_isophotes $
 
      thresh = levs[ii]
      mask = map gt thresh     
-     reg = label_region(mask)
+     reg = label_region(mask, /ulong)
      if reg[xctr, yctr] eq 0 then continue
 
      mask = mask*(reg eq reg[xctr, yctr])
@@ -99,7 +99,7 @@ pro z0mgs_isophotes $
   printf, lun, '# Band: ' + strcompress(band, /rem)
   printf, lun, '# File: ' + strcompress(infile, /rem)
   printf, lun, '# Lowest contour: ' + string(min(levs), format='(F8.3)')
-  printf, lun, '# Steradian_per_pix: ' + string(sr_per_pix, format='(F10.5)')
+  printf, lun, '# Steradian_per_pix: ' + string(sr_per_pix, format='(F10.8)')
   printf, lun, '# Galaxy_r25_arcsec: '+ string(dat.r25_deg*3600., format='(F6.1)')
   printf, lun, '# Column_1: Isophote (MJy/sr)'
   printf, lun, '# Column_2: Area (pix^2)'

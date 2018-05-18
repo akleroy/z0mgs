@@ -79,12 +79,15 @@ pro build_delivery $
 
         if keyword_set(do_galex) eq 0 then continue
                 
-        infile = galex_dir + pgc_name + '_'+band+'_bksub.fits'
+        infile = galex_dir + pgc_name + '_'+band+'_extcorr.fits'
 
         test = file_search(infile, count=ct)
-        if ct eq 0 then continue
+        if ct eq 0 then $
+           continue
 
         map = readfits(infile, hdr, /silent)
+        if sxpar(hdr, 'SKIP') eq 1 then $
+           continue
         sz = size(map)
         new_sz = [sz[1]/2, sz[2]/2]
 
@@ -93,11 +96,11 @@ pro build_delivery $
 
         rejected = readfits(galex_dir + pgc_name + '_'+band+'_rejected.fits', hdr, /silent)
         hrebin, rejected, hdr, out=new_sz
-        writefits, out_dir+pgc_name + '_w'+str(band)+'_rejected.fits', map, hdr        
+        writefits, out_dir+pgc_name + '_'+str(band)+'_rejected.fits', map, hdr        
 
         rejected = readfits(galex_dir + pgc_name + '_'+band+'_weight_gauss15_align.fits', hdr, /silent)
         hrebin, rejected, hdr, out=new_sz
-        writefits, out_dir+pgc_name + '_w'+str(band)+'_weight.fits', map, hdr        
+        writefits, out_dir+pgc_name + '_'+str(band)+'_weight.fits', map, hdr        
 
      endfor
      

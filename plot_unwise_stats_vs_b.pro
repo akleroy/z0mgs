@@ -52,7 +52,7 @@ pro plot_unwise_stats_vs_b $
                  , xmin=bmin, xmax=bmax, binsize=bbinsize)
      
      psfile = '../plots/unwise_noise_lat_band'+str(this_band+1)+'.eps'
-     ps, /def, /ps, xs=8, ys=8, /color, /encaps $
+     ps, /def, /ps, xs=8, ys=5, /color, /encaps $
          , file=psfile
      
      plot $

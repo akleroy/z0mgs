@@ -2,7 +2,7 @@ pro print_units
 
   @constants.bat
   nu3p6 = c/3.6d-4
-  nu12 = c/22.d-4
+  nu12 = c/12.d-4
   nu22 = c/22.d-4
   nu24 = c/24.d-4
   
@@ -10,6 +10,11 @@ pro print_units
   print, 'For 24um, 1MJy/sr is ', 1.*1d-23*1d6*nu24*4.*!pi*(1d6*pc)^2/(1d3)^2*10.^(-42.7), ' Msun/yr/kpc^2'
 
   print, 'For 12um, 1MJy/sr is ', 1.*1d-23*1d6*nu12*4.*!pi*(1d6*pc)^2/(1d3)^2*10.^(-42.9), ' Msun/yr/kpc^2'
+
+  nufuv = c/(154d-7)
+  nunuv = c/(231d-7)
+  print, 'For FUV and the KE12 conversion, 1 MJy/sr is ', 1.*1d-23*1d6*nufuv*4.*!pi*(1d6*pc)^2/(1d3)^2*10.^(-43.35), ' Msun/yr/kpc^2'
+  print, 'For NUV and the KE12 conversion 1 MJy/sr is ', 1.*1d-23*1d6*nunuv*4.*!pi*(1d6*pc)^2/(1d3)^2*10.^(-43.17), ' Msun/yr/kpc^2'
 
   irac_zmag_jy = 280.9
   abs_sun_irac1_zmag = 3.24
@@ -25,11 +30,11 @@ pro print_units
   dat = gal_data(/all)
   lnu_w1 = dat.lum_w1/nu3p6
   s4g_mtol = dat.s4g_mstar / (lnu_w1/lnu_sun_irac1)
-  vec = s4g_mtol[where(finite(s4g_mtol)]
+  vec = s4g_mtol[where(finite(s4g_mtol))]
   vec = vec[sort(vec)]
   n = n_elements(vec)
   print, "S4G Querejeta mass-to-light ratio: "
-  print, vec[0.16*n], ' - ', vec[0.5*n], ' - ', vec[0.84*n]
+  print, vec[0.16*n], ' - ', vec[0.5*n], ' - ', vec[0.84*n] 
 
   stop
 

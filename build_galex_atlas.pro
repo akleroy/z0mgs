@@ -1,10 +1,11 @@
-pro compile_galex_atlas $
+pro build_galex_atlas $
    , cutouts = do_cutouts $
    , mask = do_mask $
    , inventory=do_inv $
    , convol = do_convol $
    , bksub = do_bksub $
    , stats = do_stats $
+   , extcorr = do_extcorr $
    , show = show $
    , just = just $
    , tag = tag $
@@ -445,5 +446,46 @@ pro compile_galex_atlas $
      endfor
      
   endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; APPLY EXTINCTION CORRECTION
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+
+  !p.multi=0
+
+  if keyword_set(do_extcorr) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        print, ''
+        print, 'Applying extinction correction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        ebv_sfd98 = this_dat.av_sfd98/3.1
+        afuv = calc_afuv(ebv_sfd98)
+        anuv = calc_anuv(ebv_sfd98)
+
+        infile = out_dir+pgc_name+'_nuv_bksub.fits'
+        nuv = readfits(infile, nuv_hdr)
+        nuv *= 10.^(anuv/2.5)
+        sxaddpar, nuv_hdr, 'ANUV', anuv, 'APPLIED MAG'
+        outfile = out_dir+pgc_name+'_nuv_extcorr.fits'
+        writefits, outfile, nuv, nuv_hdr
+
+        infile = out_dir+pgc_name+'_fuv_bksub.fits'
+        fuv = readfits(infile, fuv_hdr)
+        fuv *= 10.^(afuv/2.5)
+        sxaddpar, fuv_hdr, 'AFUV', afuv, 'APPLIED MAG'
+        outfile = out_dir+pgc_name+'_fuv_extcorr.fits'
+        writefits, outfile, fuv, fuv_hdr
+
+     endfor
+
+  endif
+
 
 end

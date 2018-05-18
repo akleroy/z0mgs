@@ -30,8 +30,8 @@ function bkfit_galex $
 ; MAKE A COPY
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  orig = map
-  map = smooth(map, kernel, /nan)
+;  orig = map
+;  map = smooth(map, kernel, /nan)
   noiselike = 1./sqrt(wt/median(wt))
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
