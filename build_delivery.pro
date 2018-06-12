@@ -2,7 +2,9 @@ pro build_delivery $
    , wise=do_wise $
    , galex=do_galex $
    , reset=do_reset $
-   , index=do_index
+   , index=do_index $
+   , just=just $
+   , only=only
     
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
@@ -16,7 +18,7 @@ pro build_delivery $
   build_galaxy_list $
      , in_dir = in_dir $
      , tag=tag $
-     , just=just $
+     , just=only $
      , pgc_list = pgc_list $
      , pgc_num = pgc_num $
      , dat = gal_data $
@@ -46,9 +48,13 @@ pro build_delivery $
 
   for ii = 0, n_pgc-1 do begin
      
-     pgc_name = pgc_list[ii]
+     pgc_name = strcompresS(pgc_list[ii], /rem)
      this_dat = gal_data[ii]
          
+     if n_elements(just) gt 0 then $
+        if total(pgc_name eq just) eq 0 then $
+           continue
+     
      print, ''
      print, 'Packaging '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
      print, ''
@@ -59,16 +65,36 @@ pro build_delivery $
         
         if keyword_set(do_wise) eq 0 then continue
 
-        map = readfits(wise_dir + pgc_name + '_w'+str(band)+'_gauss15.fits', hdr, /silent)
+        map_fname = wise_dir + pgc_name + '_w'+str(band)+'_bksub_gauss15.fits'
+        if file_test(map_fname) eq 0 then begin
+           message, "No map for "+map_fname, /info
+           continue
+        endif
+        mask_fname = wise_dir + pgc_name + '_mask.fits'
+        rej_fname = wise_dir + pgc_name + '_w'+str(band)+'_rejected_gauss15.fits'
+
+        map = readfits(map_fname, hdr, /silent)
+        mask = readfits(mask_fname, mask_hdr, /silent)
+        rejected = readfits(rej_fname, rejected_hdr, /silent)        
+
+        sz = size(mask)        
+        ind = where(mask ge 10, ct)
+        ind_to_xyv, ind, sz=sz, x=x, y=y
+
+        hextract, map, hdr, min(x), max(x), min(y), max(y)        
         sz = size(map)
         new_sz = [sz[1]/2, sz[2]/2]
-
         hrebin, map, hdr, out=new_sz
-        writefits, out_dir+pgc_name + '_w'+str(band)+'.fits', map, hdr
 
-        rejected = readfits(wise_dir + pgc_name + '_w'+str(band)+'_rejected_gauss15.fits', hdr, /silent)
-        hrebin, rejected, hdr, out=new_sz
-        writefits, out_dir+pgc_name + '_w'+str(band)+'_rejected.fits', map, hdr
+        ;hastrom, mask, mask_hdr, hdr, interp=0
+        ;hastrom, rejected, rejected_hdr, hdr $
+        ;         , interp=2, cubic=-0.5, missing=!values.f_nan
+
+        ;rejected = grow_mask(rejected, iters=1)
+
+        writefits, out_dir+pgc_name + '_w'+str(band)+'.fits', map, hdr
+        ;writefits, out_dir+pgc_name + '_mask.fits', mask, hdr
+        ;writefits, out_dir+pgc_name + '_w'+str(band)+'_rejected.fits', rejected, hdr
 
      endfor
 
@@ -79,28 +105,38 @@ pro build_delivery $
 
         if keyword_set(do_galex) eq 0 then continue
                 
-        infile = galex_dir + pgc_name + '_'+band+'_extcorr.fits'
+        map_fname = galex_dir + pgc_name + '_'+band+'_extcorr.fits'
+        if file_test(map_fname) eq 0 then continue
+        ;mask_fname = galex_dir + pgc_name + '_mask.fits'
+        ;rej_fname = galex_dir + pgc_name + '_'+band+'_gauss15_rejected.fits'
+        wt_fname = galex_dir + pgc_name + '_'+band+'_weight_gauss15_align.fits'
 
-        test = file_search(infile, count=ct)
-        if ct eq 0 then $
-           continue
-
-        map = readfits(infile, hdr, /silent)
+        map = readfits(map_fname, hdr, /silent)
         if sxpar(hdr, 'SKIP') eq 1 then $
            continue
+        mask = readfits(mask_fname, mask_hdr, /silent)
+        ;rejected = readfits(rej_fname, rejected_hdr, /silent)
+        weight = readfits(wt_fname, weight_hdr, /silent)
+
+        ind = where(mask ge 10, ct)
+        sz = size(mask)
+        ind_to_xyv, ind, sz=sz, x=x, y=y
+        hextract, map, hdr, min(x), max(x), min(y), max(y)        
         sz = size(map)
         new_sz = [sz[1]/2, sz[2]/2]
-
         hrebin, map, hdr, out=new_sz
+
+        ;hastrom, mask, mask_hdr, hdr, interp=0
+        hastrom, weight, weight_hdr, hdr $
+                 , interp=2, cubic=-0.5, missing=!values.f_nan
+        ;hastrom, rejected, rejected_hdr, hdr $
+        ;         , interp=2, cubic=-0.5, missing=!values.f_nan
+
+        ;rejected = grow_mask(rejected, iters=1)
+
         writefits, out_dir+pgc_name + '_'+band+'.fits', map, hdr
-
-        rejected = readfits(galex_dir + pgc_name + '_'+band+'_rejected.fits', hdr, /silent)
-        hrebin, rejected, hdr, out=new_sz
-        writefits, out_dir+pgc_name + '_'+str(band)+'_rejected.fits', map, hdr        
-
-        rejected = readfits(galex_dir + pgc_name + '_'+band+'_weight_gauss15_align.fits', hdr, /silent)
-        hrebin, rejected, hdr, out=new_sz
-        writefits, out_dir+pgc_name + '_'+str(band)+'_weight.fits', map, hdr        
+        ;writefits, out_dir+pgc_name + '_'+band+'_rejected.fits', rejected, hdr
+        writefits, out_dir+pgc_name + '_'+band+'_weight.fits', weight, weight_hdr
 
      endfor
      

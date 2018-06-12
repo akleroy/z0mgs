@@ -1,0 +1,854 @@
+pro compile_galex_atlas $
+   , cutouts = do_cutouts $
+   , inventory=do_inv $
+   , convol = do_convol $
+   , extract = do_extract $
+   , mask = do_mask $
+   , bksub = do_bksub $
+   , special = do_special $
+   , stats = do_stats $
+   , extcorr = do_extcorr $
+   , show = show $
+   , pause = pause $
+   , tag = tag $
+   , start = start_num $
+   , stop = stop_num $
+   , incremental = incremental $
+   , only = only $
+   , just = just
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; SET DIRECTORY AND BUILD GALAXY LIST
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  in_dir = '../unwise/dlang_custom/z0mgs/PGC/'
+  out_dir = '../galex/atlas/'
+
+  build_galaxy_list $
+     , in_dir = in_dir $
+     , tag=tag $
+     , just=only $
+     , pgc_list = pgc_list $
+     , pgc_num = pgc_num $
+     , dat = gal_data $
+     , start = start_num $
+     , stop = stop_num $
+     , exclude = ['PGC17223']
+  n_pgc = n_elements(pgc_list)
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; CREATE THE CUTOUTS
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_cutouts) then begin
+
+     !p.multi = [0,4,4]
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Extracting GALEX cutouts '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        found = 0B
+        if keyword_set(incremental) then begin
+           outfile = out_dir + pgc_name+'_fuv_cutout.fits'
+           test = file_search(outfile, count=im_ct)
+
+           outfile = out_dir + pgc_name+'_fuv_weight.fits'
+           test = file_search(outfile, count=wt_ct)
+
+           found = (im_ct eq 1 and wt_ct eq 1)
+        endif
+
+        if keyword_set(incremental) eq 0 or $
+           found eq 0 then begin
+
+           size_deg = (this_dat.r25_deg*6.0) > (655.*2.75/3600.)
+           if pgc_name eq 'PGC2557' then $
+              size_deg = (this_dat.r25_deg*3.0)
+
+           extract_galex_stamp $
+              , /fuv $
+              , ra_ctr = this_dat.ra_deg $
+              , dec_ctr = this_dat.dec_deg $
+              , size_deg = size_deg $
+              , index = index_file $
+              , image = image $
+              , weight = weight $
+              , hdr = hdr $
+              , /useint $
+              , /show
+           
+           outfile = out_dir + pgc_name+'_fuv_cutout.fits'
+           writefits, outfile, image, hdr
+
+           outfile = out_dir + pgc_name+'_fuv_weight.fits'
+           writefits, outfile, weight, hdr
+
+        endif
+
+        found = 0B
+        if keyword_set(incremental) then begin
+           outfile = out_dir + pgc_name+'_nuv_cutout.fits'
+           test = file_search(outfile, count=im_ct)
+
+           outfile = out_dir + pgc_name+'_nuv_weight.fits'
+           test = file_search(outfile, count=wt_ct)
+
+           found = (im_ct eq 1 and wt_ct eq 1)
+        endif
+
+        if keyword_set(incremental) eq 0 or $
+           found eq 0 then begin
+
+           extract_galex_stamp $
+              , fuv=0 $
+              , ra_ctr = this_dat.ra_deg $
+              , dec_ctr = this_dat.dec_deg $
+              , size_deg = size_deg $
+              , index = index_file $
+              , image = image $
+              , weight = weight $
+              , hdr = hdr $
+              , /useint $
+              , /show
+           
+           outfile = out_dir + pgc_name+'_nuv_cutout.fits'
+           writefits, outfile, image, hdr
+
+           outfile = out_dir + pgc_name+'_nuv_weight.fits'
+           writefits, outfile, weight, hdr
+
+        endif
+
+     endfor
+
+     !p.multi = 0
+
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; TAKE AN INVENTORY OF COVERAGE
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_inv) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Running GALEX inventory '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        for jj = 0, 1 do begin
+           
+           if jj eq 0 then band = 'fuv'
+           if jj eq 1 then band = 'nuv'
+           
+           im_file = out_dir+pgc_name+'_'+band+'_cutout.fits'
+
+           if keyword_set(incremental) then begin
+              im_hdr = headfits(im_file)
+              dummy = sxpar(hdr, 'SKIP', count=count_skip)
+              dummy = sxpar(hdr, 'MEANINT', count=count_int)
+              dummy = sxpar(hdr, 'FRACCOV', count=count_cov)
+              if count_skip ge 1 and count_int ge 1 and count_cov ge 1 then $
+                 continue
+           endif
+
+           im = readfits(im_file, hdr, /silent)
+           
+           make_axes, hdr, ri=ri, di=di
+           
+           pa = this_dat.posang_deg
+           incl = this_dat.incl_deg        
+           
+           if finite(incl) eq 0 then begin
+              incl = 0.0           
+           endif
+           
+           if incl gt 60 then begin
+              incl = 60.
+           endif
+           
+           if finite(pa) eq 0 then begin
+              pa = 0.0
+              incl = 0.0
+           endif
+           
+           xctr = this_dat.ra_deg
+           yctr = this_dat.dec_deg
+           
+           gal_vec = [pa, incl, xctr, yctr]
+           deproject, ri, di, gal_vec, rgrid=rgrid
+
+           fid_rad = this_dat.r25_deg > 30./3600.
+           gal_ind = where(rgrid lt fid_rad, gal_ct)
+           if gal_ct eq 0 then begin
+              print, "No pixels inside the galaxy for "+pgc_name
+           endif
+
+           rrhr_file = out_dir+pgc_name+'_'+band+'_weight.fits'
+           test = file_search(rrhr_file, count=ct)
+           if ct eq 0 then begin
+              print, "Didn't find rrhr file "+rrhr_file
+              continue
+           endif
+           rrhr = readfits(rrhr_file, /silent, rrhr_hdr)
+
+           mean_int = mean(rrhr[gal_ind])
+           frac_covered = total(finite(im[gal_ind]) and $
+                                (rrhr[gal_ind] gt 0.0))/(1.0d*gal_ct)
+           skip = frac_covered lt 0.75
+
+           print, '... INT TIME: '+str(mean_int)+' FRAC: '+ $
+                  str(frac_covered)+' SKIP? '+str(1L*skip)
+
+           sxaddpar, hdr, 'SKIP', skip, 'PROCESS / NOT'
+           sxaddpar, hdr, 'MEANINT', mean_int, 'SECONDS'
+           sxaddpar, hdr, 'FRACCOV', frac_covered, 'SECONDS'
+           sxaddpar, rrhr_hdr, 'FRACCOV', frac_covered, 'FRACTION OF GALAXY COVERED'
+           
+           writefits, rrhr_file, rrhr, rrhr_hdr
+           writefits, im_file, im, hdr
+
+        endfor
+
+     endfor
+
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; CONVOLUTIONS TO MATCH BEAMS AND ALIGN TO THE WISE ASTROMETRY
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=0
+
+  !p.multi=[0,4,4]
+
+  if keyword_set(do_convol) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Convolution '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+        
+        wise_hdr_file = '../unwise/atlas/'+pgc_name+'_w1_gauss15.fits'
+        if file_test(wise_hdr_file) eq 0 then $
+           wise_hdr_file = '../unwise/atlas/'+pgc_name+'_w2_gauss15.fits'
+        if  file_test(wise_hdr_file) eq 0 then begin
+           message, 'Missing WISE header information.', /info
+           continue
+        endif
+        target_hdr = headfits(wise_hdr_file)
+        
+        for jj = 0, 1 do begin
+
+           if jj eq 0 then band = 'fuv'
+           if jj eq 1 then band = 'nuv'
+
+           infile = out_dir+pgc_name+'_'+band+'_cutout.fits'
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              message, 'File not found '+infile, /info
+              continue
+           endif
+
+           for mm = 0, 3 do begin
+
+              if mm eq 0 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_cutout.fits'
+                 outfile = out_dir+pgc_name+'_'+band+'_gauss15.fits'
+                 alignfile = out_dir+pgc_name+'_'+band+'_gauss15_align.fits'
+                 end_psf = 'g15'
+              endif
+              if mm eq 1 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_weight.fits'
+                 outfile = out_dir+pgc_name+'_'+band+'_weight_gauss15.fits'
+                 alignfile = out_dir+pgc_name+'_'+band+'_weight_gauss15_align.fits'
+                 end_psf = 'g15'
+              endif
+              if mm eq 2 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_cutout.fits'
+                 outfile = out_dir+pgc_name+'_'+band+'_gauss7p5.fits'
+                 alignfile = out_dir+pgc_name+'_'+band+'_gauss7p5_align.fits'
+                 end_psf = 'g15'
+              endif
+              if mm eq 3 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_weight.fits'
+                 outfile = out_dir+pgc_name+'_'+band+'_weight_gauss7p5.fits'
+                 alignfile = out_dir+pgc_name+'_'+band+'_weight_gauss7p5_align.fits'
+                 end_psf = 'g15'
+              endif
+
+              test = readfits(infile, hdr)
+              if test[0] eq -1 then begin
+                 message, "Problematic FITS file. Skipping.", /info
+                 continue
+              endif
+
+              conv_z0mg_galaxy, $
+                 infile=infile, $
+                 start_psf=band, $
+                 end_psf=end_psf, $
+                 outfile=outfile
+              
+              conv_image = $
+                 readfits(outfile, conv_hdr)
+              
+              hastrom, conv_image, conv_hdr, target_hdr $
+                       , cubic=-0.5, interp=2, missing=!values.f_nan
+              
+              writefits, alignfile, conv_image, conv_hdr
+
+           endfor
+           
+        endfor
+
+     endfor
+     
+  endif
+ 
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; EXTRACT A SMALLER FOOTPRINT
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_extract) then begin
+
+     readcol, 'custom_mask_specs.txt', format='L,F,F,F', comment='#' $
+                 , override_pgc_list, override_rad_list, override_pa_list, override_incl_list
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Extract smaller footprint for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+        
+        for jj = 0, 1 do begin
+           
+           if jj eq 0 then band = 'fuv'
+           if jj eq 1 then band = 'nuv'
+
+           for mm = 0, 1 do begin
+          
+              if mm eq 0 then begin
+                 infile = out_dir+pgc_name+'_'+band+'_gauss7p5.fits'
+                 outfile = out_dir+pgc_name+'_'+band+'_gauss7p5_small.fits'
+                 do_rebin = 0B
+              endif else begin
+                 infile = out_dir+pgc_name+'_'+band+'_gauss15.fits'
+                 outfile = out_dir+pgc_name+'_'+band+'_gauss15_small.fits'
+                 do_rebin = 1B
+              endelse
+              
+              if file_test(infile) eq 0 then begin
+                 message, 'File not found '+infile, /info
+                 continue
+              endif
+              
+              if keyword_set(incremental) and file_test(outfile) then begin
+                 message, 'Image already in place '+outfile, /info
+                 continue
+              endif
+              
+              this_rad = this_dat.r25_deg
+              if finite(this_rad) eq 0 then this_rad = 30./3600.
+              delta = 4.0*(this_rad > 30./3600.)
+
+              override_ind = where(override_pgc_list eq this_dat.pgc, override_ct)
+              if override_ct eq 1 then begin
+                 if finite(override_rad_list[override_ind]) then $
+                    delta = (override_rad_list[override_ind])[0]*2.0
+              endif
+
+              map = readfits(infile, hdr, /silent)
+              pix = abs(sxpar(hdr, 'CDELT1'))
+              delta_pix = delta / pix
+
+              sz = size(map)
+              mean_x = sz[1]/2.0
+              mean_y = sz[2]/2.0
+
+              low_x = floor(mean_x - delta_pix) > 0
+              low_y = floor(mean_y - delta_pix) > 0
+              high_x = ceil(mean_x + delta_pix) < (sz[1]-1)
+              high_y = ceil(mean_y + delta_pix) < (sz[2]-1)
+
+              hextract, map, hdr, low_x, high_x, low_y, high_y, /silent
+              if do_rebin then begin
+                 new_sz = [sz[1]/2, sz[2]/2]
+                 hrebin, map, hdr, out=new_sz
+              endif
+              
+              writefits, outfile, map, hdr
+
+           endfor
+           
+        endfor
+        
+     endfor
+     
+  endif
+  
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; BUILD A PRELIMINARY MASK
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=[0,5,5]
+
+  if keyword_set(do_mask) then begin
+
+     readcol, 'custom_mask_specs.txt', format='A,F,F,F', comment='#' $
+              , override_pgc, override_rad, override_pa, override_incl
+     override_pgc = strcompress(override_pgc, /rem)
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Mask construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        maskfile = out_dir+pgc_name+'_mask.fits'
+
+        if keyword_set(incremental) then begin
+           test = file_search(maskfile, count=test_ct)
+           if test_ct gt 0 then continue
+        endif
+
+        headerfile = out_dir+pgc_name+'_nuv_gauss15_align.fits'
+        if file_test(headerfile) eq 0 then $
+           headerfile = out_dir+pgc_name+'_fuv_gauss15_align.fits'
+        if file_test(headerfile) eq 0 then begin
+           print, "No FUV or NUV. Stopping."
+        endif
+
+        hdr = headfits(headerfile)
+        if sxpar(hdr,'SKIP') then begin
+           print, "Skipping "+pgc_name
+           continue
+        endif
+
+        this_rad = !values.f_nan
+        this_pa = !values.f_nan
+        this_incl = !values.f_nan
+        override_ind = where(override_pgc eq pgc_name, override_ct)
+        if override_ct gt 0 then begin
+           print, 'Found an override for the mask.'
+           this_rad = override_rad[override_ind]
+           this_pa = override_pa[override_ind]
+           this_incl = override_incl[override_ind]
+        endif
+
+        build_mask $
+           , pgc = this_dat.pgc $
+           , galdata = this_dat $
+           , headerfile = headerfile $
+           , outfile = maskfile $
+           , rad = this_rad[0] $
+           , override_pa = this_pa[0] $
+           , override_incl = this_incl[0] $
+           , show=show $
+           , pause=pause
+
+     endfor     
+
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; BACKGROUND SUBTRACTION
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_bksub) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Background subtraction '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        maskfile = out_dir+pgc_name+'_mask.fits'
+        test = file_search(maskfile, count=ct)
+        if ct eq 0 then $
+           continue
+        mask = readfits(maskfile, /silent, mask_hdr)
+        
+        for mm = 0, 3 do begin           
+
+           if mm eq 0 then begin
+              infile = out_dir+pgc_name+'_fuv_gauss15_align.fits'
+              wtfile = out_dir+pgc_name+'_fuv_weight_gauss15_align.fits'
+              outfile = out_dir+pgc_name+'_fuv_gauss15_bksub.fits'
+              rejfile = out_dir+pgc_name+'_fuv_gauss15_rejected.fits'
+           endif
+           if mm eq 1 then begin
+              infile = out_dir+pgc_name+'_nuv_gauss15_align.fits'
+              wtfile = out_dir+pgc_name+'_nuv_weight_gauss15_align.fits'
+              outfile = out_dir+pgc_name+'_nuv_gauss15_bksub.fits'
+              rejfile = out_dir+pgc_name+'_nuv_gauss15_rejected.fits'
+           endif
+           if mm eq 2 then begin
+              infile = out_dir+pgc_name+'_fuv_gauss7p5_align.fits'
+              wtfile = out_dir+pgc_name+'_fuv_weight_gauss7p5_align.fits'
+              outfile = out_dir+pgc_name+'_fuv_gauss_7p5_bksub.fits'
+              rejfile = out_dir+pgc_name+'_fuv_gauss_7p5_rejected.fits'
+           endif
+           if mm eq 3 then begin
+              infile = out_dir+pgc_name+'_nuv_gauss7p5_align.fits'
+              wtfile = out_dir+pgc_name+'_nuv_weight_gauss7p5_align.fits'
+              outfile = out_dir+pgc_name+'_nuv_gauss_7p5_bksub.fits'
+              rejfile = out_dir+pgc_name+'_nuv_gauss_7p5_rejected.fits'
+           endif
+
+           test = file_search(infile, count=ct)
+           if ct eq 0 then $
+              continue
+           map = readfits(infile, hdr, /silent)
+           wt = readfits(wtfile, /silent)
+
+           if sxpar(hdr,'SKIP') then begin
+              print, "Skipping "+infile
+              continue
+           endif
+
+           hastrom, mask, mask_hdr, hdr, interp=0
+
+           bksub = $
+              bkfit_galex( $
+              map=map $
+              , mask=mask $
+              , wt=wt $
+              , rejected=rejected $
+              , niter=5 $
+              , thresh=5.0 $
+              , coefs=coefs $
+              , show=show $
+              , pause=pause)
+
+           sxaddpar, hdr, 'BKPLANE0', coefs[0]
+           
+           writefits, outfile, bksub, hdr
+           writefits, rejfile, rejected*1.0, hdr
+           
+        endfor
+        
+     endfor
+     
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; SPECIAL SUBTRACTION
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_special) then begin
+
+     !p.multi=0
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        special_list = ['PGC2557', 'PGC5818']
+        if total(pgc_name eq special_list) eq 0 then $
+           continue
+
+        print, ''
+        print, 'Special processing for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+        
+        headerfile = out_dir+pgc_name+'_fuv_gauss15_align.fits'
+        maskfile = out_dir+pgc_name+'_mask.fits'
+        build_mask $
+           , pgc = pgc_list[ii] $
+           , galdata = this_dat $
+           , headerfile = headerfile $
+           , outfile = maskfile $           
+           , show=show $
+           , inner=1.0, outer=2.0
+
+        test = file_search(maskfile, count=ct)
+        if ct eq 0 then $
+           continue
+        
+        for mm = 0, 3 do begin           
+
+           if mm eq 0 then begin
+              infile = out_dir+pgc_name+'_fuv_gauss15_align.fits'
+              wtfile = out_dir+pgc_name+'_fuv_weight_gauss15_align.fits'
+              outfile = out_dir+pgc_name+'_fuv_gauss15_bksub.fits'
+              rejfile = out_dir+pgc_name+'_fuv_gauss15_rejected.fits'
+           endif
+           if mm eq 1 then begin
+              infile = out_dir+pgc_name+'_nuv_gauss15_align.fits'
+              wtfile = out_dir+pgc_name+'_nuv_weight_gauss15_align.fits'
+              outfile = out_dir+pgc_name+'_nuv_gauss15_bksub.fits'
+              rejfile = out_dir+pgc_name+'_nuv_gauss15_rejected.fits'
+           endif
+           if mm eq 2 then begin
+              infile = out_dir+pgc_name+'_fuv_gauss7p5_align.fits'
+              wtfile = out_dir+pgc_name+'_fuv_weight_gauss7p5_align.fits'
+              outfile = out_dir+pgc_name+'_fuv_gauss_7p5_bksub.fits'
+              rejfile = out_dir+pgc_name+'_fuv_gauss_7p5_rejected.fits'
+           endif
+           if mm eq 3 then begin
+              infile = out_dir+pgc_name+'_nuv_gauss7p5_align.fits'
+              wtfile = out_dir+pgc_name+'_nuv_weight_gauss7p5_align.fits'
+              outfile = out_dir+pgc_name+'_nuv_gauss_7p5_bksub.fits'
+              rejfile = out_dir+pgc_name+'_nuv_gauss_7p5_rejected.fits'
+           endif
+
+           test = file_search(infile, count=ct)
+           if ct eq 0 then $
+              continue
+           map = readfits(infile, hdr, /silent)
+           wt = readfits(wtfile, /silent)
+           mask = readfits(maskfile, /silent, mask_hdr)
+           hastrom, mask, mask_hdr, hdr, interp=0 
+
+           if sxpar(hdr,'SKIP') then begin
+              print, "Skipping "+infile
+              continue
+           endif
+
+           outside = where(mask eq 0)
+           map[outside] = !values.f_nan
+
+           if pgc_name eq 'PGC2557' then begin
+              map[0:4000,*] = !values.f_nan
+              map[3500:4750,4600:6300] = !values.f_nan
+              map[3500:4400,4600:6500] = !values.f_nan
+              map[3500:5000,4500:5800] = !values.f_nan
+              map[*,0:4250] = !values.f_nan
+           endif
+
+           bksub = $
+              bkfit( $
+              map=map $
+              , mask=mask $
+              , rejected=rejected $
+              , niter=5 $
+              , thresh=3.0 $
+              , method='PLANE' $
+              , coefs=coefs $
+              , show=show)
+
+           sxaddpar, hdr, 'BKPLANE0', coefs[0]
+           sxaddpar, hdr, 'BKPLANE1', coefs[1]
+           sxaddpar, hdr, 'BKPLANE2', coefs[2]
+ 
+           writefits, outfile, bksub, hdr
+           writefits, rejfile, rejected*1.0, hdr
+           
+           !p.multi=[0,2,1]
+           disp, map, min=-1d-3, max=1d-3
+           disp, bksub, min=-1d-3, max=1d-3
+           !p.multi=0
+
+        endfor
+        
+     endfor
+     
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; RUN STATISTICS
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=0
+
+  if keyword_set(do_stats) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Runnings stats for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        first_read = 1B
+
+        for mm = 0, 3 do begin           
+
+           if mm eq 0 then begin
+              infile = out_dir+pgc_name+'_fuv_gauss15_align.fits'
+              wtfile = out_dir+pgc_name+'_fuv_weight_gauss15_align.fits'
+              outfile = out_dir+pgc_name+'_fuv_gauss15_bksub.fits'
+              rejfile = out_dir+pgc_name+'_fuv_gauss15_rejected.fits'
+           endif
+           if mm eq 1 then begin
+              infile = out_dir+pgc_name+'_nuv_gauss15_align.fits'
+              wtfile = out_dir+pgc_name+'_nuv_weight_gauss15_align.fits'
+              outfile = out_dir+pgc_name+'_nuv_gauss15_bksub.fits'
+              rejfile = out_dir+pgc_name+'_nuv_gauss15_rejected.fits'
+           endif
+           if mm eq 2 then begin
+              infile = out_dir+pgc_name+'_fuv_gauss7p5_align.fits'
+              wtfile = out_dir+pgc_name+'_fuv_weight_gauss7p5_align.fits'
+              outfile = out_dir+pgc_name+'_fuv_gauss_7p5_bksub.fits'
+              rejfile = out_dir+pgc_name+'_fuv_gauss_7p5_rejected.fits'
+           endif
+           if mm eq 3 then begin
+              infile = out_dir+pgc_name+'_nuv_gauss7p5_align.fits'
+              wtfile = out_dir+pgc_name+'_nuv_weight_gauss7p5_align.fits'
+              outfile = out_dir+pgc_name+'_nuv_gauss_7p5_bksub.fits'
+              rejfile = out_dir+pgc_name+'_nuv_gauss_7p5_rejected.fits'
+           endif
+           outfile = infile
+           
+           test = file_search(infile, count=ct)
+           if ct eq 0 then begin
+              message, 'File not found '+infile, /info
+              continue
+           endif
+           
+           if keyword_set(incremental) then begin
+              hdr = headfits(outfile)
+              test = sxpar(hdr, 'MEDALL', count=kwd_ct)
+              if kwd_ct gt 0 then begin
+                 continue            
+              endif     
+           endif
+              
+           maskfile = out_dir+pgc_name+'_mask.fits'
+           test = file_search(maskfile, count=ct)
+           if ct eq 0 then begin
+              message, 'Mask not found '+infile, /info
+              continue
+           endif
+           
+           z0mgs_stat_image $
+              , infile=infile $
+              , outfile=outfile $
+              , mask=maskfile $
+              , reject=rejectfile $
+              , weight=weightfile $
+              , quarters=0B $
+              , /galex
+
+        endfor
+        
+     endfor
+     
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; APPLY EXTINCTION CORRECTION
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+
+  !p.multi=0
+
+  if keyword_set(do_extcorr) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Applying extinction correction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        ebv_sfd98 = this_dat.av_sfd98/3.1
+        afuv = calc_afuv(ebv_sfd98)
+        anuv = calc_anuv(ebv_sfd98)
+
+        infile = out_dir+pgc_name+'_nuv_gauss15_bksub.fits'
+        if file_test(infile) then begin
+           nuv = readfits(infile, nuv_hdr)
+           nuv *= 10.^(anuv/2.5)
+           sxaddpar, nuv_hdr, 'ANUV', anuv, 'APPLIED MAG'
+           outfile = out_dir+pgc_name+'_nuv_gauss15_extcorr.fits'
+           writefits, outfile, nuv, nuv_hdr
+        endif
+
+        infile = out_dir+pgc_name+'_fuv_gauss15_bksub.fits'
+        if file_test(infile) then begin
+           fuv = readfits(infile, fuv_hdr)
+           fuv *= 10.^(afuv/2.5)
+           sxaddpar, fuv_hdr, 'AFUV', afuv, 'APPLIED MAG'
+           outfile = out_dir+pgc_name+'_fuv_gauss15_extcorr.fits'
+           writefits, outfile, fuv, fuv_hdr
+        endif
+
+        infile = out_dir+pgc_name+'_nuv_gauss7p5_bksub.fits'
+        if file_test(infile) then begin
+           nuv = readfits(infile, nuv_hdr)
+           nuv *= 10.^(anuv/2.5)
+           sxaddpar, nuv_hdr, 'ANUV', anuv, 'APPLIED MAG'
+           outfile = out_dir+pgc_name+'_nuv_gauss7p5_extcorr.fits'
+           writefits, outfile, nuv, nuv_hdr
+        endif
+
+        infile = out_dir+pgc_name+'_fuv_gauss7p5_bksub.fits'
+        if file_test(infile) then begin
+           fuv = readfits(infile, fuv_hdr)
+           fuv *= 10.^(afuv/2.5)
+           sxaddpar, fuv_hdr, 'AFUV', afuv, 'APPLIED MAG'
+           outfile = out_dir+pgc_name+'_fuv_gauss7p5_extcorr.fits'
+           writefits, outfile, fuv, fuv_hdr
+        endif
+
+     endfor
+
+  endif
+
+
+end

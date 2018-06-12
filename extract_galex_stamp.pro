@@ -105,8 +105,14 @@ pro extract_galex_stamp $
         continue
      endif
 
-     rrhr = readfits(this_rrhr_fname, rrhr_hdr, /silent)
-     
+     dummy = sxpar(hdr, 'CDELT1', count=cd_ct)
+     if cd_ct ne 1 then begin
+        message, 'No astrometry found. Proceeding.', /info
+        continue
+     endif
+
+     rrhr = readfits(this_rrhr_fname, rrhr_hdr, /silent)     
+
      flag = readfits(this_flag_fname, flag_hdr, /silent)
      hastrom, flag, flag_hdr, hdr, interp=0, missing=1024
 

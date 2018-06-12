@@ -6,7 +6,8 @@ function bkfit $
    , thresh=thresh $
    , rejected=rejected $
    , coefs=coefs $
-   , show=show
+   , show=show $
+   , pause=pause
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; TUNING PARAMETERS
@@ -25,27 +26,39 @@ function bkfit $
 ; OUTLIER REJECTING MEDIAN FIT
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  rejected = mask eq 10 or finite(map) eq 0
+  aperture = mask eq 100 and finite(map)
+  rejected = mask*0B
+
   for ii = 0, niter-1 do begin
-     bkind = where(rejected eq 0, ct)
-     if ct eq 0 then continue
+     bkind = where(aperture, ct)
+     if ct eq 0 then begin
+        message, 'No background pixels', /info        
+        return, map
+        continue
+     endif
      vec = map[bkind]
      rms = mad(vec)
      med = median(vec)
      bad_ind = where(abs(vec-med) gt thresh*rms, bad_ct)
      if bad_ct gt 0 then $
-        rejected[bkind[bad_ind]] = 1B
-  endfor
+        aperture[bkind[bad_ind]] = 0B    
+  endfor  
 
-  bksub = map - med
+  vec_med = mean(vec,/nan)
+  vec_rms = mad(vec)
+
+  bksub = map - vec_med ;vec_mean ;med
   coefs = med
-  
+  rejected = (mask ne 10 and (abs(bksub) gt thresh*rms)) or ((mask mod 10) eq 1)
+
   if method eq 'MEDIAN' then begin
      if keyword_set(show) then begin
         loadct, 0
         !p.multi=0
-        disp, bksub, max=rms*5., min=-5.*rms
+        disp, bksub, max=rms*3., min=-3.*rms
         contour, rejected, /overplot, lev=[1], color=cgcolor('red')
+        contour, mask, /overplot, lev=[10,100], color=cgcolor('blue')
+        if keyword_set(pause) then ch = get_kbrd(1)
      endif
 
      return, bksub
@@ -56,7 +69,7 @@ function bkfit $
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   for ii = 0, niter-1 do begin
-     bkind = where(rejected eq 0, ct)
+     bkind = where(aperture, ct)
      if ct eq 0 then continue
      this_x = x[bkind]
      this_y = y[bkind]
@@ -67,7 +80,7 @@ function bkfit $
      rms = mad(resid)
      bad_ind = where(abs(resid) gt thresh*rms, bad_ct)
      if bad_ct gt 0 then $
-        rejected[bkind[bad_ind]] = 1B     
+        aperture[bkind[bad_ind]] = 0B
   endfor
 
   fit = coefs[0] + coefs[1]*x + coefs[2]*y
@@ -80,8 +93,10 @@ function bkfit $
   if keyword_set(show) then begin
      loadct, 0
      !p.multi=0
-     disp, bksub, max=rms*5., min=-5.*rms
+     disp, bksub, max=rms*3., min=-3.*rms
      contour, rejected, /overplot, lev=[1], color=cgcolor('red')
+     contour, mask, /overplot, lev=[10,100], color=cgcolor('blue')
+     if keyword_set(pause) then ch = get_kbrd(1)
   endif
 
   return, bksub

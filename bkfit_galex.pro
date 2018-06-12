@@ -2,8 +2,6 @@ function bkfit_galex $
    , map=map $   
    , mask=mask $
    , wt=wt $
-   , kernel=kernel $
-   , method=method $
    , niter=niter $
    , thresh=thresh $
    , rejected=rejected $
@@ -19,8 +17,6 @@ function bkfit_galex $
      niter = 5
   if n_elements(thresh) eq 0 then $
      thresh = 3.0
-  if n_elements(kernel) eq 0 then $
-     kernel=3
 
   sz = size(map)
   x = findgen(sz[1]) # (fltarr(sz[2])+1.0)
@@ -30,46 +26,47 @@ function bkfit_galex $
 ; MAKE A COPY
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-;  orig = map
-;  map = smooth(map, kernel, /nan)
   noiselike = 1./sqrt(wt/median(wt))
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; OUTLIER REJECTING MEDIAN FIT
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  rejected = mask eq 10 or finite(map) eq 0
+  aperture = mask eq 100 and finite(map)
+  rejected = mask*0B
+
   for ii = 0, niter-1 do begin
-     bkind = where(rejected eq 0, ct)
+     bkind = where(aperture, ct)
      if ct eq 0 then continue
      vec = map[bkind]
      wtvec = noiselike[bkind]
      rms = mad(vec/wtvec)
-;rms = stddev(vec/wtvec,/nan)
      med = median(vec)
-;med = mean(vec, /nan)
      bad_ind = where(abs(vec-med)/wtvec gt thresh*rms, bad_ct)
      if bad_ct gt 0 then $
-        rejected[bkind[bad_ind]] = 1B
-  endfor
+        aperture[bkind[bad_ind]] = 0B    
+  endfor  
+  vec_mean = mean(vec,/nan)
+  vec_med = mean(vec,/nan)
+  vec_rms = mad(vec)
 
-  bksub = map - med
+  bksub = map - vec_med ;vec_mean ;med
   coefs = med
+  rejected = mask ne 10 and (abs(bksub) gt thresh*rms)
   
-  if method eq 'MEDIAN' then begin
-     if keyword_set(show) then begin
-        loadct, 0
-        !p.multi=0
-        rms = stddev(bksub,/nan)
-        disp, bksub, max=rms*3., min=-3.*rms
-        contour, rejected, /overplot, lev=[1], color=cgcolor('red')
-        if keyword_set(pause) then begin
-           print, "Hit a key."
-           ch = get_kbrd(1)
-        endif
+  if keyword_set(show) then begin
+     loadct, 0
+     !p.multi=0
+     rms = stddev(bksub,/nan)
+     disp, bksub, max=vec_rms*3., min=-3.*vec_rms, /sq
+     contour, rejected, /overplot, lev=[1], color=cgcolor('red')
+     contour, mask, /overplot, lev=[10,100], color=cgcolor('blue')
+     if keyword_set(pause) then begin
+        print, "Hit a key."
+        ch = get_kbrd(1)
      endif
-
-     return, bksub
   endif
+
+  return, bksub
 
 end

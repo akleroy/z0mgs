@@ -1,4 +1,6 @@
-pro z0mgs_photometry
+pro z0mgs_photometry $
+   , start=start $
+   , stop = stop
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
@@ -9,55 +11,53 @@ pro z0mgs_photometry
 ;  sample_dir = '../measurements/samples/'
   atlas_dir = '../delivery/'
 
-  build_galaxy_list $
-     , in_dir = in_dir $
-     , tag=tag $
-     , just=just $
-     , pgc_list = pgc_list $
-     , pgc_num = pgc_num $
-     , dat = gal_data $
-     , start = start_num $
-     , stop = stop_num $
-     , exclude = ['PGC17223']
-  n_pgc = n_elements(pgc_list)
+  index = mrdfits('../measurements/delivery_index.fits',1,h)
+  n_pgc = n_elements(index)
+  s = gal_data(pgc=index.pgc)
+
+  if n_elements(start) eq 0 then start = 0
+  if n_elements(stop) eq 0 then stop = n_pgc-1
 
   bands = ['FUV','NUV','WISE1','WISE2','WISE3','WISE4']
   n_bands = n_elements(bands)
   
   spacing_deg = 7.5/3600.
-  spacing_rad = spacing_deg*!dtor
-  area_sr = 3.0d*sqrt(3.0d)/2.0d*(spacing_rad/2.d)^2
-  
-  limit_r25 = 2.0d
+  spacing_rad = spacing_deg*!dtor  
   min_limit = 30./3600.
 
-  oversamp = 5.23
+  oversamp = 4.0                ;5.23
+
+  rej_thresh_wise = 0.2
+  rej_thresh_galex = 0.75
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; INITIALIZE OUTPUT STRUCTURE
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
+  limit_ra = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 4.0]
+  n_limit = n_elements(limit_ra)
+
   nan = !values.f_nan
   empty = $
      {pgc:0L $
+      , gl_deg: nan $
+      , gb_deg: nan $
       , band: '' $
+      , present: 0B $
       , rms: nan $
       , std: nan $
-      , ct: 0L $
-      , unc_stat: nan $
-      , unc_conf: nan $
-      , limit_deg: nan $
-      , posang_deg: nan $
-      , incl_deg: nan $
-      , med: nan $
-      , med_plusrad: nan $
-      , med_minusrad: nan $
-      , mean: nan $
-      , mean_plusrad: nan $
-      , mean_minusrad: nan $
-      , hybrid: nan $
-      , hybrid_plusrad: nan $
-      , hybrid_minusrad: nan $
+      , true_posang: nan $
+      , adopted_posang: nan $
+      , true_incl: nan $
+      , adopted_incl: nan $
+      , true_r25: nan $
+      , fiducial_limit: nan $
+      , limit_used: limit_ra $
+      , mean: limit_ra*nan $
+      , med: limit_ra*nan $
+      , unc_stat: limit_ra*nan $
+      , unc_conf:limit_ra* nan $
+      , rejected_flux: limit_ra*nan $
      }
   phot = replicate(empty, n_pgc, n_bands)
 
@@ -65,193 +65,207 @@ pro z0mgs_photometry
 ; LOOP OVER GALAXIES
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  for ii = 0, n_pgc-1 do begin
+  for ii = start, stop do begin
 
      counter, ii, n_pgc, 'Photometry for galaxy '
+     
+     this_pgc = s[ii].pgc
+     if this_pgc eq 0 then begin
+        print, index[ii].pgc, ' not in galbase. Skipping.'
+        continue
+     endif
 
-     ;sample_file = $
-     ;   sample_dir + $
-     ;   strcompress('PGC'+str(gal_data[ii].pgc), /rem) + $
-     ;   '_samples.fits'
-
-     ;if file_test(sample_file) eq 0 then begin
-     ;   print, "Did not find "+sample_file
-     ;   ;stop
-     ;   continue        
-     ;endif
-
-     ;tab = mrdfits(sample_file,1,h,/silent)
-          
-     this_pgc = gal_data[ii].pgc
-
-     w1_file = atlas_dir+'PGC'+str(this_pgc)+'_w1.fits'
-     has_w1 = file_test(w1_file)
-     w2_file = atlas_dir+'PGC'+str(this_pgc)+'_w2.fits'
-     has_w2 = file_test(w2_file)
-     w3_file = atlas_dir+'PGC'+str(this_pgc)+'_w3.fits'
-     has_w3 = file_test(w3_file)
-     w4_file = atlas_dir+'PGC'+str(this_pgc)+'_w4.fits'
-     has_w4 = file_test(w4_file)
-     fuv_file = atlas_dir+'PGC'+str(this_pgc)+'_fuv.fits'
-     has_fuv = file_test(fuv_file)
-     nuv_file = atlas_dir+'PGC'+str(this_pgc)+'_nuv.fits'
-     has_nuv = file_test(nuv_file)
-
-     if has_w1 eq 0 then begin
+     if index[ii].has_wise1 eq 0 then begin
         print, this_pgc, ' lacks WISE1. Should not.'
         continue
      endif
+
+;    -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+;    LOAD THE DATA
+;    -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+     w1_file = atlas_dir+'PGC'+str(this_pgc)+'_w1.fits'
+     w1_rejfile = atlas_dir+'PGC'+str(this_pgc)+'_w1_rejected.fits'
+
+     w2_file = atlas_dir+'PGC'+str(this_pgc)+'_w2.fits'
+     w2_rejfile = atlas_dir+'PGC'+str(this_pgc)+'_w2_rejected.fits'
+
+     w3_file = atlas_dir+'PGC'+str(this_pgc)+'_w3.fits'
+     w3_rejfile = atlas_dir+'PGC'+str(this_pgc)+'_w3_rejected.fits'
+
+     w4_file = atlas_dir+'PGC'+str(this_pgc)+'_w4.fits'
+     w4_rejfile = atlas_dir+'PGC'+str(this_pgc)+'_w4_rejected.fits'
+
      w1 = readfits(w1_file,w1hdr, /silent)
+     w1_rej = readfits(w1_rejfile, /silent) ge rej_thresh_wise
+
      w2 = readfits(w2_file,w2hdr, /silent)
+     w2_rej = readfits(w2_rejfile, /silent) ge rej_thresh_wise
+
      w3 = readfits(w3_file,w3hdr, /silent)
+     w3_rej = readfits(w3_rejfile, /silent) ge rej_thresh_wise
+
      w4 = readfits(w4_file,w4hdr, /silent)
+     w4_rej = readfits(w4_rejfile, /silent) ge rej_thresh_wise
 
      area_sr = (sxpar(w1hdr, 'CD1_1')*!dtor)^2
 
-     if has_nuv then begin
+     if index[ii].has_nuv then begin
+        nuv_file = atlas_dir+'PGC'+str(this_pgc)+'_nuv.fits'
+        nuv_rejfile = atlas_dir+'PGC'+str(this_pgc)+'_nuv_rejected.fits'
         nuv = readfits(nuv_file, nuvhdr, /silent)
-     endif else begin
-        nuv = w1*!values.f_nan
-        nuvhdr = w1hdr
-     endelse
+        nuv_rej = readfits(nuv_rejfile, /silent) ge rej_thresh_galex
+     endif
 
-     if has_fuv then begin
+     if index[ii].has_fuv then begin
+        fuv_file = atlas_dir+'PGC'+str(this_pgc)+'_fuv.fits'
+        fuv_rejfile = atlas_dir+'PGC'+str(this_pgc)+'_fuv_rejected.fits'
         fuv = readfits(fuv_file, fuvhdr, /silent)
-     endif else begin
-        fuv = w1*!values.f_nan
-        fuvhdr = w1hdr
-     endelse
+        fuv_rej = readfits(fuv_rejfile, /silent) ge rej_thresh_galex
+     endif
 
-     this_incl = gal_data[ii].incl_deg
+;    -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+;    WORK OUT THE ADOPTED ORIENTATION
+;    -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+     true_incl = s[ii].incl_deg
+     this_incl = true_incl
      if finite(this_incl) eq 0 then $
         this_incl = 0.0
-     this_incl = (this_incl - 10.0) > 0.0
+     if this_incl gt 60. then $
+        this_incl = 60.
 
-     this_posang = gal_data[ii].posang_deg
+     true_posang = s[ii].posang_deg
+     this_posang = s[ii].posang_deg
      if finite(this_posang) eq 0 then begin
         this_incl = 0.0
         this_posang = 0.0
      endif
 
-     galpos = [this_posang, this_incl, gal_data[ii].ra_deg, gal_data[ii].dec_deg]
+     galpos = [this_posang, this_incl, s[ii].ra_deg, s[ii].dec_deg]
 
      make_axes, w1hdr, ri=ri, di=di
      deproject, ri, di, galpos, rgrid=rad_deg
-;     deproject, tab.ra_deg, tab.dec_deg, galpos, rgrid=rad_deg, /vec
 
-     limit_deg = (limit_r25*gal_data[ii].r25_deg)
-     if finite(limit_deg) eq 0 or limit_deg lt min_limit then $
-        limit_deg = min_limit
+     true_r25 = s[ii].r25_deg
+     this_fiducial_limit = true_r25
+     if finite(true_r25) eq 0 or true_r25 lt min_limit then $
+        this_fiducial_limit = min_limit
 
-     plus_limit = limit_deg*1.33
-     minus_limit = limit_deg/1.33
+     no_rej = rad_deg le true_r25
 
-     phot_ind = where(rad_deg le limit_deg, phot_ct)
-     if phot_ct eq 0 then begin
-        print, "No valid data for PGC "+str(gal_data[ii].pgc)
-        continue
-     endif
-
-     plus_ind = where(rad_deg le plus_limit)
-     minus_ind = where(rad_deg le minus_limit)
+;    -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+;    WORK OUT THE ADOPTED ORIENTATION
+;    -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
      for jj = 0, n_bands-1 do begin
-
+        
         this_phot = empty
-        this_phot.pgc = gal_data[ii].pgc
-        this_phot.band = bands[jj]
-        this_phot.limit_deg = limit_deg
-        this_phot.posang_deg = this_posang
-        this_phot.incl_deg = this_incl
-
+        
         if jj eq 0 then begin
+           if index[ii].has_fuv eq 0 then continue
            y = fuv
+           r = fuv_rej
+           h = fuvhdr
         endif
         if jj eq 1 then begin
+           if index[ii].has_nuv eq 0 then continue
            y = nuv
+           r = nuv_rej
+           h = nuvhdr
         endif
         if jj eq 2 then begin
            y = w1
+           r = w1_rej
+           h = w1hdr
         endif
         if jj eq 3 then begin
            y = w2
+           r = w2_rej
+           h = w2hdr
         endif
         if jj eq 4 then begin
            y = w3
+           r = w3_rej
+           h = w3hdr
         endif
         if jj eq 5 then begin
            y = w4
+           r = w4_rej
+           h = w4hdr
         endif
-        this_phot.ct = phot_ct
 
-;       Adjust by "mega" factor
+        r = r and (no_rej eq 0)
+
+;       MJy -> Jy
         y *= 1d6
-        ;this_phot.rms *= 1d6
-        ;this_phot.std *= 1d6
 
-        ;this_phot.unc_stat = sqrt(this_phot.ct) * area_sr * this_phot.rms
-        ;this_phot.unc_conf = sqrt(this_phot.ct) * area_sr * this_phot.std
-        
+        this_phot.pgc = s[ii].pgc
+        this_phot.gl_deg = s[ii].gl_deg
+        this_phot.gb_deg = s[ii].gb_deg
+        this_phot.band = bands[jj]
+        this_phot.present = 1B
+
+        this_rms = sxpar(h, 'MADALL')*1d6 ; MJy -> Jy
+        this_std = sxpar(h, 'STDALL')*1d6 ; MJy -> Jy
+
+        this_phot.true_posang = true_posang
+        this_phot.adopted_posang = this_posang
+
+        this_phot.true_incl = true_incl
+        this_phot.adopted_incl = this_incl
+
+        this_phot.true_r25 = true_r25
+        this_phot.fiducial_limit = this_fiducial_limit
+
+;       Make the radial profiles once, for the maximum radius        
+        phot_ind = where(rad_deg le max(limit_ra)*this_fiducial_limit, phot_ct)
+        if phot_ct eq 0 then begin           
+           if s[ii].pgc eq 0 then stop
+           print, "No valid data for PGC "+str(s[ii].pgc)
+           continue
+        endif                     
+           
         if total(finite(y[phot_ind])) eq 0 then $
            continue
-
+           
         bins = $
            bin_data(rad_deg[phot_ind], y[phot_ind], /nan $
                     , xmin=-0.5*spacing_deg $
-                    , xmax=limit_deg $
+                    , xmax=max(limit_ra)*this_fiducial_limit $
                     , binsize=spacing_deg)
 
-        plus_bins = $
-           bin_data(rad_deg[plus_ind], y[plus_ind], /nan $
+        rej_bins = $
+           bin_data(rad_deg[phot_ind], (r*y)[phot_ind], /nan $
                     , xmin=-0.5*spacing_deg $
-                    , xmax=plus_limit $
+                    , xmax=max(limit_ra)*this_fiducial_limit $
                     , binsize=spacing_deg)
+                
+        for kk = 0, n_limit-1 do begin
 
-        minus_bins = $
-           bin_data(rad_deg[minus_ind], y[minus_ind], /nan $
-                    , xmin=-0.5*spacing_deg $
-                    , xmax=minus_limit $
-                    , binsize=spacing_deg)
-        
-        this_phot.mean = total(bins.ymean*area_sr*bins.counts, /nan)
-        this_phot.med = total(bins.ymed*area_sr*bins.counts, /nan)
-        if n_elements(bins) le 3 then begin
-           this_phot.hybrid = this_phot.mean
-        endif else begin
-           this_phot.hybrid = $
-              total(bins[0:2].ymean*area_sr*bins[0:2].counts, /nan) + $
-              total(bins[3:*].ymed*area_sr*bins[3:*].counts, /nan)
-        endelse
+           this_limit = limit_ra[kk]*this_fiducial_limit
+           bin_mask = bins.xmid le this_limit
 
-        this_phot.mean_plusrad = $
-           total(plus_bins.ymean*area_sr*plus_bins.counts, /nan)
-        this_phot.med_plusrad = $
-           total(plus_bins.ymed*area_sr*plus_bins.counts, /nan)
-        if n_elements(bins) le 3 then begin
-           this_phot.hybrid_plusrad = this_phot.mean_plusrad
-        endif else begin
-           this_phot.hybrid_plusrad = $
-              total(plus_bins[0:2].ymean*area_sr*plus_bins[0:2].counts, /nan) + $
-              total(plus_bins[3:*].ymed*area_sr*plus_bins[3:*].counts, /nan)
-        endelse
+           this_phot.mean[kk] = $
+              total(bins.ymean*area_sr*bins.counts*bin_mask, /nan)
+           this_phot.med[kk] = $
+              total(bins.ymed*area_sr*bins.counts*bin_mask, /nan)  
+           this_phot.rejected_flux[kk] = $
+              total(rej_bins.ymean*area_sr*rej_bins.counts*bin_mask, /nan)
 
-        this_phot.mean_minusrad = $
-           total(minus_bins.ymean*area_sr*minus_bins.counts, /nan)
-        this_phot.med_minusrad = $
-           total(minus_bins.ymed*area_sr*minus_bins.counts, /nan)
-        if n_elements(bins) le 3 then begin
-           this_phot.hybrid_minusrad = this_phot.mean_minusrad
-        endif else begin
-           this_phot.hybrid_minusrad = $
-              total(minus_bins[0:2].ymean*area_sr*minus_bins[0:2].counts, /nan) + $
-              total(minus_bins[3:*].ymed*area_sr*minus_bins[3:*].counts, /nan)
-        endelse
+           indep_meas = (total(bins.counts*bin_mask)/oversamp)
+           this_phot.unc_stat[kk] = this_rms * sqrt(indep_meas) * area_sr
+           this_phot.unc_conf[kk] = this_std * sqrt(indep_meas) * area_sr
+
+        endfor
 
         phot[ii,jj] = this_phot
 
      endfor
 
   endfor
+
+  stop
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; WRITE TO DISK

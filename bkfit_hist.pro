@@ -8,9 +8,9 @@ function bkfit_hist $
   if n_elements(rej_thresh) then $
      rej_thresh = 0.1
 
-  rejected = mask eq 10 or $
-             finite(map) eq 0 or $
-             rejected ge rej_thresh
+;  rejected = mask ne 10 or $
+;             finite(map) eq 0 or $
+;             rejected ge rej_thresh
 
   fit_ind = where(rejected eq 0, fit_ct)
   if fit_ct eq 0 then return, !values.f_nan

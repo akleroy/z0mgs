@@ -1,33 +1,33 @@
-pro plot_unwise_stats_vs_b
+pro plot_galex_stats_vs_b
 
   tab = mrdfits('../measurements/delivery_index.fits',1,h)
   b = tab.gb_deg
 
+;  restore, '../measurements/unwise_stats_with_dat.idl', /v
+
   plot, findgen(10), title='!6Test'
 
-  for this_band = 0, 3 do begin
+;  restore, file='../measurements/unwise_stats_with_dat.idl', /v
+;  restore, file='../measurements/galex_stats.idl'
+
+  plot, findgen(10), title='!6Test'
+
+  for this_band = 0, 1 do begin
 
      if this_band eq 0 then begin
-        this_rms = tab.rms_wise1
-        this_std = tab.std_wise1
+        band_str = 'NUV'     
+        this_rms = tab.rms_nuv
+        this_std = tab.std_nuv
      endif
      if this_band eq 1 then begin
-        this_rms = tab.rms_wise2
-        this_std = tab.std_wise2
-     endif
-     if this_band eq 2 then begin
-        this_rms = tab.rms_wise3
-        this_std = tab.std_wise3
-     endif
-     if this_band eq 3 then begin
-        this_rms = tab.rms_wise4
-        this_std = tab.std_wise4
+        band_str = 'FUV'
+        this_rms = tab.rms_fuv
+        this_std = tab.std_fuv
      endif
 
      bmin = -87.5
      bmax = +87.5
      bbinsize = 5.0
-
      rms_bins = $
         bin_data(b, this_rms, /nan $
                  , xmin=bmin, xmax=bmax, binsize=bbinsize)
@@ -35,12 +35,12 @@ pro plot_unwise_stats_vs_b
         bin_data(b, this_std, /nan $
                  , xmin=bmin, xmax=bmax, binsize=bbinsize)
      
-     psfile = '../plots/unwise_noise_lat_band'+str(this_band+1)+'.eps'
+     psfile = '../plots/galex_noise_lat_'+band_str+'.eps'
      ps, /def, /ps, xs=8, ys=4, /color, /encaps $
          , file=psfile
      
-     ymin = -3.
-     ymax = 1.0
+     ymin = -4.0
+     ymax = 0.0
      plot $
         , [0], [0], /nodata $
         , xtitle='!6Galactic Latitude' $
@@ -72,7 +72,7 @@ pro plot_unwise_stats_vs_b
         , /top, /right $
         , box=0, clear=0, charsize=1.75, charthick=3 $
         , lines=-99 $
-        , ['!6WISE '+str(this_band+1)]
+        , ['!6GALEX '+band_str]
 
      al_legend $
         , /top, /left $
