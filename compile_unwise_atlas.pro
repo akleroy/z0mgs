@@ -19,6 +19,7 @@ pro compile_unwise_atlas $
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   in_dir = '../unwise/dlang_custom/z0mgs/PGC/'
+  mask_dir = '../masks/'
   out_dir = '../unwise/atlas/'
 
   build_galaxy_list $
@@ -151,6 +152,12 @@ pro compile_unwise_atlas $
               end_psf='g15', $
               outfile=outfile
 
+           map = readfits(outfile, hdr)
+           sxaddpar, hdr, 'BMAJ', 15./3600.
+           sxaddpar, hdr, 'BMIN', 15./3600.
+           sxaddpar, hdr, 'BMPA', 0.0
+           writefits, outfile, map, hdr
+
            if band le 3 then begin
               outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
 
@@ -159,6 +166,13 @@ pro compile_unwise_atlas $
                  start_psf='w'+str(band), $
                  end_psf='g7p5', $
                  outfile=outfile
+
+              map = readfits(outfile, hdr)
+              sxaddpar, hdr, 'BMAJ', 7.5/3600.
+              sxaddpar, hdr, 'BMIN', 7.5/3600.
+              sxaddpar, hdr, 'BMPA', 0.0
+              writefits, outfile, map, hdr
+
            endif
            
         endfor
@@ -194,6 +208,7 @@ pro compile_unwise_atlas $
            for mm = 0, 1 do begin
           
               if mm eq 0 and band lt 4 then begin
+                 res_str = 'gauss7p5'
                  infile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
                  outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5_small.fits'
                  do_rebin = 0B
@@ -237,6 +252,7 @@ pro compile_unwise_atlas $
               high_y = ceil(mean_y + delta_pix) < (sz[2]-1)
 
               hextract, map, hdr, low_x, high_x, low_y, high_y, /silent
+              sz = size(map)
               if do_rebin then begin
                  new_sz = [sz[1]/2, sz[2]/2]
                  hrebin, map, hdr, out=new_sz
@@ -258,7 +274,7 @@ pro compile_unwise_atlas $
 
   !p.multi=0
 
-  !p.multi=[0,2,4]
+  !p.multi=0
 
   if keyword_set(do_bksub) then begin
      
@@ -280,75 +296,46 @@ pro compile_unwise_atlas $
            for mm = 0, 1 do begin
 
               if mm eq 0  then begin
-                 infile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
-                 maskfile = out_dir+pgc_name+'_mask.fits'              
-                 rejfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss15.fits'
-                 outfile = out_dir+pgc_name+'_w'+str(band)+'_bksub_gauss15.fits'
+                 res_str = 'gauss15'
               endif
               
               if mm eq 1 then begin
                  if band eq 4 then continue
-                 infile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
-                 maskfile = out_dir+pgc_name+'_mask.fits'              
-                 rejfile = out_dir+pgc_name+'_w'+str(band)+'_rejected_gauss7p5.fits'
-                 outfile = out_dir+pgc_name+'_w'+str(band)+'_bksub_gauss7p5.fits'
+                 res_str = 'gauss7p5'
               endif
 
-              test = readfits(infile, hdr)
-              if test[0] eq -1 then begin
-                 message, "Problematic FITS file. Skipping.", /info
+              infile = out_dir+pgc_name+'_w'+str(band)+'_'+res_str+'_small.fits'
+              outfile = out_dir+pgc_name+'_w'+str(band)+'_'+res_str+'_bksub.fits'
+              rejfile = out_dir+pgc_name+'_w'+str(band)+'_'+res_str+'_rejected.fits'
+
+              radfile = mask_dir+pgc_name+'_'+res_str+'_rgrid.fits'
+              galfile = mask_dir+pgc_name+'_'+res_str+'_galaxies.fits'
+              brightfile = mask_dir+pgc_name+'_w'+str(band)+'_'+res_str+'_bright_stars.fits'
+              foundfile = mask_dir+pgc_name+'_w'+str(band)+'_'+res_str+'_found_stars.fits'
+              handfile = mask_dir+pgc_name+'_w'+str(band)+'_'+res_str+'_custom.fits'
+
+              masklist = [galfile, brightfile, foundfile, handfile]
+
+              if file_test(infile) eq 0 then begin
+                 message, "File missing. Skipping.", /info
                  continue
               endif
               
-              if keyword_set(incremental) then begin
-                 hdr = headfits(infile)
-                 test = sxpar(hdr, 'BKGRD', count=kwd_ct)
-                 if kwd_ct gt 0 then begin
-                    continue
-                 endif
+              if keyword_set(incremental) and file_test(outfile) then begin
+                 message, 'Image already in place '+outfile, /info
+                 continue
               endif
               
-              map = readfits(infile, hdr, /silent)
-              mask = readfits(maskfile, /silent)
-
-              if band eq 3 or band eq 4 then begin
-
-                 bksub = $
-                    bkfit( $
-                    map=map $
-                    , mask=mask $
-                    , rejected=rejected $
-                    , niter=5 $
-                    , thresh=3.0 $
-                    , method='PLANE' $
-                    , coefs=coefs $
-                    , show=show $
-                    , pause=pause)              
-
-                 sxaddpar, hdr, 'PLANE0', coefs[0]
-                 sxaddpar, hdr, 'PLANE1', coefs[1]
-                 sxaddpar, hdr, 'PLANE2', coefs[2]
-
-              endif else begin
-
-                 bksub = $
-                    bkfit( $
-                    map=map $
-                    , mask=mask $
-                    , rejected=rejected $
-                    , niter=5 $
-                    , thresh=3.0 $
-                    , method='MEDIAN' $
-                    , coefs=coefs $
-                    , show=show $
-                    , pause=pause)
-                 
-                 sxaddpar, hdr, 'BKVAL', coefs[0]
-
-              endelse
-
-              writefits, outfile, bksub, hdr
-              writefits, rejfile, rejected, hdr
+              bkfit_unwise $
+                 , mapfile=infile $
+                 , outfile=outfile $
+                 , rejfile=rejfile $
+                 , radfile=radfile $
+                 , masklist=masklist $
+                 , band='w'+str(band) $
+                 , rejected=rejected $
+                 , show=show $
+                 , pause=pause
 
            endfor
 
@@ -357,84 +344,5 @@ pro compile_unwise_atlas $
      endfor
 
   endif
-
-  !p.multi=0
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; RUN STATISTICS
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-  !p.multi=0
-
-  if keyword_set(do_stats) then begin
-
-     for ii = 0, n_pgc-1 do begin
-
-        pgc_name = pgc_list[ii]
-        this_dat = gal_data[ii]
-
-        if n_elements(just) gt 0 then $
-           if total(pgc_name eq just) eq 0 then $
-              continue
-
-        print, ''
-        print, 'Runnings stats for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
-        print, ''
-
-        first_read = 1B
-
-        for band = 1, 4 do begin
-           
-           for res = 1, 2 do begin
-
-              if res eq 1 and band eq 4 then continue
-              
-              if res eq 1 then res_str = '_gauss7p5'
-              if res eq 2 then res_str = '_gauss15'
-              
-              infile = out_dir+pgc_name+'_w'+str(band)+'_bksub'+res_str+'.fits'
-              rejectfile = out_dir+pgc_name+'_w'+str(band)+'_rejected'+res_str+'.fits'
-              if res eq 0 then $
-                 rejectfile = out_dir+pgc_name+'_w'+str(band)+'_rejected.fits'
-              outfile = infile
-
-              test = file_search(infile, count=ct)
-              if ct eq 0 then begin
-                 message, 'File not found '+infile, /info
-                 continue
-              endif
-
-              if keyword_set(incremental) then begin
-                 hdr = headfits(outfile)
-                 test = sxpar(hdr, 'MEDALL', count=kwd_ct)
-                 if kwd_ct gt 0 then begin
-                    continue            
-                 endif     
-              endif
-              
-              if first_read then begin
-                 first_read = 0B
-                 maskfile = out_dir+pgc_name+'_mask.fits'
-                 test = file_search(maskfile, count=ct)
-                 if ct eq 0 then begin
-                    message, 'Mask not found '+infile, /info
-                    continue
-                 endif
-              endif
-              
-              z0mgs_stat_image $
-                 , infile=infile $
-                 , outfile=outfile $
-                 , mask=maskfile $
-                 , reject=rejectfile $
-                 , /quarters
-
-           endfor
-
-        endfor
-        
-     endfor
      
-  endif
-
 end

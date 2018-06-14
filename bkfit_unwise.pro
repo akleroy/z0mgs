@@ -1,8 +1,7 @@
-pro bkfit_galex $
+pro bkfit_unwise $
    , mapfile=infile $  
    , map=map $
    , hdr=hdr $
-   , wtfile=wtfile $
    , outfile=outfile $  
    , radfile=radfile $
    , fidrad=fidrad_in $
@@ -11,7 +10,6 @@ pro bkfit_galex $
    , rejfile=rejfile $
    , rejected=rejected $
    , bksub=bksub $
-   , plane=plane $
    , show=show $
    , pause=pause
   
@@ -19,10 +17,8 @@ pro bkfit_galex $
 ; READ DATA
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  noise_floor = 5e-5
-
    if n_elements(band) eq 0 then $
-      band = 'nuv'
+      band = 'w1'
  
   if n_elements(map) eq 0 or n_elements(hdr) eq 0 then begin
      if file_test(infile) eq 0 then begin
@@ -32,16 +28,7 @@ pro bkfit_galex $
      map = readfits(infile, hdr, /silent)  
   endif
 
-  wt = finite(map)*1.0
-  if n_elements(wtfile) ne 0 then begin
-     if file_test(wtfile) eq 0 then begin
-        message, 'Target weight file not found and map and header not supplied.', /info
-        return
-     endif     
-     wt = readfits(wtfile, hdr, /silent)  
-  endif
-
-  mask = finite(map) eq 0
+  mask = finite(map)*0B
   n_masks = n_elements(masklist)
   for ii = 0, n_masks-1 do begin
      if file_test(masklist[ii]) eq 0 then continue
@@ -60,12 +47,6 @@ pro bkfit_galex $
      thresh = 2.0
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; CREATE A VECTOR TO NORMALIZE FOR EXPOSURE TIME
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-  noiselike = 1./sqrt(wt/median(wt)) 
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; MASK OUT REGION NEAR THE GALAXY
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
@@ -82,8 +63,7 @@ pro bkfit_galex $
      endif
   endif
   mask = mask or aperture_mask
-  mask_frac = (total(mask)*1. - total(aperture_mask)*1.) $
-              /(n_elements(mask)*1. - total(aperture_mask)*1.0)
+  mask_frac = (total(mask)*1. - total(aperture_mask)*1.)/(n_elements(mask)*1. - total(aperture_mask)*1.0)
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; DEAL WITH THE CASE WHERE ALL DATA ARE MASKED
@@ -110,12 +90,12 @@ pro bkfit_galex $
      endif
 
      vec = map[bkind]
-     wtvec = noiselike[bkind]
-     rms = mad(vec) > noise_floor
+     rms = mad(vec)
      med = median(vec)
-     bad_ind = where(abs(vec-med) gt thresh*rms/wtvec, bad_ct)
+
+     bad_ind = where(abs(vec-med) gt thresh*rms, bad_ct)
      if bad_ct gt 0 then $
-        aperture[bkind[bad_ind]] = 0B    
+        aperture[bkind[bad_ind]] = 0B
 
   endfor 
 
@@ -126,10 +106,7 @@ pro bkfit_galex $
 ; PLANE FIT
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-; Should not happen right now.
-
-  fit_a_plane = 0B
-  if keyword_set(plane) and mask_frac lt 0.75 then begin
+  if band eq 'w3' or band eq 'w4' then begin
 
      sz = size(map)
      x = findgen(sz[1]) # (fltarr(sz[2])+1.0)
@@ -141,13 +118,12 @@ pro bkfit_galex $
         if ct eq 0 then continue
         this_x = x[bkind]
         this_y = y[bkind]
-        vec = map[bkind]        
-        wtvec = noiselike[bkind]
-
+        vec = map[bkind]
+        
         coefs = planefit(this_x,this_y,vec,0., yfit)
         resid = vec - yfit
-        rms = mad(resid) > noise_floor
-        bad_ind = where(abs(resid) gt thresh*rms*wtvec, bad_ct)
+        rms = mad(resid)
+        bad_ind = where(abs(resid) gt thresh*rms, bad_ct)
         if bad_ct gt 0 then $
            aperture[bkind[bad_ind]] = 0B
 
@@ -155,26 +131,17 @@ pro bkfit_galex $
      
      fit = coefs[0] + coefs[1]*x + coefs[2]*y
      bksub = map-fit
-     fit_a_plane = 1B
+
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; RECENTER HISTOGRAM
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  if rms lt 1d-6 or finite(rms) eq 0 then begin
-     print, "Noise too low. Stopping."
-     stop
-  endif
-
   fit_ind = where(mask eq 0, fit_ct)     
-  if abs(median(bksub[fit_ind])) gt 5.*rms then begin
-     print, "Background subtraction has failed. Stopping."
-     stop
-  endif
   bins = bin_data(bksub[fit_ind], bksub[fit_ind]*0.0+1.0 $
                   , xmin=-5.*rms, xmax=5.*rms $
-                  , binsize=0.05*rms, /nan)
+                  , binsize=0.05*rms, /nan)     
   hist = convol(bins.counts*1.0, psf_gaussian(npix=21,fwhm=7,ndim=1),/nan)  
   maxval = max(hist, maxind, /nan)
   bksub = bksub - bins[maxind].xmid
@@ -223,7 +190,6 @@ pro bkfit_galex $
 
      if keyword_set(pause) then ch = get_kbrd(1)
      !p.multi=0
-
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -236,7 +202,6 @@ pro bkfit_galex $
      sxaddpar, hdr_copy, 'STDDEV', std
      sxaddpar, hdr_copy, 'MASKFRAC', mask_frac
      sxaddpar, hdr_copy, 'REJFRAC', rej_frac 
-     sxaddpar, hdr_copy, 'FITPLANE', fit_a_plane
      writefits, outfile, bksub, hdr_copy
   endif
 

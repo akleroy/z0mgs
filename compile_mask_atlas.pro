@@ -2,7 +2,7 @@ pro compile_mask_atlas $
    , rad = do_rad_mask $
    , gal = do_gal_mask $
    , bright = do_bright_star_mask $
-   , unsharp = do_unsharp_mask $
+   , find = do_find_stars $
    , show = show $
    , pause = pause $
    , only = only $
@@ -137,7 +137,8 @@ pro compile_mask_atlas $
               , skip_pgc = [this_dat.pgc] $
               , outfile = galaxy_mask_file $
               , galdata = all_gals $
-              , rad_to_blank = 1.0 $
+              , rad_to_blank = 1.25 $
+              , min_rad = 7.5/3600. $
               , n_found = n_found $
               , pgc_found = overlap_pgc $
               , show=show $
@@ -190,20 +191,34 @@ pro compile_mask_atlas $
            
            for mm = 0, 1 do begin
 
-              if mm eq 0 then res = 'gauss15'
-              if mm eq 1 then res = 'gauss7p5'
+              if mm eq 0 then begin
+                 fwhm = 15.0/3600.
+                 res = 'gauss15'
+              endif
+              if mm eq 1 then begin
+                 fwhm = 7.5/3600.
+                 res = 'gauss7p5'
+                 if band eq 'w4' then continue
+              endif
                          
               infile = atlas_dir+pgc_name+'_'+band+'_'+res+'_small.fits'
               if file_test(infile) eq 0 then begin
                  print, "File missing, proceeding ... ", infile
                  continue
               endif
+
+              hdr = headfits(infile)
+              if sxpar(hdr, 'SKIP') eq 1 then begin
+                 print, "Header says to skip."
+                 continue
+              endif
               
               bright_star_mask_file = $
                  out_dir+pgc_name+'_'+band+'_'+res+'_bright_stars.fits'
               
-              build_bright_star__mask $
+              build_bright_star_mask $
                  , infile = infile $
+                 , fwhm = fwhm $
                  , outfile = bright_star_mask_file $     
                  , band = band $
                  , star_tol = star_tol $
@@ -234,12 +249,12 @@ pro compile_mask_atlas $
   endif  
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; MAKE UNSHARP MASKS
+; MAKE POINT SOURCE MASKS
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   !p.multi=0
 
-  if keyword_set(do_unsharp_mask) then begin
+  if keyword_set(do_find_stars) then begin
 
      for ii = 0, n_pgc-1 do begin
 
@@ -255,8 +270,32 @@ pro compile_mask_atlas $
         print, ''
 
 ;       FIND THE STARS IN THE WISE1 7.5" IMAGE
-
+        infile = unwise_dir+pgc_name+'_w1_gauss7p5_small.fits'
+        if file_test(infile) eq 0 then begin
+           print, "No WISE1 7.5'' image. Stopping."
+           stop
+        endif
         
+        find_point_sources $
+           , infile = infile $
+           , outfile=outfile $
+           , fwhm=7.5/3600. $
+           , exclude_ra = this_dat.ra_deg $
+           , exclude_dec = this_dat.dec_deg $
+           , exclude_tol = 15./3600. $
+           , n_star=n_star $
+           , star_ra=star_ra $
+           , star_dec=star_dec $
+           , star_intens=star_intens $
+           , star_km=star_km $
+           , show=show $
+           , pause=pause
+
+;       SAVE AN IDL FILE LISTING THE STARS THAT OVERLAP THIS FIELD
+        if n_star gt 0 then begin
+           outfile = out_dir+pgc_name+'_found_stars.idl'
+           save, file=outfile, n_star, star_ra, star_dec, star_km
+        endif
         
 ;       LOOP OVER BANDS TO REMOVE THE STARS
 
@@ -268,14 +307,23 @@ pro compile_mask_atlas $
            if jj eq 2 then band = 'w3'
            if jj eq 3 then band = 'w4'
 
+
            if jj eq 4 then band = 'nuv'
            if jj eq 5 then band = 'fuv'
+
            if jj eq 4 or jj eq 5 then atlas_dir = galex_dir
            
            for mm = 0, 1 do begin
 
-              if mm eq 0 then res = 'gauss15'
-              if mm eq 1 then res = 'gauss7p5'
+              if mm eq 0 then begin
+                 res = 'gauss15'
+                 fwhm = 15.0/3600.
+              endif
+              if mm eq 1 then begin
+                 res = 'gauss7p5'
+                 fwhm = 7.5/3600.
+                 if band eq 'w4' then continue
+              endif
                          
               infile = atlas_dir+pgc_name+'_'+band+'_'+res+'_small.fits'
               if file_test(infile) eq 0 then begin
@@ -283,6 +331,37 @@ pro compile_mask_atlas $
                  continue
               endif
 
+              hdr = headfits(infile)
+              if sxpar(hdr, 'SKIP') eq 1 then begin
+                 print, "Header says to skip."
+                 continue
+              endif
+              
+              found_star_mask_file = $
+                 out_dir+pgc_name+'_'+band+'_'+res+'_found_stars.fits'
+
+              if n_star eq 0 then begin
+
+                 print, "... writing blank mask."
+                 map = readfits(infile, hdr)
+                 mask = finite(map)*0B
+                 sxaddpar, hdr, 'BUNIT', 'MASK'
+                 writefits, found_star_mask_file, map, hdr
+                 continue
+
+              endif 
+              
+              build_bright_star_mask $
+                 , infile = infile $
+                 , fwhm = fwhm $
+                 , outfile = found_star_mask_file $     
+                 , band = band $
+                 , star_ra = star_ra $
+                 , star_dec = star_dec $
+                 , star_km = star_km $
+                 , show=show $
+                 , pause=pause
+              
            endfor
            
         endfor

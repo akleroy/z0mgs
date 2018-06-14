@@ -1,6 +1,6 @@
 pro plot_star_stacks
 
-  restore, '../measurements/star_stacks/star_stack_w1_1.idl', /v
+  restore, '../measurements/star_stacks/star_stack_w1_gauss7p5.idl', /v
   w1_val = val
   w1_mag = mag
   w1_bins = bin_data(alog10(w1_val), w1_mag, /nan $
@@ -94,8 +94,8 @@ pro plot_star_stacks
   pix = 2.75
 
   plot, findgen(10)
-  psfile = 'mag_vs_intens_wise.eps'
-  pnfile = 'mag_vs_intens_wise.png'
+  psfile = '../plots/mag_vs_intens_wise.eps'
+  pnfile = '../plots/mag_vs_intens_wise.png'
   ps, /def, /ps, xs=5, ys=5, /color, /encaps $
       , file=psfile
   
@@ -127,8 +127,8 @@ pro plot_star_stacks
   spawn, 'evince '+psfile+' &'     
 
   plot, findgen(10)
-  psfile = 'mag_vs_intens_galex.eps'
-  pnfile = 'mag_vs_intens_galex.png'
+  psfile = '../plots/mag_vs_intens_galex.eps'
+  pnfile = '../plots/mag_vs_intens_galex.png'
   ps, /def, /ps, xs=5, ys=5, /color, /encaps $
       , file=psfile
   
@@ -155,8 +155,8 @@ pro plot_star_stacks
 
   plot, findgen(10)
   loadct, 0
-  psfile = 'wise_beam.eps'
-  pnfile = 'wise_beam.png'
+  psfile = '../plots/wise_beam.eps'
+  pnfile = '../plots/wise_beam.png'
   ps, /def, /ps, xs=5, ys=5, /color, /encaps $
       , file=psfile
   

@@ -9,6 +9,7 @@ pro build_galaxy_mask $
    , pause=pause $
    , galdata = allgals $
    , rad_to_blank = rad_to_blank $
+   , min_rad = min_rad $
    , n_found = n_found $
    , pgc_found = pgc_found
   
@@ -23,6 +24,8 @@ pro build_galaxy_mask $
      endif     
      map = readfits(infile, hdr, /silent)  
   endif
+  xyad, hdr, [0,0], [0,1], ra, dec
+  pix_deg = abs(sphdist(ra[0], dec[0], ra[1], dec[1], /deg))
 
   sz = size(map)
   mask = finite(map)*0B
@@ -33,6 +36,10 @@ pro build_galaxy_mask $
 
   if n_elements(rad_to_blank) eq 0 then begin
      rad_to_blank = 1.0
+  endif
+
+  if n_elements(min_rad) eq 0 then begin
+     min_rad = 7.5/3600.
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -70,8 +77,8 @@ pro build_galaxy_mask $
      this_ra = allgals[gal_ind[kk]].ra_deg
      this_dec = allgals[gal_ind[kk]].dec_deg
      this_rad = allgals[gal_ind[kk]].r25_deg*rad_to_blank
-     if finite(this_rad) eq 0 then $
-        this_rad = 30./3600.*rad_to_blank
+     if finite(this_rad) eq 0 or (this_rad lt min_rad) then $
+        this_rad = min_rad
 
      this_incl = allgals[gal_ind[kk]].incl_deg
      this_pa = allgals[gal_ind[kk]].posang_deg
@@ -85,7 +92,7 @@ pro build_galaxy_mask $
         [this_pa, this_incl, this_ra, this_dec]
      deproject, ri, di, this_pos_vec, rgrid=this_rgrid
            
-     blank_ind = where(this_rgrid le this_rad, blank_ct)
+     blank_ind = where(this_rgrid le (this_rad+pix_deg), blank_ct)
      if blank_ct gt 0 then begin
         mask[blank_ind] = 1B
      endif
