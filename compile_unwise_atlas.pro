@@ -2,9 +2,7 @@ pro compile_unwise_atlas $
    , units = do_units $
    , convol = do_convol $
    , extract = do_extract $
-   , mask = do_mask $
    , bksub = do_bksub $
-   , stats = do_stats $
    , show = show $
    , only = only $
    , pause = pause $
@@ -31,7 +29,7 @@ pro compile_unwise_atlas $
      , dat = gal_data $
      , start = start_num $
      , stop = stop_num $
-     , exclude = ['PGC17223']
+     , exclude = ['PGC17223','PGC89980']
   
   n_pgc = n_elements(pgc_list)
 
@@ -207,6 +205,8 @@ pro compile_unwise_atlas $
 
            for mm = 0, 1 do begin
           
+              if mm eq 0 and band eq 4 then continue
+
               if mm eq 0 and band lt 4 then begin
                  res_str = 'gauss7p5'
                  infile = out_dir+pgc_name+'_w'+str(band)+'_gauss7p5.fits'
