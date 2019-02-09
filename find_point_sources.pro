@@ -40,8 +40,10 @@ pro find_point_sources $
   if n_elements(band) eq 0 then $
      band = 'w1'
 
-  if n_elements(thresh) eq 0 then $
-     thresh = 0.1
+  if n_elements(thresh) eq 0 then begin
+     thresh = 0.05
+     ;thresh = 10.*mad(map)
+  endif
 
   if n_elements(sharp) eq 0 then $
      sharplim = [0.2, 1.0]
@@ -132,10 +134,10 @@ pro find_point_sources $
 
      rms = 0.1
 
-     disp, map, ra, da, max=5*rms+median(map), min=-5.*rms+median(map) $
+     disp, map, max=5*rms+median(map), min=-5.*rms+median(map) $
            , /sq, xstyle=1, ystyle=1, reserve=5, color=cgcolor('white',255), /radec
 
-     oplot, star_ra, star_dec, psym=cgsymcat('filledstar') $
+     oplot, star_x, star_y, psym=cgsymcat('filledstar') $
             , color=cgcolor('orange'), symsize=2.0
      
      if keyword_set(pause) then ch = get_kbrd(1)

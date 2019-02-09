@@ -1,14 +1,12 @@
 pro plot_galex_stats_vs_b
 
-  tab = mrdfits('../measurements/delivery_index.fits',1,h)
-  b = tab.gb_deg
-
-;  restore, '../measurements/unwise_stats_with_dat.idl', /v
-
-  plot, findgen(10), title='!6Test'
-
-;  restore, file='../measurements/unwise_stats_with_dat.idl', /v
-;  restore, file='../measurements/galex_stats.idl'
+  tab15 = mrdfits('../measurements/delivery_index_gauss15.fits',1,h)
+  tab7p5 = mrdfits('../measurements/delivery_index_gauss7p5.fits',1,h)
+  if total(tab15.pgc ne tab7p5.pgc) then begin
+     print, "Some mismatch in tables."
+     stop
+  endif
+  b = tab15.gb_deg
 
   plot, findgen(10), title='!6Test'
 
@@ -16,37 +14,51 @@ pro plot_galex_stats_vs_b
 
      if this_band eq 0 then begin
         band_str = 'NUV'     
-        this_rms = tab.rms_nuv
-        this_std = tab.std_nuv
+        this_rms15 = tab15.rms_nuv
+        this_std15 = tab15.std_nuv
+        this_rms7p5 = tab7p5.rms_nuv
+        this_std7p5 = tab7p5.std_nuv
+        ymin = -4.5
+        ymax = -1.75
      endif
      if this_band eq 1 then begin
         band_str = 'FUV'
-        this_rms = tab.rms_fuv
-        this_std = tab.std_fuv
+        this_rms15 = tab15.rms_fuv
+        this_std15 = tab15.std_fuv
+        this_rms7p5 = tab7p5.rms_fuv
+        this_std7p5 = tab7p5.std_fuv
+        ymin = -4.5
+        ymax = -2.0     
      endif
 
-     bmin = -87.5
-     bmax = +87.5
+     bmin = 2.5
+     bmax = 87.5
      bbinsize = 5.0
-     rms_bins = $
-        bin_data(b, this_rms, /nan $
+
+     rms_bins15 = $
+        bin_data(b, this_rms15, /nan $
                  , xmin=bmin, xmax=bmax, binsize=bbinsize)
-     std_bins = $
-        bin_data(b, this_std, /nan $
+     std_bins15 = $
+        bin_data(b, this_std15, /nan $
+                 , xmin=bmin, xmax=bmax, binsize=bbinsize)
+     rms_bins7p5 = $
+        bin_data(b, this_rms7p5, /nan $
+                 , xmin=bmin, xmax=bmax, binsize=bbinsize)
+     std_bins7p5 = $
+        bin_data(b, this_std7p5, /nan $
                  , xmin=bmin, xmax=bmax, binsize=bbinsize)
      
      psfile = '../plots/galex_noise_lat_'+band_str+'.eps'
      ps, /def, /ps, xs=8, ys=4, /color, /encaps $
          , file=psfile
      
-     ymin = -4.0
-     ymax = 0.0
      plot $
         , [0], [0], /nodata $
-        , xtitle='!6Galactic Latitude' $
+        , xtitle='!3|!6 Galactic Latitude !3|!6' $
         , ytitle='!6log!d10!n Value [MJy sr!u-1!n]' $
         , xthick=5, ythick=5, charthick=3, charsize=1.5 $
-        , xrange=[-100., 100.], yrange=[ymin, ymax]
+        , xrange=[0., 100.], yrange=[ymin, ymax] $
+        , ystyle=1
 
      for ii = -100, 100 do $
         oplot, ii*15.*[1,1], [-10, 10], lines=1, color=cgcolor('charcoal')
@@ -56,30 +68,30 @@ pro plot_galex_stats_vs_b
 
      circle, /fill
 
-     oploterror, std_bins.xmid-1.0, alog10(std_bins.ymed), std_bins.ymad_log $
-                 , ps=cgsymcat('filledsquare') $
-                 , symsize=2.0, color=cgcolor('black'), errthick=3
-     oplot, std_bins.xmid-1.0, alog10(std_bins.ymed), ps=cgsymcat('filledsquare') $
-            , symsize=1.0 $
-            , color=cgcolor('salmon')
+     oplot,  std_bins7p5.xmid, alog10(std_bins7p5.ymed), lines = 2 $
+             , thick=10, color=cgcolor('firebrick')
 
-     oploterror, rms_bins.xmid+1.0, alog10(rms_bins.ymed), rms_bins.ymad_log $
-            , ps=cgsymcat('filledcircle'), symsize=2.0, color=cgcolor('black'), errthick=3
-     oplot, rms_bins.xmid+1.0, alog10(rms_bins.ymed), ps=cgsymcat('filledcircle') $
-            , symsize=1.0, color=cgcolor('dodgerblue')
+     oplot,  std_bins15.xmid, alog10(std_bins15.ymed), lines = 0 $
+             , thick=10, color=cgcolor('firebrick')
+
+     oplot,  rms_bins7p5.xmid, alog10(rms_bins7p5.ymed), lines = 2 $
+             , thick=10, color=cgcolor('navy')
+
+     oplot,  rms_bins15.xmid, alog10(rms_bins15.ymed), lines = 0 $
+             , thick=10, color=cgcolor('navy')
 
      al_legend $
         , /top, /right $
-        , box=0, clear=0, charsize=1.75, charthick=3 $
+        , box=1, clear=1, background=cgcolor('lightgray'), charsize=1.25, charthick=3 $
         , lines=-99 $
-        , ['!6GALEX '+band_str]
+        , ['!6GALEX '+band_str, '!6Std. Dev.', 'Robust Noise'] $
+        , textcolor=[cgcolor('black'), cgcolor('firebrick'), cgcolor('navy')]
 
      al_legend $
-        , /top, /left $
-        , box=0, clear=0, charsize=1.75, charthick=3 $
-        , lines=-99 $
-        , ['!6Std. Dev.', 'Robust Noise'] $
-        , textcolor=[cgcolor('salmon'), cgcolor('dodgerblue')]
+        , /bottom, /left $
+        , box=1, clear=1, background=cgcolor('lightgray'), charsize=1.25, charthick=3 $
+        , ['!67.5"','15"'] $
+        , color=cgcolor('black'), thick=5, pspacing=1.0, lines=[2,0]
 
      ps, /xw
      spawn, 'evince '+psfile+' &'

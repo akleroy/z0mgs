@@ -1,13 +1,13 @@
 pro plot_galex_time
 
-  tab = mrdfits('../measurements/delivery_index.fits',1,h)
+  tab = mrdfits('../measurements/delivery_index_gauss15.fits',1,h)
   b = tab.gb_deg
 
   plot, findgen(10), title='!6Test'
   
   xmin = 1.0
   xmax = 6.0
-  binsize = 0.1
+  binsize = 0.05
 
   vec = tab[where(tab.has_fuv)].time_fuv
   bins_fuv = $
@@ -20,21 +20,21 @@ pro plot_galex_time
               , xmin=xmin, xmax=xmax, binsize=binsize, /nan)
   
   psfile = '../plots/galex_time.eps'
-  ps, /def, /ps, xs=5, ys=5, /color, /encaps $
+  ps, /def, /ps, xs=5, ys=3.5, /color, /encaps $
       , file=psfile
   
   plot $
      , [0], [0], /nodata $
      , xtitle='!6log!d10!n Effective Integration [s]' $
      , ytitle='!6log!d10!n Number of Images' $
-     , xthick=5, ythick=5, charthick=3, charsize=1.5 $
-     , xrange=[xmin, xmax], yrange=[0., 5.]
+     , xthick=5, ythick=5, charthick=3, charsize=1.25 $
+     , xrange=[xmin, xmax], yrange=[0., 3.0]
   
   for ii = -100, 100 do $
      oplot, ii*binsize*10.*[1,1], [-10, 10], lines=1, color=cgcolor('charcoal')
 
   for ii = -100, 100 do $
-     oplot, [-10, 10], ii*0.25*[1,1], lines=1, color=cgcolor('charcoal')
+     oplot, [-10, 10], ii*0.5*[1,1], lines=1, color=cgcolor('charcoal')
   
   histplot $
      , bins_nuv.xmid, (alog10(bins_nuv.counts) > (0.)) $
@@ -61,10 +61,10 @@ pro plot_galex_time
      , /top, /right $
      , box=1, clear=1 $
      , background=cgcolor('lightgray') $
-     , charsize=1.75, charthick=3 $
+     , charsize=1.25, charthick=3 $
      , lines=-99 $
      , ['NUV','FUV'] $
-     , textcolor=[cgcolor('salmon'), cgcolor('royalblue')]
+     , textcolor=[cgcolor('firebrick'), cgcolor('royalblue')]
 
   ps, /xw
   spawn, 'evince '+psfile+' &'

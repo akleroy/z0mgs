@@ -86,6 +86,12 @@ pro build_aperture_mask $
   pa = this_dat.posang_deg
   incl = this_dat.incl_deg        
 
+  if finite(pa) then $
+     sxaddpar, hdr, 'GBPA', pa, 'Database position angle [deg]'
+
+  if finite(incl) then $
+     sxaddpar, hdr, 'GBINCL', incl, 'Database inclination [deg]'
+
   if n_elements(override_pa) gt 0 then begin
      if finite(override_pa) then $
         pa = override_pa
@@ -133,6 +139,9 @@ pro build_aperture_mask $
   if fid_rad lt 30./3600. or finite(fid_rad) eq 0 then begin
      fid_rad = 30./3600.
   endif
+
+  sxaddpar, hdr, 'PA', pa, 'Adopted position angle [deg]'
+  sxaddpar, hdr, 'INCL', incl, 'Adopted inclination [deg]'
 
   sxaddpar, hdr, 'FIDRAD', fid_rad, 'Fiducial radius [deg]'
 

@@ -11,6 +11,7 @@ pro bkfit_galex $
    , rejfile=rejfile $
    , rejected=rejected $
    , bksub=bksub $
+   , aperture_scale=aperture_scale $
    , plane=plane $
    , show=show $
    , pause=pause
@@ -38,7 +39,7 @@ pro bkfit_galex $
         message, 'Target weight file not found and map and header not supplied.', /info
         return
      endif     
-     wt = readfits(wtfile, hdr, /silent)  
+     wt = readfits(wtfile, wt_hdr, /silent)  
   endif
 
   mask = finite(map) eq 0
@@ -56,8 +57,12 @@ pro bkfit_galex $
 
   if n_elements(niter) eq 0 then $
      niter = 5
+
   if n_elements(thresh) eq 0 then $
      thresh = 2.0
+
+  if n_elements(aperture_scale) eq 0 then $
+     aperture_scale = 2.0
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; CREATE A VECTOR TO NORMALIZE FOR EXPOSURE TIME
@@ -73,12 +78,16 @@ pro bkfit_galex $
   if n_elements(radfile) gt 0 then begin
      if file_test(radfile) then begin
         rgrid = readfits(radfile, rhdr, /silent)
+        if total(size(rgrid, /dim) ne size(map, /dim)) gt 0 then begin
+           print, "Mismatched size. Returning."
+           return
+        endif
         if n_elements(fidrad_in) then begin
            fidrad = fidrad_in
         endif else begin
            fidrad = sxpar(rhdr, 'FIDRAD',missing=0.0)
         endelse
-        aperture_mask = rgrid lt fidrad*2.0
+        aperture_mask = rgrid lt fidrad*aperture_scale
      endif
   endif
   mask = mask or aperture_mask
@@ -126,8 +135,6 @@ pro bkfit_galex $
 ; PLANE FIT
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-; Should not happen right now.
-
   fit_a_plane = 0B
   if keyword_set(plane) and mask_frac lt 0.75 then begin
 
@@ -172,6 +179,7 @@ pro bkfit_galex $
      print, "Background subtraction has failed. Stopping."
      stop
   endif
+
   bins = bin_data(bksub[fit_ind], bksub[fit_ind]*0.0+1.0 $
                   , xmin=-5.*rms, xmax=5.*rms $
                   , binsize=0.05*rms, /nan)
@@ -203,7 +211,7 @@ pro bkfit_galex $
      disp, bksub, max=rms*3., min=-3.*rms, title=band
      contour, mask, /overplot, lev=[1], color=cgcolor('blue')
 
-     fit_ind = where(mask eq 0, fit_ct)     
+     fit_ind = where(mask eq 0, fit_ct)          
      bins = bin_data(map[fit_ind], map[fit_ind]*0.0+1.0 $
                      , xmin=-5.*rms, xmax=5.*rms $
                      , binsize=0.05*rms, /nan)     
@@ -232,7 +240,9 @@ pro bkfit_galex $
 
   if n_elements(outfile) gt 0 then begin
      hdr_copy = hdr
+     if finite(rms) eq 0 then rms = -1.
      sxaddpar, hdr_copy, 'RMS', rms
+     if finite(std) eq 0 then std = -1.
      sxaddpar, hdr_copy, 'STDDEV', std
      sxaddpar, hdr_copy, 'MASKFRAC', mask_frac
      sxaddpar, hdr_copy, 'REJFRAC', rej_frac 
@@ -242,7 +252,9 @@ pro bkfit_galex $
 
   if n_elements(rejfile) gt 0 then begin
      hdr_copy = hdr
+     if finite(rms) eq 0 then rms = -1.
      sxaddpar, hdr_copy, 'RMS', rms
+     if finite(std) eq 0 then std = -1.
      sxaddpar, hdr_copy, 'STDDEV', std     
      sxaddpar, hdr_copy, 'MASKFRAC', mask_frac
      sxaddpar, hdr_copy, 'REJFRAC', rej_frac 

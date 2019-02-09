@@ -30,7 +30,7 @@ pro compile_mask_atlas $
      , dat = gal_data $
      , start = start_num $
      , stop = stop_num $
-     , exclude = ['PGC17223']
+     , exclude = ['PGC17223','PGC89980','PGC917425']
   
   n_pgc = n_elements(pgc_list)
   
@@ -375,5 +375,57 @@ pro compile_mask_atlas $
 ; MAKE CUSTOM MASKS
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
+  !p.multi=0
+
+  if keyword_set(do_custom_mask) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = strcompress(pgc_list[ii], /rem)
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Custom mask construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        for jj = 0, 5 do begin
+
+           atlas_dir = unwise_dir
+           if jj eq 0 then band = 'w1'
+           if jj eq 1 then band = 'w2'
+           if jj eq 2 then band = 'w3'
+           if jj eq 3 then band = 'w4'
+
+
+           if jj eq 4 then band = 'nuv'
+           if jj eq 5 then band = 'fuv'
+
+           if jj eq 4 or jj eq 5 then atlas_dir = galex_dir
+           
+           for mm = 0, 1 do begin
+
+              if mm eq 0 then begin
+                 res = 'gauss15'
+                 fwhm = 15.0/3600.
+              endif
+              if mm eq 1 then begin
+                 res = 'gauss7p5'
+                 fwhm = 7.5/3600.
+                 if band eq 'w4' then continue
+              endif
+
+              
+
+           endfor
+           
+        endfor
+
+     endfor
+
+  endif
 
 end

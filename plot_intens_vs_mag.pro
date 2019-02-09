@@ -49,42 +49,43 @@ pro plot_intens_vs_mag
      
      plot $
         , [0], [0], /nodata $
-        , xtitle='!6log!d10!n Intensity [MJy sr!u-1!n]' $
-        , ytitle='!6log!d10!n Ks (2MASS) Magnitude' $
-        , xthick=5, ythick=5, charthick=3, charsize=1.5 $
-        , xrange=[-1.0, 2.5], yrange=[0., 11.] $
+        , ytitle='!6log!d10!n Intensity [MJy sr!u-1!n]' $
+        , xtitle='!6log!d10!n Ks (2MASS) Magnitude' $
+        , xthick=5, ythick=5, charthick=3, charsize=1.25 $
+        , yrange=[-1.0, 2.5], xrange=[11., 0.] $
         , /xstyle
      
      for ii = -100, 100 do $
-        oplot, [-100,100], ii*1.0*[1,1], lines=1
+        oplot, ii*1.0*[1,1], [-100,100], lines=1
      for ii = -100, 100 do $
-        oplot, ii*0.5*[1,1], [-100,100], lines=1
+        oplot, [-100,100], ii*0.5*[1,1], lines=1
 
      if res_str eq 'gauss15' then begin
-        oplot, alog10(w4_val), w4_mag, ps=1, symsize=0.5, color=cgcolor('lightseagreen')
+        oplot, w4_mag, alog10(w4_val), ps=1, symsize=0.5, color=cgcolor('lightseagreen')
      endif
 
-     oplot, alog10(w3_val), w3_mag, ps=1, symsize=0.5, color=cgcolor('goldenrod')
-     oplot, alog10(w2_val), w2_mag, ps=1, symsize=0.5, color=cgcolor('salmon')
-     oplot, alog10(w1_val), w1_mag, ps=1, symsize=0.5, color=cgcolor('firebrick')
+     oplot, w3_mag, alog10(w3_val), ps=1, symsize=0.5, color=cgcolor('goldenrod')
+     oplot, w2_mag, alog10(w2_val), ps=1, symsize=0.5, color=cgcolor('salmon')
+     oplot, w1_mag, alog10(w1_val), ps=1, symsize=0.5, color=cgcolor('firebrick')
      
      fid = 10^(findgen(101)/100.*5.-2.)
      
-     oplot, alog10(fid) $
-            , -1.*alog10(1./w1_coef*fid)*2.5, thick=3, lines=2, color=cgcolor('black')
-     oplot, alog10(fid) $
-            , -1.*alog10(1./w2_coef*fid)*2.5, thick=3, lines=2, color=cgcolor('black')
-     oplot, alog10(fid) $
-            , -1.*alog10(1./w3_coef*fid)*2.5, thick=3, lines=2, color=cgcolor('black')
-
+     oplot, -1.*alog10(1./w1_coef*fid)*2.5, alog10(fid) $
+            , thick=3, lines=2, color=cgcolor('black')
+     oplot, -1.*alog10(1./w2_coef*fid)*2.5, alog10(fid) $
+            , thick=3, lines=2, color=cgcolor('black')
+     oplot, -1.*alog10(1./w3_coef*fid)*2.5, alog10(fid) $
+            , thick=3, lines=2, color=cgcolor('black')
+     
      if res_str eq 'gauss15' then begin
-        oplot, alog10(fid) $
-               , -1.*alog10(1./w4_coef*fid)*2.5, thick=3, lines=2, color=cgcolor('black')
+        oplot, -1.*alog10(1./w4_coef*fid)*2.5, alog10(fid) $
+               , thick=3, lines=2, color=cgcolor('black')
      endif     
      
-     al_legend, /bottom, /left, [legend_string] $
+     al_legend, /bottom, /right, [legend_string,'WISE1','WISE2','WISE3','WISE4'] $
                 , box=1, clear=1, lines=-99 $
                 , background=cgcolor('lightgray') $
+                , textcolor=[cgcolor('black'),cgcolor('firebrick'),cgcolor('salmon'),cgcolor('goldenrod'),cgcolor('lightseagreen')] $
                 , charsize=1.25, charthick=3
 
      ps, /xw
@@ -113,30 +114,31 @@ pro plot_intens_vs_mag
      
      plot $
         , [0], [0], /nodata $
-        , xtitle='!6log!d10!n Intensity [MJy sr!u-1!n]' $
-        , ytitle='!6log!d10!n Ks (2MASS) Magnitude' $
-        , xthick=5, ythick=5, charthick=3, charsize=1.5 $
-        , xrange=[-4.0, 1.0], yrange=[0., 11.] $
+        , ytitle='!6log!d10!n Intensity [MJy sr!u-1!n]' $
+        , xtitle='!6log!d10!n Ks (2MASS) Magnitude' $
+        , xthick=5, ythick=5, charthick=3, charsize=1.25 $
+        , yrange=[-4.0, 1.0], xrange=[11., 0.] $
         , /xstyle
      
      for ii = -100, 100 do $
-        oplot, [-100,100], ii*1.0*[1,1], lines=1
+        oplot, ii*1.0*[1,1], [-100,100],  lines=1
      for ii = -100, 100 do $
-        oplot, ii*0.5*[1,1], [-100,100], lines=1
+        oplot, [-100,100], ii*0.5*[1,1], lines=1
 
-     oplot, alog10(nuv_val), nuv_mag, ps=1, symsize=0.5, color=cgcolor('dodgerblue')
-     oplot, alog10(fuv_val), fuv_mag, ps=1, symsize=0.5, color=cgcolor('orchid')
+     oplot, nuv_mag, alog10(nuv_val), ps=1, symsize=0.5, color=cgcolor('dodgerblue')
+     oplot, fuv_mag, alog10(fuv_val), ps=1, symsize=0.5, color=cgcolor('orchid')
      
      fid = 10^(findgen(101)/100.*10.-5.)
      
-     oplot, alog10(fid) $
-            , -1.*alog10(1./nuv_coef*fid)*2.5, thick=3, lines=2, color=cgcolor('black')
-     oplot, alog10(fid) $
-            , -1.*alog10(1./fuv_coef*fid)*2.5, thick=3, lines=2, color=cgcolor('black')
-          
-     al_legend, /bottom, /left, [legend_string] $
+     oplot $
+        , -1.*alog10(1./nuv_coef*fid)*2.5, alog10(fid), thick=3, lines=2, color=cgcolor('black')
+     oplot $
+        , -1.*alog10(1./fuv_coef*fid)*2.5, alog10(fid), thick=3, lines=2, color=cgcolor('black')
+     
+     al_legend, /bottom, /right, [legend_string,'FUV','NUV'] $
                 , box=1, clear=1, lines=-99 $
-                , background=cgcolor('lightgray') $
+                , background=[cgcolor('lightgray')] $
+                , textcolor=[cgcolor('black'),cgcolor('orchid'),cgcolor('dodgerblue')] $
                 , charsize=1.25, charthick=3
 
      ps, /xw

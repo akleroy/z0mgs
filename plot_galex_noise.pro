@@ -4,10 +4,13 @@ pro plot_galex_noise $
   perc_lo = 2.0/1000.
   perc_hi = 1.0 - perc_lo
 
-;  restore, file='../measurements/unwise_stats_with_dat.idl', /v
-;  restore, file='../measurements/galex_stats.idl'
-  tab = mrdfits('../measurements/delivery_index.fits',1,h)
-  b = tab.gb_deg
+  tab15 = mrdfits('../measurements/delivery_index_gauss15.fits',1,h)
+  tab7p5 = mrdfits('../measurements/delivery_index_gauss7p5.fits',1,h)
+  if total(tab15.pgc ne tab7p5.pgc) then begin
+     print, "Some mismatch in tables."
+     stop
+  endif
+  b = tab15.gb_deg
 
   plot, findgen(10), title='!6Test'
 
@@ -17,11 +20,13 @@ pro plot_galex_noise $
         if keyword_set(flat) then begin
            xmin = -3.0
            xmax = -1.0
-           stat = tab.flatrms_nuv
+           stat15 = tab15.flatrms_nuv
+           stat7p5 = tab7p5.flatrms_nuv
         endif else begin
            xmin = -4.25
            xmax = -2.25
-           stat = tab.rms_nuv
+           stat15 = tab15.rms_nuv
+           stat7p5 = tab7p5.rms_nuv
         endelse
         binsize = 0.01   
         band_str = 'NUV'
@@ -30,11 +35,13 @@ pro plot_galex_noise $
         if keyword_set(flat) then begin
            xmin = -3.0
            xmax = -1.0
-           stat = tab.flatrms_fuv
+           stat15 = tab15.flatrms_fuv
+           stat7p5 = tab7p5.flatrms_fuv
         endif else begin
            xmin = -4.5
            xmax = -2.0
-           stat = tab.rms_fuv
+           stat15 = tab15.rms_fuv
+           stat7p5 = tab7p5.rms_fuv
         endelse
         binsize = 0.01
         band_str = 'FUV'
@@ -43,28 +50,29 @@ pro plot_galex_noise $
      high_b = where(abs(b) gt 40.)
      low_b = where(abs(b) le 40.)
 
-     if keyword_set(flat) then begin
-        vec = (alog10(stat))[high_b]
-     endif else begin
-        vec = (alog10(stat))[high_b]
-     endelse
+     vec15 = (alog10(stat15))[high_b]
+     bins15 = bin_data(vec15, vec15*0.0+1.0 $
+                       , xmin=xmin, xmax=xmax, binsize=binsize, /nan)
 
-     bins_15 = bin_data(vec, vec*0.0+1.0 $
+     vec7p5 = (alog10(stat7p5))[high_b]
+     bins7p5 = bin_data(vec7p5, vec7p5*0.0+1.0 $
                         , xmin=xmin, xmax=xmax, binsize=binsize, /nan)
-     vec = vec[sort(vec)]
-     n = n_elements(vec)
-     print, 'GALEX BAND '+band_str
-     print, '... 16: ', 10.^(vec[round(n*0.16)])
-     print, '... 50: ', 10.^(vec[round(n*0.50)])
-     print, '... 84: ', 10.^(vec[round(n*0.84)])
 
-     if keyword_set(flat) then begin
-        vec = (alog10(stat))[low_b]
-     endif else begin
-        vec = (alog10(stat))[low_b]
-     endelse
-     bins_15_lowb = bin_data(vec, vec*0.0+1.0 $
-                             , xmin=xmin, xmax=xmax, binsize=binsize, /nan)
+     vec15 = vec15[where(finite(vec15))]
+     vec15 = vec15[sort(vec15)]
+     n = n_elements(vec15)
+     print, 'GALEX BAND '+band_str+' at 15" in 1e-4 units'
+     print, '... 16: ', 10.^(vec15[round(n*0.16)])/1e-4
+     print, '... 50: ', 10.^(vec15[round(n*0.50)])/1e-4
+     print, '... 84: ', 10.^(vec15[round(n*0.84)])/1e-4
+
+     vec7p5 = vec7p5[where(finite(vec7p5))]
+     vec7p5 = vec7p5[sort(vec7p5)]
+     n = n_elements(vec7p5)
+     print, 'GALEX BAND '+band_str+' at 7.5" in 1e-4 units'
+     print, '... 16: ', 10.^(vec7p5[round(n*0.16)])/1e-4
+     print, '... 50: ', 10.^(vec7p5[round(n*0.50)])/1e-4
+     print, '... 84: ', 10.^(vec7p5[round(n*0.84)])/1e-4
 
      if keyword_set(flat) then begin
         psfile = '../plots/galex_flatnoise_'+band_str+'.eps'
@@ -91,21 +99,21 @@ pro plot_galex_noise $
         oplot, [-10, 10], ii*0.25*[1,1], lines=1, color=cgcolor('charcoal')
 
      histplot $
-        , bins_15.xmid, (alog10(bins_15.counts) > (0.)) $
+        , bins15.xmid, (alog10(bins15.counts) > (0.)) $
         , /overplot $
         , lthick=3, /nobar, /fill $
         , fcolor=cgcolor('salmon') $
         , lcolor=cgcolor('firebrick')
 
      histplot $
-        , bins_15_lowb.xmid, (alog10(bins_15_lowb.counts) > (0.)) $
+        , bins7p5.xmid, (alog10(bins7p5.counts) > (0.)) $
         , /overplot $
         , lthick=3, /nobar, /fline, forient=45 $
         , fcolor=cgcolor('royalblue') $
         , lcolor=cgcolor('royalblue')
 
      histplot $
-        , bins_15_lowb.xmid, (alog10(bins_15_lowb.counts) > (0.)) $
+        , bins7p5.xmid, (alog10(bins7p5.counts) > (0.)) $
         , /overplot $
         , lthick=3, /nobar, /fline, forient=-45 $
         , fcolor=cgcolor('royalblue') $
@@ -117,8 +125,9 @@ pro plot_galex_noise $
         , background=cgcolor('lightgray') $
         , charsize=1.75, charthick=3 $
         , lines=-99 $
-        , ['!6GALEX '+band_str+' at 15"' $
-           , '!3|!8b!6!9!3|!6 > 40'+textoidl('\circ'), '!3|!8b!3|!6 < 40'+textoidl('\circ')] $
+        , ['!6'+band_str+' !3|!8b!6!9!3|!6 > 40'+textoidl('\circ') $
+           , '... at 15"' $
+           , '... at 7.5"'] $
         , textcolor=[cgcolor('black'), cgcolor('salmon') $
                      , cgcolor('royalblue')]
 

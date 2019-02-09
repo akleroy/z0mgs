@@ -10,8 +10,10 @@ pro bkfit_unwise $
    , rejfile=rejfile $
    , rejected=rejected $
    , bksub=bksub $
+   , aperture_scale=aperture_scale $
    , show=show $
-   , pause=pause
+   , pause=pause $
+   , plane=plane
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; READ DATA
@@ -28,11 +30,15 @@ pro bkfit_unwise $
      map = readfits(infile, hdr, /silent)  
   endif
 
-  mask = finite(map)*0B
+  mask = finite(map) eq 0
   n_masks = n_elements(masklist)
   for ii = 0, n_masks-1 do begin
      if file_test(masklist[ii]) eq 0 then continue
      this_mask = readfits(masklist[ii], this_mask_hdr, /silent)
+     if total(size(this_mask,/dim) ne size(map,/dim)) gt 0 then begin
+        message, "Mask wrong size. This shouldn't happen. Stopping.", /info
+        stop
+     endif
      this_mask = (this_mask mod 10) gt 0
      mask = mask or this_mask
   endfor
@@ -45,6 +51,8 @@ pro bkfit_unwise $
      niter = 5
   if n_elements(thresh) eq 0 then $
      thresh = 2.0
+  if n_elements(aperture_scale) eq 0 then $
+     aperture_scale = 2.0
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; MASK OUT REGION NEAR THE GALAXY
@@ -54,16 +62,21 @@ pro bkfit_unwise $
   if n_elements(radfile) gt 0 then begin
      if file_test(radfile) then begin
         rgrid = readfits(radfile, rhdr, /silent)
+        if total(size(rgrid,/dim) ne size(map,/dim)) gt 0 then begin
+           message, "Radius grid wrong size. This shouldn't happen. Stopping.", /info
+           stop
+        endif
         if n_elements(fidrad_in) then begin
            fidrad = fidrad_in
         endif else begin
            fidrad = sxpar(rhdr, 'FIDRAD',missing=0.0)
         endelse
-        aperture_mask = rgrid lt fidrad*2.0
+        aperture_mask = rgrid lt fidrad*aperture_scale
      endif
   endif
   mask = mask or aperture_mask
-  mask_frac = (total(mask)*1. - total(aperture_mask)*1.)/(n_elements(mask)*1. - total(aperture_mask)*1.0)
+  mask_frac = (total(mask)*1. - total(aperture_mask)*1.) $
+              /(n_elements(mask)*1. - total(aperture_mask)*1.0)
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; DEAL WITH THE CASE WHERE ALL DATA ARE MASKED
@@ -73,6 +86,11 @@ pro bkfit_unwise $
      message, 'More than 99% of the image appears masked. I will unsmask all but the aperture.', /info
      message, 'This galaxy should be flagged during delivery.', /info
      mask = aperture_mask
+  endif
+
+  if total(mask eq 0 and finite(map)) eq 0 then begin
+     message, "There isn't enough room in the image to fit a background. Returning.", /info
+     return
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -106,7 +124,7 @@ pro bkfit_unwise $
 ; PLANE FIT
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  if band eq 'w3' or band eq 'w4' then begin
+  if band eq 'w3' or band eq 'w4' or keyword_set(plane) then begin
 
      sz = size(map)
      x = findgen(sz[1]) # (fltarr(sz[2])+1.0)
@@ -137,6 +155,16 @@ pro bkfit_unwise $
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; RECENTER HISTOGRAM
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if rms lt 1d-6 or finite(rms) eq 0 then begin
+     print, "Noise too low. Stopping."
+  endif
+
+  fit_ind = where(mask eq 0, fit_ct)     
+  if abs(median(bksub[fit_ind])) gt 5.*rms then begin
+     print, "Background subtraction has failed. Stopping."
+     stop
+  endif
 
   fit_ind = where(mask eq 0, fit_ct)     
   bins = bin_data(bksub[fit_ind], bksub[fit_ind]*0.0+1.0 $

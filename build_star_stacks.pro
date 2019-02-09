@@ -21,7 +21,7 @@ pro build_star_stacks $
   else $
      dir = galex_dir
 
-  index = mrdfits('../measurements/delivery_index.fits',1,h)
+  index = mrdfits('../measurements/delivery_index_'+res_str+'.fits',1,h)
   pgc_list = index.pgc
   n_pgc = n_elements(index)
     
@@ -40,9 +40,12 @@ pro build_star_stacks $
      if band eq 'w4' and index[ii].has_wise4 eq 0 then continue
      if band eq 'nuv' and index[ii].has_nuv eq 0 then continue
      if band eq 'fuv' and index[ii].has_fuv eq 0 then continue
-
-     fname = dir+'PGC'+pgc_string+'_'+band+'_'+res_str+'.fits'     
-     if file_test(fname) eq 0 then begin
+     
+     fname = dir+'PGC'+pgc_string+'_'+band+'_'+res_str+'.fits'
+     if band eq 'nuv' or band eq 'fuv' then $
+        fname = dir+'PGC'+pgc_string+'_'+band+'_'+res_str+'_align.fits'     
+     
+if file_test(fname) eq 0 then begin
         continue
      endif
      map = readfits(fname, map_hdr)
@@ -85,6 +88,5 @@ pro build_star_stacks $
 
   save, file=outfile $
         , stack, mag, val
-
   
 end
