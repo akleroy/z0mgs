@@ -43,12 +43,19 @@ pro compare_s4g_mags $
   for ii = -20, 10 do $
      oplot, [-10,10], ii*0.5*[1,1], lines=1
 
-  oploterror, s4g_irac1, us_wise1, es4g_irac1, eus_wise1, ps=1, /nohat $
+  oploterror, s4g_irac1, us_wise1, es4g_irac1, eus_wise1, ps=cgsymcat('filledcircle'), symsize=0.25, /nohat $
               , color=cgcolor('charcoal')
+
+  fid = findgen(101)-50
+  oplot, fid, fid, thick=3, color=cgcolor('firebrick')
 
   al_legend, /bottom, /right, box=1, clear=1, background=cgcolor('lightgray') $
              , ['Offset: '+string(median(resid1), format='(F6.3)'), $
               'Scatter: '+string(mad(resid1), format='(F6.3)')] $
+             , lines=-99, charthick=3, charsize=1.25
+
+  al_legend, /top, /left, box=1, clear=1, background=cgcolor('lightgray') $
+             , ['Munoz Mateos','  et al. (2015)'] $
              , lines=-99, charthick=3, charsize=1.25
 
   ps, /xw
@@ -72,12 +79,19 @@ pro compare_s4g_mags $
   for ii = -20, 10 do $
      oplot, [-10,10], ii*0.5*[1,1], lines=1
 
-  oploterror, s4g_irac2, us_wise2, es4g_irac2, eus_wise2, ps=1, /nohat $
+  oploterror, s4g_irac2, us_wise2, es4g_irac2, eus_wise2, ps=cgsymcat('filledcircle'), symsize=0.25, /nohat $
               , color=cgcolor('charcoal')
+
+  fid = findgen(101)-50
+  oplot, fid, fid, thick=3, color=cgcolor('firebrick')
 
   al_legend, /bottom, /right, box=1, clear=1, background=cgcolor('lightgray') $
              , ['Offset: '+string(median(resid2), format='(F6.3)'), $
              'Scatter: '+string(mad(resid2), format='(F6.3)')] $
+             , lines=-99, charthick=3, charsize=1.25
+
+  al_legend, /top, /left, box=1, clear=1, background=cgcolor('lightgray') $
+             , ['Munoz Mateos','  et al. (2015)'] $
              , lines=-99, charthick=3, charsize=1.25
 
   ps, /xw

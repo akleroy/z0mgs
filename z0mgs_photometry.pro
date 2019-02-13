@@ -32,6 +32,16 @@ pro z0mgs_photometry $
   rej_thresh_wise = 0.2
   rej_thresh_galex = 0.75
 
+  wise1_corr = 10.^(-0.034/2.5)
+  wise2_corr = 10.^(-0.041/2.5)
+  wise3_corr = 10.^(+0.03/2.5)
+  wise4_corr = 10.^(-0.0294/2.5)
+
+  print, 'WISE1 correction', wise1_corr
+  print, 'WISE2 correction', wise2_corr
+  print, 'WISE3 correction', wise3_corr
+  print, 'WISE4 correction', wise4_corr
+
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; INITIALIZE OUTPUT STRUCTURE
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -146,6 +156,7 @@ pro z0mgs_photometry $
               h = fuv_hdr
               bright_stars = readfits(fuv_root+'_bright_stars.fits', bhdr,/silent)
               found_stars = readfits(fuv_root+'_found_stars.fits', fhdr,/silent)
+              corr = 1.0
            endif
            if kk eq 1 then begin
               if this_index[ii].has_nuv eq 0 then continue
@@ -153,12 +164,14 @@ pro z0mgs_photometry $
               h = nuv_hdr
               bright_stars = readfits(nuv_root+'_bright_stars.fits', bhdr,/silent)
               found_stars = readfits(nuv_root+'_found_stars.fits', fhdr,/silent)
+              corr = 1.0
            endif
            if kk eq 2 then begin
               y = w1
               h = w1_hdr
               bright_stars = readfits(w1_root+'_bright_stars.fits', bhdr,/silent)
               found_stars = readfits(w1_root+'_found_stars.fits', fhdr,/silent)
+              corr = wise1_corr
            endif
            if kk eq 3 then begin
               if this_index[ii].has_wise2 eq 0 then continue
@@ -166,6 +179,7 @@ pro z0mgs_photometry $
               h = w2_hdr
               bright_stars = readfits(w2_root+'_bright_stars.fits', bhdr,/silent)
               found_stars = readfits(w2_root+'_found_stars.fits', fhdr,/silent)
+              corr = wise2_corr
            endif
            if kk eq 4 then begin
               if this_index[ii].has_wise3 eq 0 then continue
@@ -173,6 +187,7 @@ pro z0mgs_photometry $
               h = w3_hdr
               bright_stars = readfits(w3_root+'_bright_stars.fits', bhdr,/silent)
               found_stars = readfits(w3_root+'_found_stars.fits', fhdr,/silent)
+              corr = wise3_corr
            endif
            if kk eq 5 then begin
               if this_index[ii].has_wise4 eq 0 then continue
@@ -180,6 +195,7 @@ pro z0mgs_photometry $
               h = w4_hdr
               bright_stars = readfits(w4_root+'_bright_stars.fits', bhdr,/silent)
               found_stars = readfits(w4_root+'_found_stars.fits', fhdr,/silent)
+              corr = wise4_corr
            endif
 
 ;    -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -188,6 +204,9 @@ pro z0mgs_photometry $
 
 ;          MJy -> Jy
            y *= 1d6
+
+;          Apply correction factor
+           y = y*corr
 
 ;          Metadata
            this_phot.pgc = s[ii].pgc

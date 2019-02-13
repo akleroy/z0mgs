@@ -71,6 +71,9 @@ function index_one_galaxy $
      , rms_flux_wise4: nan $
      , std_flux_wise4: nan $
      , outer_flux_wise4: nan $
+;    MASS-TO-LIGHT RATIO
+     , mtol_w1: nan $
+     , mtol_unc: nan $
 ;    NOISE IN IMAGE
      , rms_fuv: nan $
      , std_fuv: nan $

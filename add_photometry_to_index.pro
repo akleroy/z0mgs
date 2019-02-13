@@ -10,6 +10,8 @@ pro add_photometry_to_index
   bands = ['FUV','NUV','WISE1','WISE2','WISE3','WISE4']
   n_bands = n_elements(bands)
 
+  neg_outer = 0L
+
   for ii = 0, n_pgc-1 do begin
 
      phot_ind = where(phot15.pgc eq index15[ii].pgc, phot_ct)
@@ -19,15 +21,19 @@ pro add_photometry_to_index
      phot7p5_sub = phot7p5[phot_ind]
 
      if index7p5[ii].has_wise1 then begin
+
+        mean_ind = 1            ; was 1
+        med_ind = 5             ; was 2
+
         ind = where(strcompress(phot15_sub.band,/rem) eq 'WISE1', ct)
         if ct eq 0 then begin
            print, "I'm missing a measurement I should have."
            stop
         endif                           
-        this_flux = phot7p5_sub[ind].mean[1] + $
-                    (phot7p5_sub[ind].med[2]-phot7p5_sub[ind].med[1])
-        this_noise = phot7p5_sub[ind].unc_stat[2]
-        this_conf = phot7p5_sub[ind].unc_conf[2]
+        this_flux = phot7p5_sub[ind].mean[mean_ind] + $
+                    (phot7p5_sub[ind].med[med_ind]-phot7p5_sub[ind].med[mean_ind])
+        this_noise = phot7p5_sub[ind].unc_stat[med_ind]
+        this_conf = phot7p5_sub[ind].unc_conf[med_ind]
         this_outer = phot7p5_sub[ind].mean[5] - phot7p5_sub[ind].mean[4] 
 
         index15[ii].flux_wise1 = this_flux
@@ -43,16 +49,20 @@ pro add_photometry_to_index
      endif
 
      if index7p5[ii].has_wise2 then begin
+
+        mean_ind = 1            ; was 1
+        med_ind = 5             ; was 2
+
         ind = where(strcompress(phot15_sub.band, /rem) eq 'WISE2', ct)
         if ct eq 0 then begin
            print, "I'm missing a measurement I should have."
            stop
         endif                           
 
-        this_flux = phot7p5_sub[ind].mean[1] + $
-                    (phot7p5_sub[ind].med[2]-phot7p5_sub[ind].med[1])
-        this_noise = phot7p5_sub[ind].unc_stat[2]
-        this_conf = phot7p5_sub[ind].unc_conf[2]
+        this_flux = phot7p5_sub[ind].mean[mean_ind] + $
+                    (phot7p5_sub[ind].med[med_ind]-phot7p5_sub[ind].med[mean_ind])
+        this_noise = phot7p5_sub[ind].unc_stat[med_ind]
+        this_conf = phot7p5_sub[ind].unc_conf[med_ind]
         this_outer = phot7p5_sub[ind].mean[5] - phot7p5_sub[ind].mean[4] 
 
         index15[ii].flux_wise2 = this_flux
@@ -69,16 +79,19 @@ pro add_photometry_to_index
 
      if index7p5[ii].has_wise3 then begin
 
+        mean_ind = 5            ; was 1
+        med_ind = 5             ; was 2
+
         ind = where(strcompress(phot15_sub.band, /rem) eq 'WISE3', ct)
         if ct eq 0 then begin
            print, "I'm missing a measurement I should have."
            stop
         endif                           
 
-        this_flux = phot7p5_sub[ind].mean[1] + $
-                    (phot7p5_sub[ind].med[2]-phot7p5_sub[ind].med[1])
-        this_noise = phot7p5_sub[ind].unc_stat[2]
-        this_conf = phot7p5_sub[ind].unc_conf[2]
+        this_flux = phot7p5_sub[ind].mean[mean_ind] + $
+                    (phot7p5_sub[ind].med[med_ind]-phot7p5_sub[ind].med[mean_ind])
+        this_noise = phot7p5_sub[ind].unc_stat[med_ind]
+        this_conf = phot7p5_sub[ind].unc_conf[med_ind]
         this_outer = phot7p5_sub[ind].mean[5] - phot7p5_sub[ind].mean[4] 
 
         index15[ii].flux_wise3 = this_flux
@@ -95,16 +108,19 @@ pro add_photometry_to_index
 
      if index15[ii].has_wise4 then begin
 
+        mean_ind = 5            ; was 1
+        med_ind = 5             ; was 2
+
         ind = where(strcompress(phot15_sub.band, /rem) eq 'WISE4', ct)
         if ct eq 0 then begin
            print, "I'm missing a measurement I should have."
            stop
         endif                         
 
-        this_flux = phot15_sub[ind].mean[1] + $
-                    (phot15_sub[ind].med[2]-phot15_sub[ind].med[1])
-        this_noise = phot15_sub[ind].unc_stat[2]
-        this_conf = phot15_sub[ind].unc_conf[2]
+        this_flux = phot15_sub[ind].mean[mean_ind] + $
+                    (phot15_sub[ind].med[med_ind]-phot15_sub[ind].med[mean_ind])
+        this_noise = phot15_sub[ind].unc_stat[med_ind]
+        this_conf = phot15_sub[ind].unc_conf[med_ind]
         this_outer = phot15_sub[ind].mean[5] - phot15_sub[ind].mean[4] 
 
         index15[ii].flux_wise4 = this_flux
@@ -120,16 +136,20 @@ pro add_photometry_to_index
      endif
 
      if index7p5[ii].has_nuv then begin
+
+        mean_ind = 5            ; was 1
+        med_ind = 5             ; was 2
+
         ind = where(strcompress(phot15_sub.band, /rem) eq 'NUV', ct)
         if ct eq 0 then begin
            print, "I'm missing a measurement I should have."
            stop
         endif                           
 
-        this_flux = phot7p5_sub[ind].mean[1] + $
-                    (phot7p5_sub[ind].med[2]-phot7p5_sub[ind].med[1])
-        this_noise = phot7p5_sub[ind].unc_stat[2]
-        this_conf = phot7p5_sub[ind].unc_conf[2]
+        this_flux = phot7p5_sub[ind].mean[mean_ind] + $
+                    (phot7p5_sub[ind].med[med_ind]-phot7p5_sub[ind].med[mean_ind])
+        this_noise = phot7p5_sub[ind].unc_stat[med_ind]
+        this_conf = phot7p5_sub[ind].unc_conf[med_ind]
         this_outer = phot7p5_sub[ind].mean[5] - phot7p5_sub[ind].mean[4] 
 
         index15[ii].flux_nuv = this_flux
@@ -146,16 +166,19 @@ pro add_photometry_to_index
 
      if index7p5[ii].has_fuv then begin
 
+        mean_ind = 5            ; was 1
+        med_ind = 5             ; was 2
+
         ind = where(strcompress(phot15_sub.band, /rem) eq 'FUV', ct)
         if ct eq 0 then begin
            print, "I'm missing a measurement I should have."
            stop
         endif                           
 
-        this_flux = phot7p5_sub[ind].mean[1] + $
-                    (phot7p5_sub[ind].med[2]-phot7p5_sub[ind].med[1])
-        this_noise = phot7p5_sub[ind].unc_stat[2]
-        this_conf = phot7p5_sub[ind].unc_conf[2]
+        this_flux = phot7p5_sub[ind].mean[mean_ind] + $
+                    (phot7p5_sub[ind].med[med_ind]-phot7p5_sub[ind].med[mean_ind])
+        this_noise = phot7p5_sub[ind].unc_stat[med_ind]
+        this_conf = phot7p5_sub[ind].unc_conf[med_ind]
         this_outer = phot7p5_sub[ind].mean[5] - phot7p5_sub[ind].mean[4] 
 
         index15[ii].flux_fuv = this_flux
@@ -167,6 +190,8 @@ pro add_photometry_to_index
         index7p5[ii].rms_flux_fuv = this_noise
         index7p5[ii].std_flux_fuv = this_conf
         ;index7p5[ii].outer_flux_fuv = this_outer
+
+        neg_outer += this_outer lt 0.
 
      endif
 

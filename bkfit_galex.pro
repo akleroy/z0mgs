@@ -10,7 +10,7 @@ pro bkfit_galex $
    , band=band $
    , rejfile=rejfile $
    , rejected=rejected $
-   , bksub=bksub $
+   , bkgrd=bkgrd_out $   
    , aperture_scale=aperture_scale $
    , plane=plane $
    , show=show $
@@ -50,6 +50,13 @@ pro bkfit_galex $
      this_mask = (this_mask mod 10) gt 0
      mask = mask or this_mask
   endfor
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; INITIALIZE A BACKGROUND
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+  
+  sz = size(map)
+  bkgrd = 0.0*fltarr(sz[1], sz[2])
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; TUNING PARAMETERS
@@ -129,7 +136,8 @@ pro bkfit_galex $
   endfor 
 
   mask = aperture eq 0
-  bksub = map - med
+  bkgrd = med
+  bksub = map - bkgrd
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; PLANE FIT
@@ -138,7 +146,6 @@ pro bkfit_galex $
   fit_a_plane = 0B
   if keyword_set(plane) and mask_frac lt 0.75 then begin
 
-     sz = size(map)
      x = findgen(sz[1]) # (fltarr(sz[2])+1.0)
      y = (fltarr(sz[1])+1.0) #  findgen(sz[2])  
      
@@ -160,8 +167,7 @@ pro bkfit_galex $
 
      endfor
      
-     fit = coefs[0] + coefs[1]*x + coefs[2]*y
-     bksub = map-fit
+     bkgrd = coefs[0] + coefs[1]*x + coefs[2]*y
      fit_a_plane = 1B
   endif
 
@@ -174,25 +180,25 @@ pro bkfit_galex $
      stop
   endif
 
-  fit_ind = where(mask eq 0, fit_ct)     
-  if abs(median(bksub[fit_ind])) gt 5.*rms then begin
+  fit_ind = where(mask eq 0, fit_ct)
+  if abs(median((map - bkgrd)[fit_ind])) gt 5.*rms then begin
      print, "Background subtraction has failed. Stopping."
      stop
   endif
 
-  bins = bin_data(bksub[fit_ind], bksub[fit_ind]*0.0+1.0 $
+  bins = bin_data((map-bkgrd)[fit_ind], (map-bkgrd)[fit_ind]*0.0+1.0 $
                   , xmin=-5.*rms, xmax=5.*rms $
                   , binsize=0.05*rms, /nan)
   hist = convol(bins.counts*1.0, psf_gaussian(npix=21,fwhm=7,ndim=1),/nan)  
   maxval = max(hist, maxind, /nan)
-  bksub = bksub - bins[maxind].xmid
+  bkgrd = bkgrd + bins[maxind].xmid
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; STATS
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
  
-  std = stddev(bksub[where(aperture_mask eq 0)],/nan)
-  rms = mad(bksub[fit_ind])
+  std = stddev((map - bkgrd)[where(aperture_mask eq 0)],/nan)
+  rms = mad((map - bkgrd)[fit_ind])
   rej_frac = (total(mask)*1. - total(aperture_mask)*1.)/(n_elements(mask)*1. - total(aperture_mask)*1.)
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -208,9 +214,9 @@ pro bkfit_galex $
      contour, mask, /overplot, lev=[1], color=cgcolor('blue')
      
      loadct, 0
-     disp, bksub, max=rms*3., min=-3.*rms, title=band
+     disp, (map-bkgrd), max=rms*3., min=-3.*rms, title=band
      contour, mask, /overplot, lev=[1], color=cgcolor('blue')
-
+     
      fit_ind = where(mask eq 0, fit_ct)          
      bins = bin_data(map[fit_ind], map[fit_ind]*0.0+1.0 $
                      , xmin=-5.*rms, xmax=5.*rms $
@@ -221,7 +227,7 @@ pro bkfit_galex $
      oplot, 0.0*[1,1], [-1d6, 1d6], color=cgcolor('red')
 
      fit_ind = where(mask eq 0, fit_ct)     
-     bins = bin_data(bksub[fit_ind], bksub[fit_ind]*0.0+1.0 $
+     bins = bin_data((map-bkgrd)[fit_ind], (map-bkgrd)[fit_ind]*0.0+1.0 $
                      , xmin=-5.*rms, xmax=5.*rms $
                      , binsize=0.05*rms, /nan)     
      hist = convol(bins.counts*1.0, psf_gaussian(npix=21,fwhm=7,ndim=1),/nan)
@@ -247,7 +253,7 @@ pro bkfit_galex $
      sxaddpar, hdr_copy, 'MASKFRAC', mask_frac
      sxaddpar, hdr_copy, 'REJFRAC', rej_frac 
      sxaddpar, hdr_copy, 'FITPLANE', fit_a_plane
-     writefits, outfile, bksub, hdr_copy
+     writefits, outfile, bkgrd, hdr_copy
   endif
 
   if n_elements(rejfile) gt 0 then begin

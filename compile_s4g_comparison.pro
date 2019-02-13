@@ -163,7 +163,7 @@ pro compile_s4g_comparison $
            res_str = 'gauss15'
         endif
 
-        fid_n = 3e7
+        fid_n = 5e7
         nan = !values.f_nan
         s4g_comp = fltarr(fid_n)*nan
         z0mgs_comp = s4g_comp

@@ -4,6 +4,7 @@ pro compile_galex_atlas $
    , convol = do_convol $
    , extract = do_extract $
    , mask = do_mask $
+   , bkfit = do_bkfit $
    , bksub = do_bksub $
    , special = do_special $
    , stats = do_stats $
@@ -437,7 +438,86 @@ pro compile_galex_atlas $
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; BACKGROUND SUBTRACTION
+; BACKGROUND FITTING - NOW ONLY AT 15"
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_bkfit) then begin
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii]
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Background fitting '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        maskfile = out_dir+pgc_name+'_mask.fits'
+        test = file_search(maskfile, count=ct)
+        if ct eq 0 then $
+           continue
+        mask = readfits(maskfile, /silent, mask_hdr)
+        
+        for jj = 0, 1 do begin
+           if jj eq 0 then band = 'fuv'
+           if jj eq 1 then band = 'nuv'
+           
+           res_str = 'gauss15'
+
+           infile = out_dir+pgc_name+'_'+band+'_'+res_str+'_small.fits'
+           wtfile = out_dir+pgc_name+'_'+band+'_weight_'+res_str+'_small.fits'
+           outfile = out_dir+pgc_name+'_'+band+'_'+res_str+'_bkgrd.fits'
+           rejfile = out_dir+pgc_name+'_'+band+'_'+res_str+'_rejected.fits'
+           
+           radfile = mask_dir+pgc_name+'_'+res_str+'_rgrid.fits'
+           galfile = mask_dir+pgc_name+'_'+res_str+'_galaxies.fits'
+           brightfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_bright_stars.fits'
+           foundfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_found_stars.fits'
+           handfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_custom.fits'
+           
+           masklist = [galfile, brightfile, foundfile, handfile]
+           
+           if file_test(infile) eq 0 then begin
+              message, "File missing. Skipping.", /info
+              continue
+           endif
+           
+           if keyword_set(incremental) and file_test(outfile) then begin
+              message, 'Image already in place '+outfile, /info
+              continue
+           endif
+           
+           hdr = headfits(infile, /silent)
+           if sxpar(hdr,'SKIP') then begin
+              print, "Skipping "+infile+" based on header."
+              continue
+           endif
+          
+           bkfit_galex $
+              , mapfile=infile $
+              , wtfile=wtfile $
+              , outfile=outfile $
+              , rejfile=rejfile $
+              , radfile=radfile $
+              , masklist=masklist $
+              , band=str(band) $
+              , rejected=rejected $
+              , show=show $
+              , pause=pause $
+              , /plane
+              
+        endfor
+        
+     endfor
+     
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; SUBTRACT THE BACKGROUND FIT AT 15" FROM BOTH IMAGES
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   if keyword_set(do_bksub) then begin
@@ -454,39 +534,28 @@ pro compile_galex_atlas $
         print, ''
         print, 'Background subtraction '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
-
-        maskfile = out_dir+pgc_name+'_mask.fits'
-        test = file_search(maskfile, count=ct)
-        if ct eq 0 then $
-           continue
-        mask = readfits(maskfile, /silent, mask_hdr)
         
         for jj = 0, 1 do begin
            if jj eq 0 then band = 'fuv'
            if jj eq 1 then band = 'nuv'
+
+           bkgrd_file = out_dir+pgc_name+'_'+band+'_gauss15_bkgrd.fits'
+           if file_test(bkgrd_file) eq 0 then $
+              continue
+           bkgrd = readfits(bkgrd_file, /silent, bkgrd_hdr)
            
            for mm = 0, 1 do begin
               if mm eq 0 then res_str = 'gauss15'
               if mm eq 1 then res_str = 'gauss7p5'
 
               infile = out_dir+pgc_name+'_'+band+'_'+res_str+'_small.fits'
-              wtfile = out_dir+pgc_name+'_'+band+'_weight_'+res_str+'_small.fits'
               outfile = out_dir+pgc_name+'_'+band+'_'+res_str+'_bksub.fits'
-              rejfile = out_dir+pgc_name+'_'+band+'_'+res_str+'_rejected.fits'
-
-              radfile = mask_dir+pgc_name+'_'+res_str+'_rgrid.fits'
-              galfile = mask_dir+pgc_name+'_'+res_str+'_galaxies.fits'
-              brightfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_bright_stars.fits'
-              foundfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_found_stars.fits'
-              handfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_custom.fits'
-              
-              masklist = [galfile, brightfile, foundfile, handfile]
 
               if file_test(infile) eq 0 then begin
                  message, "File missing. Skipping.", /info
                  continue
               endif
-
+              
               if keyword_set(incremental) and file_test(outfile) then begin
                  message, 'Image already in place '+outfile, /info
                  continue
@@ -498,19 +567,17 @@ pro compile_galex_atlas $
                  continue
               endif
           
-              bkfit_galex $
-                 , mapfile=infile $
-                 , wtfile=wtfile $
-                 , outfile=outfile $
-                 , rejfile=rejfile $
-                 , radfile=radfile $
-                 , masklist=masklist $
-                 , band=str(band) $
-                 , rejected=rejected $
-                 , show=show $
-                 , pause=pause $
-                 , /plane
-              
+              map = readfits(infile, hdr, /silent)
+              bksub = map - bkgrd             
+
+              sxaddpar, hdr, 'RMS', sxpar(bkgrd_hdr,'RMS')
+              sxaddpar, hdr, 'STDDEV', sxpar(bkgrd_hdr,'STDDEV')
+              sxaddpar, hdr, 'MASKFRAC', sxpar(bkgrd_hdr,'MASKFRAC')
+              sxaddpar, hdr, 'REJFRAC', sxpar(bkgrd_hdr,'REJFRAC')
+              sxaddpar, hdr, 'FITPLANE', sxpar(bkgrd_hdr,'FITPLANE')
+
+              writefits, outfile, map, hdr
+
            endfor
         
         endfor
