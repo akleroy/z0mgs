@@ -215,7 +215,7 @@ pro compile_unwise_atlas $
               endif else begin
                  infile = out_dir+pgc_name+'_w'+str(band)+'_gauss15.fits'
                  outfile = out_dir+pgc_name+'_w'+str(band)+'_gauss15_small.fits'
-                 do_rebin = 1B
+                 do_rebin = 0B
               endelse
               
               if file_test(infile) eq 0 then begin

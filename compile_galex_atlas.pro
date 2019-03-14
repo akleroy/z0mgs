@@ -7,7 +7,6 @@ pro compile_galex_atlas $
    , bkfit = do_bkfit $
    , bksub = do_bksub $
    , special = do_special $
-   , stats = do_stats $
    , extcorr = do_extcorr $
    , show = show $
    , pause = pause $
@@ -379,7 +378,7 @@ pro compile_galex_atlas $
                  wtfile = out_dir+pgc_name+'_'+band+'_weight_gauss15_align.fits'
                  outfile = out_dir+pgc_name+'_'+band+'_gauss15_small.fits'
                  wtoutfile = out_dir+pgc_name+'_'+band+'_weight_gauss15_small.fits'
-                 do_rebin = 1B
+                 do_rebin = 0B
               endelse
               
               if file_test(infile) eq 0 then begin
@@ -576,7 +575,7 @@ pro compile_galex_atlas $
               sxaddpar, hdr, 'REJFRAC', sxpar(bkgrd_hdr,'REJFRAC')
               sxaddpar, hdr, 'FITPLANE', sxpar(bkgrd_hdr,'FITPLANE')
 
-              writefits, outfile, map, hdr
+              writefits, outfile, bksub, hdr
 
            endfor
         

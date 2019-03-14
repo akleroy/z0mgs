@@ -15,15 +15,14 @@ pro compile_nga_comparison $
   out_dir = '../cutouts/nga/'
   atlas_dir = '../delivery/'
   galex_dir = '../galex/atlas/'
-  mask_dir = '../masks/'
+  ;mask_dir = '../masks/'
 
   readcol $
      , index_dir + 'processed_galexatlas.txt' $
      , comment='#', format='A,A,A,A' $
      , gal, survey, band, fname
 
-  gdata = gal_data(gal)
-
+  gdata = gal_data(gal, /full)
   ind = where(survey eq 'nga_release', n_gals)
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -116,7 +115,7 @@ pro compile_nga_comparison $
            
            if file_test(infile) eq 0 then continue           
 
-           radfile = mask_dir + pgcname + $
+           radfile = atlas_dir + pgcname + $
                      '_'+res_str+'_rgrid.fits'
 
            outfile = out_dir + pgcname + $
@@ -128,9 +127,13 @@ pro compile_nga_comparison $
            bkfit_galex $
               , mapfile=infile $
               , radfile=radfile $
-              , outfile=outfile $
+              , bkgrd=bkgrd $
               , aperture=1.0 $
               , show=show
+           
+           map = readfits(infile, hdr)
+           map = map - bkgrd
+           writefits, outfile, map, hdr
            
         endfor
 
@@ -143,7 +146,6 @@ pro compile_nga_comparison $
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   if keyword_set(do_sample) then begin
-
      
      loadct, 0
      !p.multi=0
@@ -179,7 +181,10 @@ pro compile_nga_comparison $
            infile_name = out_dir + pgcname + $
                          '_' + band[ind[ii]] + '_'+res_str+'_bksub.fits'
            
-           if file_test(infile_name) eq 0 then continue
+           if file_test(infile_name) eq 0 then begin
+              print, "Missing comparison NGA image.", infile_name
+              continue
+           endif
            
            map_nga = readfits(infile_name, nga_hdr, /silent)
            
@@ -195,7 +200,7 @@ pro compile_nga_comparison $
 
            map_nga *= ext_fac
 
-           radfile = mask_dir + pgcname + $
+           radfile = atlas_dir + pgcname + $
                      '_'+res_str+'_rgrid.fits'
            rgrid = readfits(radfile, rhdr, /silent)
            

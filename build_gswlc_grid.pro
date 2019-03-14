@@ -1,26 +1,10 @@
 pro build_gswlc_grid
 
+  thresh = 10
   @constants.bat
   lsun_3p4 = 1.83d18
-  thresh = 10
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; PREPARE THE GWSLC MEASUREMENTS
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-  gws = mrdfits('~/idl/galbase/gal_data/'+$
-                'hlsp_gswlc_galex-sdss-wise_multi_x1_multi_v1_cat.fits' $
-                , 1, h_gws)
-  readcol, '/data/kant/0/leroy.42/allsky/gswlc/galex_unwise_fluxes_GSWLC-X.dat' $
-           , id, gws_fuv, gws_efuv, gws_nuv, gws_enuv, gws_w1_nm, gws_ew1 $
-           , gws_w2_nm, gws_ew2, gws_w3_nm, gws_ew3, gws_w4_nm, gws_ew4 $
-           , format='L,F,F,F,F,F,F,F,F,F,F,F,F'
-
-  gws_w1 = 3631.*10^(-0.4*(22.5+2.683))*gws_w1_nm
-  gws_w2 = 3631*10^(-0.4*(22.5+3.319))*gws_w2_nm
-  gws_w3 = 3631*10^(-0.4*(22.5+5.242))*gws_w3_nm
-  gws_w4 = 3631*10^(-0.4*(22.5+6.604))*gws_w4_nm
-
+  restore, '../gswlc/gswlc_data.idl'
+  
   nu_fuv = c/(154.d-9*1d2)
   nu_nuv = c/(231.d-9*1d2)
   nu_w1 = c/(3.4d-6*1d2)
@@ -28,70 +12,91 @@ pro build_gswlc_grid
   nu_w3 = c/(12.d-6*1d2)
   nu_w4 = c/(22.d-6*1d2)
 
-  fuv_lum = gws_fuv/1d3*1d-23*4.*!pi*(gws.z*c/1d5/70.*1d6*pc)^2
-  nuv_lum = gws_nuv/1d3*1d-23*4.*!pi*(gws.z*c/1d5/70.*1d6*pc)^2
-  w1_lum = gws_w1*1d-23*4.*!pi*(gws.z*c/1d5/70.*1d6*pc)^2
-  w2_lum = gws_w2*1d-23*4.*!pi*(gws.z*c/1d5/70.*1d6*pc)^2
-  w3_lum = gws_w3*1d-23*4.*!pi*(gws.z*c/1d5/70.*1d6*pc)^2
-  w4_lum = gws_w4*1d-23*4.*!pi*(gws.z*c/1d5/70.*1d6*pc)^2
+  plot, findgen(10), xtitle='!6'
 
-  sfr_fuv_ke12 = $
-     lum_to_sfr(band='FUV', cal='KE12', lum=fuv_lum*nu_fuv)
-  sfr_nuv_ke12 = $
-     lum_to_sfr(band='NUV', cal='KE12', lum=nuv_lum*nu_nuv)
-  sfr_w3_j13 = $
-     lum_to_sfr(band='WISE3', cal='J13', lum=w3_lum*nu_w3)
-  sfr_w4_j13 = $
-     lum_to_sfr(band='WISE4', cal='J13', lum=w4_lum*nu_w4)
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; DEFINE SUBSET OF DATA TO USE FOR MASS TO LIGHT RATIOS
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  sfr_fuvw4_ke12 = $
-     lum_to_sfr(band='FUV', cal='KE12' $
-                , lum=(fuv_lum*nu_fuv + 3.89*w4_lum*nu_w4))  
-  sfr_nuvw3 = $
-     sfr_nuv_ke12+sfr_w3_j13
+  ind = where(gws_logmstar gt 0 $
+                  and w1_lum gt 0 $
+                  and gws_w1 gt 5.*gws_ew1 $
+                  and gws_w3 gt 5.*gws_ew3 $
+                  and gws_w4 gt 5.*gws_ew4 $
+                  and gws_nuv gt 5.*gws_enuv $
+                  and gws_fuv gt 5.*gws_efuv $
+                  and gws_flagsed eq 0 $
+                 )  
 
-  mtol_w1 = 10.^(gws.logmstar - alog10(w1_lum/lsun_3p4))
-  gws_ssfr = gws.logsfrsed-gws.logmstar
-  ssfr_like = sfr_nuvw3 / (w1_lum / lsun_3p4)
-  w2w1 = alog10(w2_lum/w1_lum)
-  w3w1 = alog10(w3_lum/w1_lum)
-  nuvw1 = alog10(nuv_lum/w1_lum)
+  fuvw1 = (alog10(fuv_lum/w1_lum))[ind]
+  nuvw1 = (alog10(fuv_lum/w1_lum))[ind]
+  w4w1 = (alog10(w4_lum/w1_lum))[ind]
+  w3w1 = (alog10(w4_lum/w1_lum))[ind]
+
+  mstar = ((gws_logmstar))[ind]
+  ssfr = ((gws_ssfr))[ind]
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; CALCULATE THE M/L AND WISE-TO-SFR COEFFICIENTS
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  mtol = mtol_w1[ind]
+
+  coef_fuv = (((10.d^(gws_logsfrsed))) / (nu_fuv*fuv_lum*10.^(gws_afuv/2.5)))[ind]
+  coef_justfuv = (((10.d^(gws_logsfrsed))) / (nu_fuv*fuv_lum))[ind]
+  coef_justnuv = (((10.d^(gws_logsfrsed))) / (nu_nuv*nuv_lum))[ind]
+
+  coef_justw3 = (((10.d^(gws_logsfrsed))) / (nu_w3*w3_lum))[ind]
+  coef_justw4 = (((10.d^(gws_logsfrsed))) / (nu_w4*w4_lum))[ind]
   
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; DEFINE SUBSET OF DATA TO USE
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+  coef_w3nuv = (((10.d^(gws_logsfrsed)) - sfr_nuv_z19) /  (nu_w3*w3_lum))[ind]
+  coef_w4nuv = (((10.d^(gws_logsfrsed)) - sfr_nuv_z19) /  (nu_w4*w4_lum))[ind]
 
-  sane_ind = where(gws.logmstar gt 0 $
-                   and w1_lum gt 0 $
-                   and gws_w1_nm gt 3.*gws_ew1 $
-                   and gws_w3_nm gt 3.*gws_ew3 $
-                   and gws_nuv gt 3.*gws_enuv $
-                   and mtol_w1 gt 0.02 and mtol_w1 lt 1.0 $
-                  )
-
-  nuvw1 = (alog10(nuv_lum/w1_lum))[sane_ind]
-  w3w1 = (alog10(w3_lum/w1_lum))[sane_ind]
-  lumw1 = (alog10(w1_lum/lsun_3p4))[sane_ind]
-  mtol = mtol_w1[sane_ind]
+  coef_w3fuv = (((10.d^(gws_logsfrsed)) - sfr_fuv_z19) /  (nu_w3*w3_lum))[ind]
+  coef_w4fuv = (((10.d^(gws_logsfrsed)) - sfr_fuv_z19) /  (nu_w4*w4_lum))[ind]
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; DEFINE AXES
+; DEFINE AXES AND BUILD GRIDS
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  min_fuvw1 = -3.5
+  max_fuvw1 = 0.5
+  bin_fuvw1 = 0.05
+  tol_fuvw1 = 0.1
 
   min_nuvw1 = -3.5
   max_nuvw1 = 0.5
   bin_nuvw1 = 0.05
   tol_nuvw1 = 0.1
 
+  min_w4w1 = -2.0
+  max_w4w1 = 2.0
+  bin_w4w1 = 0.05
+  tol_w4w1 = 0.1
+
   min_w3w1 = -2.0
-  max_w3w1 = 1.5
+  max_w3w1 = 2.0
   bin_w3w1 = 0.05
   tol_w3w1 = 0.1
 
-  min_lumw1 = 9.7
-  max_lumw1 = 11.95
-  binsize_lumw1 = 0.15
-  tol_lumw1 = 0.3
+  min_ssfr = -12.
+  max_ssfr = -8.
+  bin_ssfr = 0.125
+  tol_ssfr = 0.25
+
+  min_mstar = 9.0
+  max_mstar = 11.0
+  bin_mstar = 0.125
+  tol_mstar = 0.25  
+
+  count_fuvw1_w4w1 = $
+     grid_data(fuvw1, w4w1, /nan $
+               , xaxis_out = fuvw1_axis, yaxis_out = w4w1_axis $
+               , xmin=min_fuvw1, xmax=max_fuvw1, binsize_x=binsize_fuvw1 $
+               , ymin=min_w4w1, ymax=max_w4w1, binsize_y=binsize_w4w1 $
+              )
+  n_x = n_elements(fuvw1_axis)
+  n_y = n_elements(w4w1_axis)
 
   count_nuvw1_w3w1 = $
      grid_data(nuvw1, w3w1, /nan $
@@ -99,172 +104,525 @@ pro build_gswlc_grid
                , xmin=min_nuvw1, xmax=max_nuvw1, binsize_x=binsize_nuvw1 $
                , ymin=min_w3w1, ymax=max_w3w1, binsize_y=binsize_w3w1 $
               )
-  n_x = n_elements(nuvw1_axis)
-  n_y = n_elements(w3w1_axis)
+  n_u = n_elements(nuvw1_axis)
+  n_v = n_elements(w3w1_axis)
 
-  count_w3w1_lumw1 = $
-     grid_data(w3w1, w1_lum, /nan $
-               , xaxis_out = w3w1_axis, yaxis_out = lumw1_axis $
-               , xmin=min_w3w1, xmax=max_w3w1, binsize_x=binsize_w3w1 $
-               , ymin=min_lumw1, ymax=max_lumw1, binsize_y=binsize_lumw1 $
+  count_mstar_ssfr = $
+     grid_data(mstar, ssfr, /nan $
+               , xaxis_out = mstar_axis, yaxis_out = ssfr_axis $
+               , xmin=min_mstar, xmax=max_mstar, binsize_x=binsize_mstar $
+               , ymin=min_ssfr, ymax=max_ssfr, binsize_y=binsize_ssfr $
               )
-  n_z = n_elements(lumw1_axis)
+  n_p = n_elements(mstar_axis)
+  n_q = n_elements(ssfr_axis)
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; MAKE TWOD GRIDS FOR NUV/W1+W3/W1 and W3/W1+LUM_W1
+; MAKE GRIDS FOR FUV/W1+W4/W1
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  xy_grid = fltarr(n_x, n_y)*!values.f_nan
-  xy_mad_grid = xy_grid*!values.f_nan
+  count_xy_grid = fltarr(n_x, n_y)*!values.f_nan
+
+  mtol_xy_grid = fltarr(n_x, n_y)*!values.f_nan
+  mtol_xy_mad_grid = mtol_xy_grid*!values.f_nan
+
+  cfuvw4_xy_grid = fltarr(n_x, n_y)*!values.f_nan
+  cfuvw4_xy_mad_grid = cfuvw4_xy_grid*!values.f_nan
+
+  cnuvw4_xy_grid = fltarr(n_x, n_y)*!values.f_nan
+  cnuvw4_xy_mad_grid = cnuvw4_xy_grid*!values.f_nan
+
+  cfuvw3_xy_grid = fltarr(n_x, n_y)*!values.f_nan
+  cfuvw3_xy_mad_grid = cfuvw3_xy_grid*!values.f_nan
+
+  cnuvw3_xy_grid = fltarr(n_x, n_y)*!values.f_nan
+  cnuvw3_xy_mad_grid = cnuvw3_xy_grid*!values.f_nan
+
+  cjustw4_xy_grid = fltarr(n_x, n_y)*!values.f_nan
+  cjustw4_xy_mad_grid = cjustw4_xy_grid*!values.f_nan
+
+  cjustw3_xy_grid = fltarr(n_x, n_y)*!values.f_nan
+  cjustw3_xy_mad_grid = cjustw3_xy_grid*!values.f_nan
 
   for ii = 0, n_x-1 do begin
      for jj = 0, n_y-1 do begin
 
-        use = abs(nuvw1 - nuvw1_axis[ii]) lt tol_nuvw1
-        use *= abs(w3w1 - w3w1_axis[jj]) lt tol_w3w1
-        ind = where(use, ct)
-        if ct gt thresh then begin
-           xy_grid[ii,jj] = median(mtol[ind])
-           xy_mad_grid[ii,jj] = mad(mtol[ind])
+        use_this = abs(fuvw1 - fuvw1_axis[ii]) lt tol_fuvw1
+        use_this *= abs(w4w1 - w4w1_axis[jj]) lt tol_w4w1
+
+        this_ind = where(use_this, this_ct)
+
+        if this_ct gt thresh then begin
+
+           count_xy_grid[ii,jj] = this_ct*1.0
+
+           mtol_xy_grid[ii,jj] = median(mtol[this_ind])
+           mtol_xy_mad_grid[ii,jj] = mad(mtol[this_ind])
+
+           cfuvw4_xy_grid[ii,jj] = median(coef_w4fuv[this_ind])
+           cfuvw4_xy_mad_grid[ii,jj] = mad(coef_w4fuv[this_ind])
+
+           cnuvw4_xy_grid[ii,jj] = median(coef_w4nuv[this_ind])
+           cnuvw4_xy_mad_grid[ii,jj] = mad(coef_w4nuv[this_ind])
+
+           cfuvw3_xy_grid[ii,jj] = median(coef_w3fuv[this_ind])
+           cfuvw3_xy_mad_grid[ii,jj] = mad(coef_w3fuv[this_ind])
+
+           cnuvw3_xy_grid[ii,jj] = median(coef_w3nuv[this_ind])
+           cnuvw3_xy_mad_grid[ii,jj] = mad(coef_w3nuv[this_ind])
+
+           cjustw4_xy_grid[ii,jj] = median(coef_justw4[this_ind])
+           cjustw4_xy_mad_grid[ii,jj] = mad(coef_justw4[this_ind])
+
+           cjustw3_xy_grid[ii,jj] = median(coef_justw3[this_ind])
+           cjustw3_xy_mad_grid[ii,jj] = mad(coef_justw3[this_ind])
+
         endif
 
      endfor
   endfor
 
-  yz_grid = fltarr(n_y, n_z)*!values.f_nan
-  yz_mad_grid = yz_grid*!values.f_nan
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; MAKE GRIDS FOR NUV/W1+W3/W1
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  for ii = 0, n_y-1 do begin
-     for jj = 0, n_z-1 do begin
+  count_uv_grid = fltarr(n_u, n_v)*!values.f_nan
 
-        use = abs(w3w1 - w3w1_axis[ii]) lt tol_w3w1
+  mtol_uv_grid = fltarr(n_u, n_v)*!values.f_nan
+  mtol_uv_mad_grid = mtol_uv_grid*!values.f_nan
 
-        if jj eq 0 then $
-           use *= (lumw1 lt tol_lumw1+lumw1_axis[jj]) $
-        else if jj eq n_z-1 then $
-           use *= (lumw1 gt lumw1_axis[jj]-tol_lumw1) $
+  cfuvw4_uv_grid = fltarr(n_u, n_v)*!values.f_nan
+  cfuvw4_uv_mad_grid = cfuvw4_uv_grid*!values.f_nan
+
+  cnuvw4_uv_grid = fltarr(n_u, n_v)*!values.f_nan
+  cnuvw4_uv_mad_grid = cnuvw4_uv_grid*!values.f_nan
+
+  cfuvw3_uv_grid = fltarr(n_u, n_v)*!values.f_nan
+  cfuvw3_uv_mad_grid = cfuvw3_uv_grid*!values.f_nan
+
+  cnuvw3_uv_grid = fltarr(n_u, n_v)*!values.f_nan
+  cnuvw3_uv_mad_grid = cnuvw3_uv_grid*!values.f_nan
+
+  cjustw4_uv_grid = fltarr(n_u, n_v)*!values.f_nan
+  cjustw4_uv_mad_grid = cjustw4_uv_grid*!values.f_nan
+
+  cjustw3_uv_grid = fltarr(n_u, n_v)*!values.f_nan
+  cjustw3_uv_mad_grid = cjustw3_uv_grid*!values.f_nan
+
+  for ii = 0, n_u-1 do begin
+     for jj = 0, n_v-1 do begin
+
+        use_this = abs(nuvw1 - nuvw1_axis[ii]) lt tol_nuvw1
+        use_this *= abs(w3w1 - w3w1_axis[jj]) lt tol_w3w1
+        
+        this_ind = where(use_this, this_ct)
+        if this_ct gt thresh then begin
+
+           count_uv_grid[ii,jj] = this_ct*1.0
+
+           mtol_uv_grid[ii,jj] = median(mtol[this_ind])
+           mtol_uv_mad_grid[ii,jj] = mad(mtol[this_ind])
+
+           cfuvw4_uv_grid[ii,jj] = median(coef_w4fuv[this_ind])
+           cfuvw4_uv_mad_grid[ii,jj] = mad(coef_w4fuv[this_ind])
+
+           cnuvw4_uv_grid[ii,jj] = median(coef_w4nuv[this_ind])
+           cnuvw4_uv_mad_grid[ii,jj] = mad(coef_w4nuv[this_ind])
+
+           cfuvw3_uv_grid[ii,jj] = median(coef_w3fuv[this_ind])
+           cfuvw3_uv_mad_grid[ii,jj] = mad(coef_w3fuv[this_ind])
+
+           cnuvw3_uv_grid[ii,jj] = median(coef_w3nuv[this_ind])
+           cnuvw3_uv_mad_grid[ii,jj] = mad(coef_w3nuv[this_ind])
+
+           cjustw4_uv_grid[ii,jj] = median(coef_justw4[this_ind])
+           cjustw4_uv_mad_grid[ii,jj] = mad(coef_justw4[this_ind])
+
+           cjustw3_uv_grid[ii,jj] = median(coef_justw3[this_ind])
+           cjustw3_uv_mad_grid[ii,jj] = mad(coef_justw3[this_ind])
+        endif
+
+        
+     endfor
+  endfor
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; MAKE TWOD GRIDS FOR SSFR VS MSTAR
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  count_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+
+  mtol_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+  mtol_pq_mad_grid = mtol_pq_grid*!values.f_nan
+
+  cfuvw4_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+  cfuvw4_pq_mad_grid = cfuvw4_pq_grid*!values.f_nan
+
+  cnuvw4_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+  cnuvw4_pq_mad_grid = cnuvw4_pq_grid*!values.f_nan
+
+  cfuvw3_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+  cfuvw3_pq_mad_grid = cfuvw3_pq_grid*!values.f_nan
+
+  cnuvw3_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+  cnuvw3_pq_mad_grid = cnuvw3_pq_grid*!values.f_nan
+
+  cjustw4_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+  cjustw4_pq_mad_grid = cjustw4_pq_grid*!values.f_nan
+
+  cjustw3_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+  cjustw3_pq_mad_grid = cjustw3_pq_grid*!values.f_nan
+
+  cfuv_pq_grid = fltarr(n_p, n_q)*!values.f_nan
+  cfuv_pq_mad_grid = cfuv_pq_grid*!values.f_nan
+
+  for ii = 0, n_p-1 do begin
+     for jj = 0, n_q-1 do begin
+
+        use_this = abs(ssfr - ssfr_axis[jj]) lt tol_ssfr
+
+        if ii eq 0 then $
+           use_this *= (mstar lt tol_mstar+mstar_axis[ii]) $
+        else if ii eq n_q-1 then $
+           use_this *= (mstar gt mstar_axis[ii]-tol_mstar) $
         else $
-           use *= (lumw1 gt lumw1_axis[jj]-tol_lumw1 and $
-                   lumw1 lt lumw1_axis[jj]+tol_lumw1)
+           use_this *= (mstar gt mstar_axis[ii]-tol_mstar and $
+                        mstar lt mstar_axis[ii]+tol_mstar)
         
-        ind = where(use, ct)
-        if ct gt thresh then begin
-           yz_grid[ii,jj] = median(mtol[ind])
-           yz_mad_grid[ii,jj] = mad(mtol[ind])
+        this_ind = where(use_this, this_ct)
+        if this_ct gt thresh then begin
+
+           mtol_pq_grid[ii,jj] = median(mtol[this_ind])
+           mtol_pq_mad_grid[ii,jj] = mad(mtol[this_ind])
+           count_pq_grid[ii,jj] = this_ct*1.0
+
+           cfuv_pq_grid[ii,jj] = median(coef_fuv[this_ind])
+           cfuv_pq_mad_grid[ii,jj] = mad(coef_fuv[this_ind])
+
+           cfuvw4_pq_grid[ii,jj] = median(coef_w4fuv[this_ind])
+           cfuvw4_pq_mad_grid[ii,jj] = mad(coef_w4fuv[this_ind])
+
+           cnuvw4_pq_grid[ii,jj] = median(coef_w4nuv[this_ind])
+           cnuvw4_pq_mad_grid[ii,jj] = mad(coef_w4nuv[this_ind])
+
+           cfuvw3_pq_grid[ii,jj] = median(coef_w3fuv[this_ind])
+           cfuvw3_pq_mad_grid[ii,jj] = mad(coef_w3fuv[this_ind])
+
+           cnuvw3_pq_grid[ii,jj] = median(coef_w3nuv[this_ind])
+           cnuvw3_pq_mad_grid[ii,jj] = mad(coef_w3nuv[this_ind])
+
+           cjustw4_pq_grid[ii,jj] = median(coef_justw4[this_ind])
+           cjustw4_pq_mad_grid[ii,jj] = mad(coef_justw4[this_ind])
+
+           cjustw3_pq_grid[ii,jj] = median(coef_justw3[this_ind])
+           cjustw3_pq_mad_grid[ii,jj] = mad(coef_justw3[this_ind])
+
         endif
         
      endfor
   endfor
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; MAKE A THREE D CUBE
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-  xyz_cube = fltarr(n_x, n_y, n_z)*!values.f_nan
-  xyz_mad_cube = xyz_cube*!values.f_nan
-
-  for ii = 0, n_x-1 do begin
-     for jj = 0, n_y-1 do begin
-        for kk = 0, n_z-1 do begin
-
-           use = abs(nuvw1 - nuvw1_axis[ii]) lt tol_nuvw1
-           use *= abs(w3w1 - w3w1_axis[jj]) lt tol_w3w1
-
-           if kk eq 0 then $
-              use *= (lumw1 lt tol_lumw1+lumw1_axis[kk]) $
-           else if kk eq n_z-1 then $
-              use *= (lumw1 gt lumw1_axis[kk]-tol_lumw1) $
-           else $
-              use *= (lumw1 gt lumw1_axis[kk]-tol_lumw1 and $
-                      lumw1 lt lumw1_axis[kk]+tol_lumw1)
-
-           ind = where(use, ct)           
-           if ct gt thresh then begin
-              xyz_cube[ii,jj,kk] = median(mtol[ind])
-              xyz_mad_cube[ii,jj,kk] = mad(mtol[ind])
-           endif
-        endfor
-
-     endfor
-  endfor
-  
+ 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SAVE THE GRIDS AS FITS FILES
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-; SAVE THE XY GRID
-  mkhdr, xy_hdr, xy_grid
+; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+; SAVE THE XY GRIDS
+; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+; MAKE HEADERS
+
+  mkhdr, xy_hdr, mtol_xy_grid
   
-  sxaddpar, xy_hdr, 'CTYPE1', 'LOGNUVW1'
+  sxaddpar, xy_hdr, 'CTYPE1', 'LOGFUVW1'
   sxaddpar, xy_hdr, 'CRPIX1', 1.0
-  sxaddpar, xy_hdr, 'CRVAL1', nuvw1_axis[0]
-  sxaddpar, xy_hdr, 'CDELT1', nuvw1_axis[1]-nuvw1_axis[0]
+  sxaddpar, xy_hdr, 'CRVAL1', fuvw1_axis[0]
+  sxaddpar, xy_hdr, 'CDELT1', fuvw1_axis[1]-fuvw1_axis[0]
 
-  sxaddpar, xy_hdr, 'CTYPE2', 'LOGW3W1'
+  sxaddpar, xy_hdr, 'CTYPE2', 'LOGW4W1'
   sxaddpar, xy_hdr, 'CRPIX2', 1.0
-  sxaddpar, xy_hdr, 'CRVAL2', w3w1_axis[0]
-  sxaddpar, xy_hdr, 'CDELT2', w3w1_axis[1]-w3w1_axis[0]
+  sxaddpar, xy_hdr, 'CRVAL2', w4w1_axis[0]
+  sxaddpar, xy_hdr, 'CDELT2', w4w1_axis[1]-w4w1_axis[0]
 
-  sxaddpar, xy_hdr, 'BUNIT', 'MSUN/LSUN', 'at 3.4um'
+  mtol_xy_hdr = xy_hdr
+  sxaddpar, mtol_xy_hdr, 'BUNIT', 'MSUN/LSUN', 'at 3.4um'
+
+  sfr_xy_hdr = xy_hdr
+  sxaddpar, sfr_xy_hdr, 'BUNIT', 'COEF', 'WISE->SFR'
+
+  ct_xy_hdr = xy_hdr
+  sxaddpar, sfr_xy_hdr, 'BUNIT', 'COUNTS', 'GSWLC GALAXIES'
+
+; WRITE GRIDS
+
+; ... COUNTS
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_count_grid.fits' $
+     , count_xy_grid, ct_xy_hdr
+
+; ... M/L
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_mtol_grid.fits' $
+     , mtol_xy_grid, mtol_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_madmtol_grid.fits' $
+     , mtol_xy_mad_grid, mtol_xy_hdr
+
+; ... FUV
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_cfuvw4_grid.fits' $
+     , cfuvw4_xy_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_madcfuvw4_grid.fits' $
+     , cfuvw4_xy_mad_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_cfuvw3_grid.fits' $
+     , cfuvw3_xy_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_madcfuvw3_grid.fits' $
+     , cfuvw3_xy_mad_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_cjustw4_grid.fits' $
+     , cjustw4_xy_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_madcjustw4_grid.fits' $
+     , cjustw4_xy_mad_grid, sfr_xy_hdr
+
+; ... NUV
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_cnuvw4_grid.fits' $
+     , cnuvw4_xy_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_madcnuvw4_grid.fits' $
+     , cnuvw4_xy_mad_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_cnuvw3_grid.fits' $
+     , cnuvw3_xy_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_madcnuvw3_grid.fits' $
+     , cnuvw3_xy_mad_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_cjustw3_grid.fits' $
+     , cjustw3_xy_grid, sfr_xy_hdr
+
+  writefits $
+     , '../measurements/fuvw1_w4w1_madcjustw3_grid.fits' $
+     , cjustw3_xy_mad_grid, sfr_xy_hdr
+
+; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+; SAVE THE UV GRIDS
+; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+; MAKE HEADERS
+
+  mkhdr, uv_hdr, mtol_uv_grid
+
+  sxaddpar, uv_hdr, 'CTYPE1', 'LOGNUVW1'
+  sxaddpar, uv_hdr, 'CRPIX1', 1.0
+  sxaddpar, uv_hdr, 'CRVAL1', nuvw1_axis[0]
+  sxaddpar, uv_hdr, 'CDELT1', nuvw1_axis[1]-nuvw1_axis[0]
+
+  sxaddpar, uv_hdr, 'CTYPE2', 'LOGW3W1'
+  sxaddpar, uv_hdr, 'CRPIX2', 1.0
+  sxaddpar, uv_hdr, 'CRVAL2', w3w1_axis[0]
+  sxaddpar, uv_hdr, 'CDELT2', w3w1_axis[1]-w3w1_axis[0]
+
+  mtol_uv_hdr = uv_hdr
+  sxaddpar, mtol_uv_hdr, 'BUNIT', 'MSUN/LSUN', 'at 3.4um'
+
+  sfr_uv_hdr = uv_hdr
+  sxaddpar, sfr_uv_hdr, 'BUNIT', 'COEF', 'WISE->SFR'
+
+  ct_uv_hdr = uv_hdr
+  sxaddpar, sfr_uv_hdr, 'BUNIT', 'COUNTS', 'GSWLC GALAXIES'
+
+; WRITE GRIDS
+
+; ... COUNTS
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_count_grid.fits' $
+     , count_uv_grid, ct_uv_hdr
+
+; ... M/L
 
   writefits $
      , '../measurements/nuvw1_w3w1_mtol_grid.fits' $
-     , xy_grid, xy_hdr
+     , mtol_uv_grid, mtol_uv_hdr
 
   writefits $
      , '../measurements/nuvw1_w3w1_madmtol_grid.fits' $
-     , xy_mad_grid, xy__hdr
+     , mtol_uv_mad_grid, mtol_uv_hdr
 
-; SAVE THE YZ GRIDS
-  mkhdr, yz_hdr, yz_grid
-
-  sxaddpar, yz_hdr, 'CTYPE1', 'LOGW3W1'
-  sxaddpar, yz_hdr, 'CRPIX1', 1.0
-  sxaddpar, yz_hdr, 'CRVAL1', w3w1_axis[0]
-  sxaddpar, yz_hdr, 'CDELT1', w3w1_axis[1]-w3w1_axis[0]
-
-  sxaddpar, yz_hdr, 'CTYPE2', 'LOGW1LSUN'
-  sxaddpar, yz_hdr, 'CRPIX2', 1.0
-  sxaddpar, yz_hdr, 'CRVAL2', lumw1_axis[0]
-  sxaddpar, yz_hdr, 'CDELT2', lumw1_axis[1]-lumw1_axis[0]
-
-  sxaddpar, yz_hdr, 'BUNIT', 'MSUN/LSUN', 'at 3.4um'
+; ... FUV
 
   writefits $
-     , '../measurements/w3w1_lumw1_mtol_grid.fits' $
-     , yz_grid, yz_hdr
+     , '../measurements/nuvw1_w3w1_cfuvw4_grid.fits' $
+     , cfuvw4_uv_grid, sfr_uv_hdr
 
   writefits $
-     , '../measurements/w3w1_lumw1_madmtol_grid.fits' $
-     , yz_mad_grid, yz__hdr
-
-; SAVE THE THREE-D GRID
-  mkhdr, xyz_hdr, xyz_cube
-
-  sxaddpar, xyz_hdr, 'CTYPE1', 'LOGNUVW1'
-  sxaddpar, xyz_hdr, 'CRPIX1', 1.0
-  sxaddpar, xyz_hdr, 'CRVAL1', nuvw1_axis[0]
-  sxaddpar, xyz_hdr, 'CDELT1', nuvw1_axis[1]-nuvw1_axis[0]
-
-  sxaddpar, xyz_hdr, 'CTYPE2', 'LOGW3W1'
-  sxaddpar, xyz_hdr, 'CRPIX2', 1.0
-  sxaddpar, xyz_hdr, 'CRVAL2', w3w1_axis[0]
-  sxaddpar, xyz_hdr, 'CDELT2', w3w1_axis[1]-w3w1_axis[0]
-
-  sxaddpar, xyz_hdr, 'CTYPE3', 'LOGW1LSUN'
-  sxaddpar, xyz_hdr, 'CRPIX3', 1.0
-  sxaddpar, xyz_hdr, 'CRVAL3', lumw1_axis[0]
-  sxaddpar, xyz_hdr, 'CDELT3', lumw1_axis[1]-lumw1_axis[0]
-
-  sxaddpar, xyz_hdr, 'BUNIT', 'MSUN/LSUN', 'at 3.4um'
+     , '../measurements/nuvw1_w3w1_madcfuvw4_grid.fits' $
+     , cfuvw4_uv_mad_grid, sfr_uv_hdr
 
   writefits $
-     , '../measurements/mtol_cube.fits' $
-     , xyz_cube, xyz_hdr
+     , '../measurements/nuvw1_w3w1_cfuvw3_grid.fits' $
+     , cfuvw3_uv_grid, sfr_uv_hdr
 
   writefits $
-     , '../measurements/madmtol_cube.fits' $
-     , xyz_mad_cube, xyz_hdr
+     , '../measurements/nuvw1_w3w1_madcfuvw3_grid.fits' $
+     , cfuvw3_uv_mad_grid, sfr_uv_hdr
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_cjustw4_grid.fits' $
+     , cjustw4_uv_grid, sfr_uv_hdr
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_madcjustw4_grid.fits' $
+     , cjustw4_uv_mad_grid, sfr_uv_hdr
+
+; ... NUV
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_cnuvw4_grid.fits' $
+     , cnuvw4_uv_grid, sfr_uv_hdr
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_madcnuvw4_grid.fits' $
+     , cnuvw4_uv_mad_grid, sfr_uv_hdr
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_cnuvw3_grid.fits' $
+     , cnuvw3_uv_grid, sfr_uv_hdr
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_madcnuvw3_grid.fits' $
+     , cnuvw3_uv_mad_grid, sfr_uv_hdr
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_cjustw3_grid.fits' $
+     , cjustw3_uv_grid, sfr_uv_hdr
+
+  writefits $
+     , '../measurements/nuvw1_w3w1_madcjustw3_grid.fits' $
+     , cjustw3_uv_mad_grid, sfr_uv_hdr
+
+; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+; SAVE THE SSFR-MSTAR GRIDS
+; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+; MAKE HEADERS
+
+  mkhdr, pq_hdr, mtol_pq_grid
+
+  sxaddpar, pq_hdr, 'CTYPE1', 'LOGMSTAR'
+  sxaddpar, pq_hdr, 'CRPIX1', 1.0
+  sxaddpar, pq_hdr, 'CRVAL1', mstar_axis[0]
+  sxaddpar, pq_hdr, 'CDELT1', mstar_axis[1]-mstar_axis[0]
+
+  sxaddpar, pq_hdr, 'CTYPE2', 'LOGSSFR'
+  sxaddpar, pq_hdr, 'CRPIX2', 1.0
+  sxaddpar, pq_hdr, 'CRVAL2', ssfr_axis[0]
+  sxaddpar, pq_hdr, 'CDELT2', ssfr_axis[1]-ssfr_axis[0]
+
+  mtol_pq_hdr = pq_hdr
+  sxaddpar, mtol_pq_hdr, 'BUNIT', 'MSUN/LSUN', 'at 3.4um'
+
+  sfr_pq_hdr = pq_hdr
+  sxaddpar, sfr_pq_hdr, 'BUNIT', 'COEF', 'WISE->SFR'
+
+  ct_pq_hdr = pq_hdr
+  sxaddpar, sfr_pq_hdr, 'BUNIT', 'COUNTS', 'GSWLC GALAXIES'
+
+; WRITE GRIDS
+
+; ... COUNTS
+
+  writefits $
+     , '../measurements/ssfr_mstar_count_grid.fits' $
+     , count_pq_grid, ct_pq_hdr
+
+; ... M/L
+
+  writefits $
+     , '../measurements/ssfr_mstar_mtol_grid.fits' $
+     , mtol_pq_grid, mtol_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_madmtol_grid.fits' $
+     , mtol_pq_mad_grid, mtol_pq_hdr
+
+; ... FUV
+
+  writefits $
+     , '../measurements/ssfr_mstar_cfuv_grid.fits' $
+     , cfuv_pq_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_madcfuv_grid.fits' $
+     , cfuv_pq_mad_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_cfuvw4_grid.fits' $
+     , cfuvw4_pq_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_madcfuvw4_grid.fits' $
+     , cfuvw4_pq_mad_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_cfuvw3_grid.fits' $
+     , cfuvw3_pq_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_madcfuvw3_grid.fits' $
+     , cfuvw3_pq_mad_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_cjustw4_grid.fits' $
+     , cjustw4_pq_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_madcjustw4_grid.fits' $
+     , cjustw4_pq_mad_grid, sfr_pq_hdr
+
+; ... NUV
+
+  writefits $
+     , '../measurements/ssfr_mstar_cnuvw4_grid.fits' $
+     , cnuvw4_pq_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_madcnuvw4_grid.fits' $
+     , cnuvw4_pq_mad_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_cnuvw3_grid.fits' $
+     , cnuvw3_pq_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_madcnuvw3_grid.fits' $
+     , cnuvw3_pq_mad_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_cjustw3_grid.fits' $
+     , cjustw3_pq_grid, sfr_pq_hdr
+
+  writefits $
+     , '../measurements/ssfr_mstar_madcjustw3_grid.fits' $
+     , cjustw3_pq_mad_grid, sfr_pq_hdr
 
   stop
 

@@ -9,7 +9,7 @@ pro build_delivery $
    , tag = tag $
    , start = start_num $
    , stop = stop_num
-    
+  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -48,14 +48,14 @@ pro build_delivery $
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; LOOP OVER GALAXIES, REBIN TO ~5.5" PIXELS, WRITE TO DISK
+; LOOP OVER GALAXIES AND WRITE TO DISK
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   for ii = 0, n_pgc-1 do begin
      
      pgc_name = strcompress(pgc_list[ii], /rem)
      this_dat = gal_data[ii]
-         
+     
      if n_elements(just) gt 0 then $
         if total(pgc_name eq just) eq 0 then $
            continue
@@ -78,17 +78,24 @@ pro build_delivery $
            
            if mm eq 0  then begin
               res_str = 'gauss15'
+              do_rebin = 1
            endif
            
            if mm eq 1 then begin
               if band eq 'w4' then continue
               res_str = 'gauss7p5'
+              do_rebin = 0
            endif
 
            infile = wise_dir + pgc_name+'_'+band+'_'+res_str+'_bksub.fits'           
            outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'.fits'           
            if file_test(infile) then begin
               map = readfits(infile, hdr, /silent)
+              sz = size(map)
+              if do_rebin then begin
+                 new_sz = [sz[1]/2, sz[2]/2]
+                 hrebin, map, hdr, out=new_sz
+              endif
               writefits, outfile, map, hdr
            endif else begin
               print, "Missing ... ", infile
@@ -110,10 +117,12 @@ pro build_delivery $
            
            if mm eq 0  then begin
               res_str = 'gauss15'
+              do_rebin = 1
            endif
            
            if mm eq 1 then begin
               res_str = 'gauss7p5'
+              do_rebin = 0
            endif
 
            infile = galex_dir + pgc_name+'_'+band+'_'+res_str+'_extcorr.fits'           
@@ -123,6 +132,11 @@ pro build_delivery $
               if sxpar(hdr, 'SKIP') eq 1 then $
                  continue
               map = readfits(infile, hdr, /silent)
+              sz = size(map)
+              if do_rebin then begin
+                 new_sz = [sz[1]/2, sz[2]/2]
+                 hrebin, map, hdr, out=new_sz
+              endif
               writefits, outfile, map, hdr
            endif           
 
@@ -145,16 +159,23 @@ pro build_delivery $
         
         if mm eq 0  then begin
            res_str = 'gauss15'
+           do_rebin = 1
         endif
         
         if mm eq 1 then begin
            res_str = 'gauss7p5'
+           do_rebin = 0
         endif
         
         infile = mask_dir + pgc_name+'_'+res_str+'_rgrid.fits'
         outfile = out_dir + pgc_name+'_'+res_str+'_rgrid.fits'
         if file_test(infile) then begin
            map = readfits(infile, hdr, /silent)
+           sz = size(map)
+           if do_rebin then begin
+              new_sz = [sz[1]/2, sz[2]/2]
+              hrebin, map, hdr, out=new_sz
+           endif
            writefits, outfile, map, hdr
         endif
 
@@ -162,6 +183,11 @@ pro build_delivery $
         outfile = out_dir + pgc_name+'_'+res_str+'_galaxies.fits'
         if file_test(infile) then begin
            map = readfits(infile, hdr, /silent)
+           sz = size(map)
+           if do_rebin then begin
+              new_sz = [sz[1]/2, sz[2]/2]
+              hrebin, map, hdr, out=new_sz
+           endif
            writefits, outfile, map, hdr
         endif
 
@@ -178,23 +204,40 @@ pro build_delivery $
            endif
 
            infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_bright_stars.fits'           
-           outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_bright_stars.fits'            
-          if file_test(infile) then begin
-              map = readfits(infile, hdr, /silent)
-              writefits, outfile, map, hdr
-           endif
-                 
-           infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_found_stars.fits'           
-           outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_found_stars.fits'           
+           outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_stars.fits'            
            if file_test(infile) then begin
               map = readfits(infile, hdr, /silent)
+              sz = size(map)
+              if do_rebin then begin
+                 new_sz = [sz[1]/2, sz[2]/2]
+                 hrebin, map, hdr, out=new_sz
+              endif
               writefits, outfile, map, hdr
            endif
-                      
+           
+           ; CURRENTLY DEPRECATED
+
+           ;infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_found_stars.fits'           
+           ;outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_found_stars.fits'           
+           ;if file_test(infile) then begin
+           ;   map = readfits(infile, hdr, /silent)
+           ;   sz = size(map)
+           ;   if do_rebin then begin
+           ;      new_sz = [sz[1]/2, sz[2]/2]
+           ;      hrebin, map, hdr, out=new_sz
+           ;   endif
+           ;   writefits, outfile, map, hdr
+           ;endif
+           
            infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_custom.fits'           
            outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_custom_mask.fits'           
            if file_test(infile) then begin
               map = readfits(infile, hdr, /silent)
+              sz = size(map)
+              if do_rebin then begin
+                 new_sz = [sz[1]/2, sz[2]/2]
+                 hrebin, map, hdr, out=new_sz
+              endif
               writefits, outfile, map, hdr
            endif
 

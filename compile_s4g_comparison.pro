@@ -17,7 +17,6 @@ pro compile_s4g_comparison $
   out_dir = '../cutouts/s4g/'
   atlas_dir = '../delivery/'
   unwise_dir = '../unwise/atlas/'
-  mask_dir = '../masks/'
 
   readcol $
      , index_dir + 'processed_irac.txt' $
@@ -121,7 +120,7 @@ pro compile_s4g_comparison $
            
            if file_test(infile) eq 0 then continue           
 
-           radfile = mask_dir + pgcname + $
+           radfile = atlas_dir + pgcname + $
                      '_'+res_str+'_rgrid.fits'
 
            outfile = out_dir + pgcname + $
@@ -137,6 +136,10 @@ pro compile_s4g_comparison $
               , aperture=1.0 $
               , show=show
 
+           ;map = readfits(infile, hdr)
+           ;map = map - bkgrd
+           ;writefits, outfile, map, hdr
+          
         endfor
 
      endfor
@@ -195,7 +198,7 @@ pro compile_s4g_comparison $
               continue
            endelse
         
-           radfile = mask_dir + pgcname + $
+           radfile = atlas_dir + pgcname + $
                      '_'+res_str+'_rgrid.fits'
            rgrid = readfits(radfile, rhdr, /silent)
            

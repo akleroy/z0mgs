@@ -1,6 +1,7 @@
 pro compile_mask_atlas $
    , rad = do_rad_mask $
    , gal = do_gal_mask $
+   , gaia = do_query_gaia $
    , bright = do_bright_star_mask $
    , find = do_find_stars $
    , show = show $
@@ -85,7 +86,7 @@ pro compile_mask_atlas $
               , override_incl_list = override_incl_list $              
               , show = show $
               , pause = pause
-        
+           
         endfor
 
      endfor     
@@ -149,7 +150,7 @@ pro compile_mask_atlas $
               outfile = out_dir+pgc_name+'_galaxies.idl'
               save, file=outfile, overlap_pgc
            endif
-        
+           
         endfor
 
      endfor  
@@ -157,7 +158,42 @@ pro compile_mask_atlas $
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; MAKE BRIGHT STAR MASKS BASED ON 2MASS
+; QUERY GAIA
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  !p.multi=0
+
+  if keyword_set(do_query_gaia) then begin
+
+     outdir = '../stars/gaia/'
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = strcompress(pgc_list[ii], /rem)
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Querying GAIA '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        image_file = unwise_dir+pgc_name+'_w1_gauss7p5_small.fits'
+        outfile = outdir+pgc_name+'_gaia.txt'
+
+        query_gaia $
+           , image=image_file $
+           , outfile=outfile $
+           , /send
+        
+     endfor
+     
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; MAKE BRIGHT STAR MASKS BASED ON 2MASS AND GAIA
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   !p.multi=0
@@ -180,6 +216,8 @@ pro compile_mask_atlas $
         for jj = 0, 5 do begin
 
            atlas_dir = unwise_dir
+           if jj eq 4 or jj eq 5 then atlas_dir = galex_dir
+           
            if jj eq 0 then band = 'w1'
            if jj eq 1 then band = 'w2'
            if jj eq 2 then band = 'w3'
@@ -187,20 +225,25 @@ pro compile_mask_atlas $
 
            if jj eq 4 then band = 'nuv'
            if jj eq 5 then band = 'fuv'
-           if jj eq 4 or jj eq 5 then atlas_dir = galex_dir
            
-           for mm = 0, 1 do begin
+           ;if jj ne 2 then continue
 
+           for mm = 0, 1 do begin
+              
+;             SKIP 15" FOR NOW
               if mm eq 0 then begin
                  fwhm = 15.0/3600.
                  res = 'gauss15'
+                 if band ne 'w4' then continue
               endif
+
               if mm eq 1 then begin
                  fwhm = 7.5/3600.
                  res = 'gauss7p5'
                  if band eq 'w4' then continue
               endif
-                         
+
+;             FOCUS ON THE SMALL CUTOUTS              
               infile = atlas_dir+pgc_name+'_'+band+'_'+res+'_small.fits'
               if file_test(infile) eq 0 then begin
                  print, "File missing, proceeding ... ", infile
@@ -213,15 +256,19 @@ pro compile_mask_atlas $
                  continue
               endif
               
+;             OUTPUT FILE
               bright_star_mask_file = $
                  out_dir+pgc_name+'_'+band+'_'+res+'_bright_stars.fits'
               
+;             CALL THE SUBROUTINE
               build_bright_star_mask $
-                 , infile = infile $
-                 , fwhm = fwhm $
-                 , outfile = bright_star_mask_file $     
+                 , pgcname=pgc_name $
+                 , galdata=this_dat $
+                 , infile=infile $
                  , band = band $
-                 , star_tol = star_tol $
+                 , res=res $
+                 , outfile = bright_star_mask_file $
+;                LOAD THE 2MASS CATALOG AND KEEP IT IN MEMORY
                  , star_ra = star_ra $
                  , star_dec = star_dec $
                  , star_km = star_km $
@@ -229,6 +276,7 @@ pro compile_mask_atlas $
                  , ra_found = overlap_ra $
                  , dec_found = overlap_dec $
                  , km_found = overlap_km $
+;                DISPLAY OPTIONS
                  , show=show $
                  , pause=pause           
               
@@ -247,9 +295,9 @@ pro compile_mask_atlas $
      endfor     
 
   endif  
-
+  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; MAKE POINT SOURCE MASKS
+; MAKE POINT SOURCE MASKS (DEPRECATE THIS?)
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   !p.multi=0
@@ -324,7 +372,7 @@ pro compile_mask_atlas $
                  fwhm = 7.5/3600.
                  if band eq 'w4' then continue
               endif
-                         
+              
               infile = atlas_dir+pgc_name+'_'+band+'_'+res+'_small.fits'
               if file_test(infile) eq 0 then begin
                  print, "File missing, proceeding ... ", infile

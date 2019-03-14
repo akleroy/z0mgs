@@ -10,7 +10,7 @@ pro bkfit_galex $
    , band=band $
    , rejfile=rejfile $
    , rejected=rejected $
-   , bkgrd=bkgrd_out $   
+   , bkgrd=bkgrd $   
    , aperture_scale=aperture_scale $
    , plane=plane $
    , show=show $
