@@ -1,4 +1,5 @@
-pro extract_gaia_training
+pro extract_gaia_training $
+   , res_str = res_str
 
 ;+
 ;
@@ -10,10 +11,13 @@ pro extract_gaia_training
 ;
 ;-  
 
+  if n_elements(res_str) eq 0 then $
+     res_str = 'gauss7p5'
+
   atlas_dir = '../delivery/'
   gaia_dir = '../stars/gaia/'
 
-  tab = mrdfits('../measurements/delivery_index_gauss7p5.fits', 1, h)
+  tab = mrdfits('../measurements/delivery_index_'+res_str+'.fits', 1, h)
   n_pgc = n_elements(tab)
 
   g_thresh = 19.0
@@ -24,6 +28,7 @@ pro extract_gaia_training
   w1 = fltarr(nstars)*!values.f_nan
   w2 = fltarr(nstars)*!values.f_nan
   w3 = fltarr(nstars)*!values.f_nan
+  w4 = fltarr(nstars)*!values.f_nan
   nuv = fltarr(nstars)*!values.f_nan
   fuv = fltarr(nstars)*!values.f_nan
 
@@ -35,10 +40,14 @@ pro extract_gaia_training
         continue
 
      pgc_name = strcompress(tab[ii].pgc_name, /rem)
+     if pgc_name eq 'PGC2557' then begin
+        print, "Skipping M31."
+        continue
+     endif
 
-     w1_im = readfits(atlas_dir+pgc_name+'_w1_gauss7p5.fits', w1_hdr, /silent)
-     gal_mask = readfits(atlas_dir+pgc_name+'_gauss7p5_galaxies.fits', gal_hdr, /silent)
-     rgrid = readfits(atlas_dir+pgc_name+'_gauss7p5_rgrid.fits', rad_hdr, /silent)
+     w1_im = readfits(atlas_dir+pgc_name+'_w1_'+res_str+'.fits', w1_hdr, /silent)
+     gal_mask = readfits(atlas_dir+pgc_name+'_'+res_str+'_galaxies.fits', gal_hdr, /silent)
+     rgrid = readfits(atlas_dir+pgc_name+'_'+res_str+'_rgrid.fits', rad_hdr, /silent)
 
      gaia_file = gaia_dir+pgc_name+'_gaia.txt'
  
@@ -77,22 +86,30 @@ pro extract_gaia_training
      w1[lo:hi] = w1_im[x,y]
 
      if tab[ii].has_wise2 eq 1 then begin
-        w2_im = readfits(atlas_dir+pgc_name+'_w2_gauss7p5.fits', w2_hdr, /silent)
+        w2_im = readfits(atlas_dir+pgc_name+'_w2_'+res_str+'.fits', w2_hdr, /silent)
         w2[lo:hi] = w2_im[x,y]
      endif
 
      if tab[ii].has_wise3 eq 1 then begin
-        w3_im = readfits(atlas_dir+pgc_name+'_w3_gauss7p5.fits', w3_hdr, /silent)
+        w3_im = readfits(atlas_dir+pgc_name+'_w3_'+res_str+'.fits', w3_hdr, /silent)
         w3[lo:hi] = w3_im[x,y]
      endif
 
+     if tab[ii].has_wise4 eq 1 then begin
+        fname = atlas_dir+pgc_name+'_w4_'+res_str+'.fits'
+        if file_test(fname) then begin
+           w4_im = readfits(fname, w4_hdr, /silent)
+           w4[lo:hi] = w4_im[x,y]
+        endif
+     endif
+
      if tab[ii].has_nuv eq 1 then begin
-        nuv_im = readfits(atlas_dir+pgc_name+'_nuv_gauss7p5.fits', nuv_hdr, /silent)
+        nuv_im = readfits(atlas_dir+pgc_name+'_nuv_'+res_str+'.fits', nuv_hdr, /silent)
         nuv[lo:hi] = nuv_im[x,y]
      endif
 
      if tab[ii].has_fuv eq 1 then begin
-        fuv_im = readfits(atlas_dir+pgc_name+'_fuv_gauss7p5.fits', fuv_hdr, /silent)
+        fuv_im = readfits(atlas_dir+pgc_name+'_fuv_'+res_str+'.fits', fuv_hdr, /silent)
         fuv[lo:hi] = fuv_im[x,y]
      endif
 
@@ -102,7 +119,7 @@ pro extract_gaia_training
 
   save $
      , gmag, w1, w2, w3, w4, nuv, fuv $
-     , file='../measurements/gaia_stars_gauss7p5.idl'
+     , file='../measurements/gaia_stars_'+res_str+'.idl'
 
   stop
 

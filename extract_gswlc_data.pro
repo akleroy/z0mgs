@@ -38,10 +38,10 @@ pro extract_gswlc_data
            , flux_id $
            , flux_gws_fuv, flux_gws_efuv $
            , flux_gws_nuv, flux_gws_enuv $
-           , flux_gws_w1_nm, flux_gws_ew1_nm $
-           , flux_gws_w2_nm, flux_gws_ew2_nm $
-           , flux_gws_w3_nm, flux_gws_ew3_nm $
-           , flux_gws_w4_nm, flux_gws_ew4_nm $
+           , flux_gws_w1_nm, flux_gws_w1_invar $
+           , flux_gws_w2_nm, flux_gws_w2_invar $
+           , flux_gws_w3_nm, flux_gws_w3_invar $
+           , flux_gws_w4_nm, flux_gws_w4_invar $
            , format='LL,F,F,F,F,F,F,F,F,F,F,F,F'
   
   flux_gws_w1 = 3631.*10^(-0.4*(22.5+2.683))*flux_gws_w1_nm
@@ -49,10 +49,10 @@ pro extract_gswlc_data
   flux_gws_w3 = 3631*10^(-0.4*(22.5+5.242))*flux_gws_w3_nm
   flux_gws_w4 = 3631*10^(-0.4*(22.5+6.604))*flux_gws_w4_nm
 
-  flux_gws_ew1 = 3631.*10^(-0.4*(22.5+2.683))*flux_gws_ew1_nm
-  flux_gws_ew2 = 3631*10^(-0.4*(22.5+3.319))*flux_gws_ew2_nm
-  flux_gws_ew3 = 3631*10^(-0.4*(22.5+5.242))*flux_gws_ew3_nm
-  flux_gws_ew4 = 3631*10^(-0.4*(22.5+6.604))*flux_gws_ew4_nm
+  flux_gws_ew1 = 3631.*10^(-0.4*(22.5+2.683))*(1./sqrt(flux_gws_w1_invar))
+  flux_gws_ew2 = 3631*10^(-0.4*(22.5+3.319))*(1./sqrt(flux_gws_w2_invar))
+  flux_gws_ew3 = 3631*10^(-0.4*(22.5+5.242))*(1./sqrt(flux_gws_w3_invar))
+  flux_gws_ew4 = 3631*10^(-0.4*(22.5+6.604))*(1./sqrt(flux_gws_w4_invar))
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; CROSS MATCH
@@ -126,6 +126,10 @@ pro extract_gswlc_data
   sfr_nuv_s07 = $
      lum_to_sfr(band='NUV', cal='S07', lum=nuv_lum*nu_nuv)
 
+  sfr_fuvw4_ke12 = $
+     lum_to_sfr(band='FUV', cal='KE12' $
+                , lum=(fuv_lum*nu_fuv + 3.89*w4_lum*nu_w4))  
+
   sfr_fuv_z19 = $
      lum_to_sfr(band='FUV', cal='Z19', lum=fuv_lum*nu_fuv)
   sfr_nuv_z19 = $
@@ -140,12 +144,6 @@ pro extract_gswlc_data
      lum_to_sfr(band='WISE3', cal='Z19', lum=w3_lum*nu_w3)
   sfr_w4_z19 = $
      lum_to_sfr(band='WISE4', cal='Z19', lum=w4_lum*nu_w4)
-
-  sfr_fuvw4_ke12 = $
-     lum_to_sfr(band='FUV', cal='KE12' $
-                , lum=(fuv_lum*nu_fuv + 3.89*w4_lum*nu_w4))  
-  sfr_nuvw3 = $
-     sfr_nuv_ke12+sfr_w3_j13
 
   sfr_fuvw4_z19 = $
      lum_to_sfr(band='FUV', cal='Z19', lum=fuv_lum*nu_fuv) + $
@@ -165,13 +163,16 @@ pro extract_gswlc_data
 
   mtol_w1 = 10.^(gws_logmstar - alog10(w1_lum/lsun_3p4))
   gws_ssfr = gws_logsfrsed-gws_logmstar
-  ssfr_like = sfr_fuvw4_ke12 / (w1_lum / lsun_3p4)
   w2w1 = alog10(w2_lum/w1_lum)
   w3w1 = alog10(w3_lum/w1_lum)
   w4w1 = alog10(w3_lum/w1_lum)
   nuvw1 = alog10(nuv_lum/w1_lum)
   fuvw1 = alog10(fuv_lum/w1_lum)
   
+  ssfr_like_fuvw4 = sfr_fuvw4_z19 / (w1_lum/lsun_3p4)
+  ssfr_like_nuvw4 = sfr_nuvw4_z19 / (w1_lum/lsun_3p4)
+  ssfr_like_nuvw3 = sfr_nuvw3_z19 / (w1_lum/lsun_3p4)
+
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SAVE TO DISK
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -187,8 +188,8 @@ pro extract_gswlc_data
      , fuv_lum, nuv_lum, w1_lum, w2_lum, w3_lum, w4_lum $
      , sfr_fuv_ke12, sfr_nuv_ke12, sfr_fuv_s07, sfr_nuv_s07, sfr_fuv_z19, sfr_nuv_z19 $
      , sfr_w3_j13, sfr_w4_j13, sfr_w3_z19, sfr_w4_z19 $
-     , sfr_fuvw4_ke12, sfr_nuvw3, sfr_fuvw4_z19, sfr_fuvw3_z19, sfr_nuvw4_z19, sfr_nuvw3_z19 $
-     , mtol_w1, gws_ssfr, ssfr_like $
+     , sfr_fuvw4_ke12, sfr_fuvw4_z19, sfr_fuvw3_z19, sfr_nuvw4_z19, sfr_nuvw3_z19 $
+     , mtol_w1, gws_ssfr, ssfr_like_fuvw4, ssfr_like_nuvw4, ssfr_like_nuvw3 $
      , w2w1, w3w1, w4w1, nuvw1, fuvw1 $
      , file='../gswlc/gswlc_data.idl'  
 

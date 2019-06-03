@@ -474,11 +474,10 @@ pro compile_galex_atlas $
            
            radfile = mask_dir+pgc_name+'_'+res_str+'_rgrid.fits'
            galfile = mask_dir+pgc_name+'_'+res_str+'_galaxies.fits'
-           brightfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_bright_stars.fits'
-           foundfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_found_stars.fits'
+           starfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_star_mask.fits'
            handfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_custom.fits'
            
-           masklist = [galfile, brightfile, foundfile, handfile]
+           masklist = [galfile, starfile, handfile]
            
            if file_test(infile) eq 0 then begin
               message, "File missing. Skipping.", /info
@@ -625,10 +624,11 @@ pro compile_galex_atlas $
 
               radfile = mask_dir+pgc_name+'_'+res_str+'_rgrid.fits'
               galfile = mask_dir+pgc_name+'_'+res_str+'_galaxies.fits'
-              brightfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_bright_stars.fits'
-              foundfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_found_stars.fits'
+              starfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_star_mask.fits'
               handfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_custom.fits'
 
+              masklist = [galfile, starfile, handfile]
+           
               @special_galex_processing.pro
 
            endfor

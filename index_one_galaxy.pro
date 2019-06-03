@@ -20,7 +20,7 @@ function index_one_galaxy $
   sat_thresh_fuv = 1e6
 
   gal_flag_thresh = 0.1
-  star_flag_thresh = 0.1
+  star_flag_thresh = 0.2
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; BUILD THE STRUCTURE
@@ -49,6 +49,54 @@ function index_one_galaxy $
      , time_nuv: nan $
      , afuv: nan $
      , anuv: nan $
+;    NOISE IN IMAGE
+     , rms_fuv: nan $
+     , std_fuv: nan $
+     , maskfrac_fuv: nan $
+     , rms_nuv: nan $
+     , std_nuv: nan $
+     , maskfrac_nuv: nan $
+     , rms_wise1: nan $
+     , std_wise1: nan $
+     , maskfrac_wise1: nan $
+     , rms_wise2: nan $
+     , std_wise2: nan $
+     , maskfrac_wise2: nan $
+     , rms_wise3: nan $
+     , std_wise3: nan $
+     , maskfrac_wise3: nan $
+     , rms_wise4: nan $
+     , std_wise4: nan $
+     , maskfrac_wise4: nan $
+;    FLAGS
+     , sat_effects_fuv: 0B $
+     , star_area_fuv: 0.0d $
+     , star_flux_fuv: 0.0d $
+     , star_flag_fuv: 0B $
+     , sat_effects_nuv: 0B $
+     , star_area_nuv: 0.0d $
+     , star_flux_nuv: 0.0d $
+     , star_flag_nuv: 0B $
+     , sat_effects_wise1: 0B $ 
+     , star_area_wise1: 0.0d $
+     , star_flux_wise1: 0.0d $
+     , star_flag_wise1: 0B $
+     , sat_effects_wise2: 0B $
+     , star_area_wise2: 0.0d $
+     , star_flux_wise2: 0.0d $
+     , star_flag_wise2: 0B $
+     , sat_effects_wise3: 0B $
+     , star_area_wise3: 0.0d $
+     , star_flux_wise3: 0.0d $
+     , star_flag_wise3: 0B $
+     , sat_effects_wise4: 0B $
+     , star_area_wise4: 0.0d $
+     , star_flux_wise4: 0.0d $
+     , star_flag_wise4: 0B $
+     , galaxy_mask_overlap: 0.0d $
+     , galaxy_overlap_flag: 0B $
+     , photometry_mismatch_flag: 0B $ ; TBD
+     , photometry_mismatch: '' $      ; TBD
 ;    PHOTOMETRY
      , flux_fuv: nan $
      , rms_flux_fuv: nan $
@@ -74,52 +122,32 @@ function index_one_galaxy $
      , rms_flux_wise4: nan $
      , std_flux_wise4: nan $
      , outer_flux_wise4: nan $
-;    NOISE IN IMAGE
-     , rms_fuv: nan $
-     , std_fuv: nan $
-     , maskfrac_fuv: nan $
-     , rms_nuv: nan $
-     , std_nuv: nan $
-     , maskfrac_nuv: nan $
-     , rms_wise1: nan $
-     , std_wise1: nan $
-     , maskfrac_wise1: nan $
-     , rms_wise2: nan $
-     , std_wise2: nan $
-     , maskfrac_wise2: nan $
-     , rms_wise3: nan $
-     , std_wise3: nan $
-     , maskfrac_wise3: nan $
-     , rms_wise4: nan $
-     , std_wise4: nan $
-     , maskfrac_wise4: nan $
 ;    PHYSICAL PROPERTIES
-     , mtol_w1: nan $
-     , mtol_unc: nan $
-     , mtol_method: '' $
-;    FLAGS
-     , sat_effects_fuv: 0B $
-     , star_overlap_fuv: 0.0d $
-     , star_flag_fuv: 0B $
-     , sat_effects_nuv: 0B $
-     , star_overlap_nuv: 0.0d $
-     , star_flag_nuv: 0B $
-     , sat_effects_wise1: 0B $ 
-     , star_overlap_wise1: 0.0d $
-     , star_flag_wise1: 0B $
-     , sat_effects_wise2: 0B $
-     , star_overlap_wise2: 0.0d $
-     , star_flag_wise2: 0B $
-     , sat_effects_wise3: 0B $
-     , star_overlap_wise3: 0.0d $
-     , star_flag_wise3: 0B $
-     , sat_effects_wise4: 0B $
-     , star_overlap_wise4: 0.0d $
-     , star_flag_wise4: 0B $
-     , galaxy_mask_overlap: 0.0d $
-     , galaxy_overlap_flag: 0B $
-     , photometry_mismatch_flag: 0B $ ; TBD
-     , photometry_mismatch: '' $      ; TBD
+     , dist_mpc: nan $
+     , e_dist_dex: nan $
+;    ... MASS-TO-LIGHT
+     , mtol_color: nan $
+     , method_mtol: '' $
+     , mtol_iter: nan $
+     , logmass_color: nan $
+     , e_logmass_color: nan $
+     , logmass_iter: nan $
+     , e_logmass_iter: nan $
+;    ... STAR FORMATION RATE
+     , cfuvw4_iter: nan $
+     , cnuvw4_iter: nan $
+     , cfuvw3_iter: nan $
+     , cnuvw3_iter: nan $
+     , cjustw4_iter: nan $
+     , cjustw3_iter: nan $
+     , logsfr_fixed: nan $
+     , e_logsfr_fixed: nan $
+     , method_sfr: '' $
+     , logsfr_iter: nan $
+     , e_logsfr_iter: nan $
+;    ... OFFSET FROM MS
+     , deltams: nan $
+     , e_deltams: nan $
      }
 
   if keyword_set(empty) then begin
@@ -196,12 +224,15 @@ function index_one_galaxy $
      if file_test(starmask_fname) then begin
         starmask = readfits(starmask_fname, stars_hdr,/silent)
         
-        index.star_overlap_wise1 = $
+        index.star_area_wise1 = $
            total(small_footprint*starmask*1.0)/total(small_footprint*1.0)     
+        index.star_flux_wise1 = $
+           total(small_footprint*starmask*map*1.0,/nan)/total(small_footprint*1.0*map,/nan)
         index.star_flag_wise1 = $
-           index.star_overlap_wise1 gt star_flag_thresh
+           index.star_flux_wise1 gt star_flag_thresh
         
-        sxaddpar, hdr, 'STARFRAC', index.star_overlap_wise1, 'Star overlap fraction'
+        sxaddpar, hdr, 'STARFLUX', index.star_flux_wise1, 'Star flux fraction', missing=-1.0
+        sxaddpar, hdr, 'STARAREA', index.star_area_wise1, 'Star area fraction', missing=-1.0
         sxaddpar, hdr, 'STARFLAG', index.star_flag_wise1, 'Star overlap flag'
      endif
 
@@ -226,12 +257,15 @@ function index_one_galaxy $
      if file_test(starmask_fname) then begin
         starmask = readfits(starmask_fname, stars_hdr,/silent)
         
-        index.star_overlap_wise2 = $
+        index.star_area_wise2 = $
            total(small_footprint*starmask*1.0)/total(small_footprint*1.0)     
+        index.star_flux_wise2 = $
+           total(small_footprint*starmask*map*1.0,/nan)/total(small_footprint*1.0*map,/nan)
         index.star_flag_wise2 = $
-           index.star_overlap_wise2 gt star_flag_thresh
+           index.star_flux_wise2 gt star_flag_thresh
         
-        sxaddpar, hdr, 'STARFRAC', index.star_overlap_wise2, 'Star overlap fraction'
+        sxaddpar, hdr, 'STARFLUX', index.star_flux_wise2, 'Star flux fraction', missing=-1.0
+        sxaddpar, hdr, 'STARAREA', index.star_area_wise2, 'Star area fraction', missing=-1.0
         sxaddpar, hdr, 'STARFLAG', index.star_flag_wise2, 'Star overlap flag'
      endif
      writefits, wise2_fname, map, hdr
@@ -255,12 +289,16 @@ function index_one_galaxy $
      if file_test(starmask_fname) then begin
         starmask = readfits(starmask_fname, stars_hdr,/silent)
         
-        index.star_overlap_wise3 = $
+        index.star_area_wise3 = $
            total(small_footprint*starmask*1.0)/total(small_footprint*1.0)     
+        index.star_flux_wise3 = $
+           total(small_footprint*starmask*map*1.0,/nan)/total(small_footprint*1.0*map,/nan)
+
         index.star_flag_wise3 = $
-           index.star_overlap_wise3 gt star_flag_thresh
+           index.star_flux_wise3 gt star_flag_thresh
         
-        sxaddpar, hdr, 'STARFRAC', index.star_overlap_wise3, 'Star overlap fraction'
+        sxaddpar, hdr, 'STARFLUX', index.star_flux_wise3, 'Star flux fraction', missing=-1.0
+        sxaddpar, hdr, 'STARAREA', index.star_area_wise3, 'Star area fraction', missing=-1.0
         sxaddpar, hdr, 'STARFLAG', index.star_flag_wise3, 'Star overlap flag'
      endif
 
@@ -284,13 +322,17 @@ function index_one_galaxy $
      starmask_fname = atlas_dir+pgc_name+'_'+band+'_'+res_str+'_stars.fits'
      if file_test(starmask_fname) then begin
         starmask = readfits(starmask_fname, stars_hdr,/silent)
-        
-        index.star_overlap_wise4 = $
+
+        index.star_area_wise4 = $
            total(small_footprint*starmask*1.0)/total(small_footprint*1.0)     
-        index.star_flag_wise4 = $
-           index.star_overlap_wise4 gt star_flag_thresh
+        index.star_flux_wise4 = $
+           total(small_footprint*starmask*map*1.0,/nan)/total(small_footprint*1.0*map,/nan)
         
-        sxaddpar, hdr, 'STARFRAC', index.star_overlap_wise4, 'Star overlap fraction'
+        index.star_flag_wise4 = $
+           index.star_flux_wise4 gt star_flag_thresh
+        
+        sxaddpar, hdr, 'STARFLUX', index.star_flux_wise4, 'Star flux fraction', missing=-1.0
+        sxaddpar, hdr, 'STARAREA', index.star_area_wise4, 'Star area fraction', missing=-1.0
         sxaddpar, hdr, 'STARFLAG', index.star_flag_wise4, 'Star overlap flag'
      endif
 
@@ -317,12 +359,16 @@ function index_one_galaxy $
      if file_test(starmask_fname) then begin
         starmask = readfits(starmask_fname, stars_hdr,/silent)
         
-        index.star_overlap_nuv = $
+        index.star_area_nuv = $
            total(small_footprint*starmask*1.0)/total(small_footprint*1.0)     
+        index.star_flux_nuv = $
+           total(small_footprint*starmask*map*1.0,/nan)/total(small_footprint*1.0*map,/nan)
+           
         index.star_flag_nuv = $
-           index.star_overlap_nuv gt star_flag_thresh
-        
-        sxaddpar, hdr, 'STARFRAC', index.star_overlap_nuv, 'Star overlap fraction'
+           index.star_flux_nuv gt star_flag_thresh
+                
+        sxaddpar, hdr, 'STARFLUX', index.star_flux_nuv, 'Star flux fraction', missing=-1.0
+        sxaddpar, hdr, 'STARAREA', index.star_area_nuv, 'Star area fraction', missing=-1.0
         sxaddpar, hdr, 'STARFLAG', index.star_flag_nuv, 'Star overlap flag'
      endif
 
@@ -348,13 +394,17 @@ function index_one_galaxy $
      starmask_fname = atlas_dir+pgc_name+'_'+band+'_'+res_str+'_stars.fits'
      if file_test(starmask_fname) then begin
         starmask = readfits(starmask_fname, stars_hdr,/silent)
-        
-        index.star_overlap_fuv = $
+
+        index.star_area_fuv = $
            total(small_footprint*starmask*1.0)/total(small_footprint*1.0)     
+        index.star_flux_fuv = $
+           total(small_footprint*starmask*map*1.0,/nan)/total(small_footprint*1.0*map,/nan)
+
         index.star_flag_fuv = $
-           index.star_overlap_fuv gt star_flag_thresh
+           index.star_flux_fuv gt star_flag_thresh
         
-        sxaddpar, hdr, 'STARFRAC', index.star_overlap_fuv, 'Star overlap fraction'
+        sxaddpar, hdr, 'STARFLUX', index.star_flux_fuv, 'Star flux fraction', missing=-1.0
+        sxaddpar, hdr, 'STARAREA', index.star_area_fuv, 'Star area fraction', missing=-1.0
         sxaddpar, hdr, 'STARFLAG', index.star_flag_fuv, 'Star overlap flag'
      endif
 

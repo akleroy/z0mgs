@@ -2,8 +2,8 @@ pro compile_mask_atlas $
    , rad = do_rad_mask $
    , gal = do_gal_mask $
    , gaia = do_query_gaia $
-   , bright = do_bright_star_mask $
-   , find = do_find_stars $
+   , starpred  = do_star_pred $
+   , starmask = do_star_mask $
    , show = show $
    , pause = pause $
    , only = only $
@@ -11,7 +11,8 @@ pro compile_mask_atlas $
    , tag = tag $
    , start = start_num $
    , stop = stop_num $
-   , incremental = incremental
+   , incremental = incremental $
+   , skip = skip
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
@@ -181,24 +182,34 @@ pro compile_mask_atlas $
         print, ''
 
         image_file = unwise_dir+pgc_name+'_w1_gauss7p5_small.fits'
+        if file_test(image_file) eq 0 then $
+           image_file = unwise_dir+pgc_name+'_w2_gauss7p5_small.fits'
+
         outfile = outdir+pgc_name+'_gaia.txt'
 
-        query_gaia $
-           , image=image_file $
-           , outfile=outfile $
-           , /send
+        if pgc_name eq 'PGC2557' then begin
+           query_gaia_m31 $
+              , image=image_file $
+              , outfile=outfile $
+              , /send
+        endif else begin
+           query_gaia $
+              , image=image_file $
+              , outfile=outfile $
+              , /send
+        endelse
         
      endfor
      
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; MAKE BRIGHT STAR MASKS BASED ON 2MASS AND GAIA
+; A PREDICTED STAR IMAGE
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   !p.multi=0
 
-  if keyword_set(do_bright_star_mask) then begin
+  if keyword_set(do_star_pred) then begin
 
      for ii = 0, n_pgc-1 do begin
 
@@ -210,7 +221,7 @@ pro compile_mask_atlas $
               continue
 
         print, ''
-        print, 'Bright star mask construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, 'Bright star predcition construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
 
         for jj = 0, 5 do begin
@@ -230,11 +241,9 @@ pro compile_mask_atlas $
 
            for mm = 0, 1 do begin
               
-;             SKIP 15" FOR NOW
               if mm eq 0 then begin
                  fwhm = 15.0/3600.
                  res = 'gauss15'
-                 if band ne 'w4' then continue
               endif
 
               if mm eq 1 then begin
@@ -260,8 +269,8 @@ pro compile_mask_atlas $
               bright_star_mask_file = $
                  out_dir+pgc_name+'_'+band+'_'+res+'_bright_stars.fits'
               
-;             CALL THE SUBROUTINE
-              build_bright_star_mask $
+;             PREDICT AN INTENSITY IMAGE
+              build_bright_star_pred $
                  , pgcname=pgc_name $
                  , galdata=this_dat $
                  , infile=infile $
@@ -280,7 +289,8 @@ pro compile_mask_atlas $
                  , show=show $
                  , pause=pause           
               
-;             SAVE AN IDL FILE LISTING THE STARS THAT OVERLAP THIS FIELD
+;             SAVE AN IDL FILE LISTING THE 2MASS STARS THAT OVERLAP
+;             THIS FIELD (COULD EXPAND TO GAIA LATER)
               if jj eq 0 then begin
                  if n_found gt 0 then begin
                     outfile = out_dir+pgc_name+'_bright_stars.idl'
@@ -297,12 +307,12 @@ pro compile_mask_atlas $
   endif  
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; MAKE POINT SOURCE MASKS (DEPRECATE THIS?)
+; TRANSLATE THE PREDICTED STAR MAPS INTO MASKS
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   !p.multi=0
 
-  if keyword_set(do_find_stars) then begin
+  if keyword_set(do_star_mask) then begin
 
      for ii = 0, n_pgc-1 do begin
 
@@ -314,65 +324,36 @@ pro compile_mask_atlas $
               continue
 
         print, ''
-        print, 'Unsharp star mask construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, 'Bright star mask derivation for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
-
-;       FIND THE STARS IN THE WISE1 7.5" IMAGE
-        infile = unwise_dir+pgc_name+'_w1_gauss7p5_small.fits'
-        if file_test(infile) eq 0 then begin
-           print, "No WISE1 7.5'' image. Stopping."
-           stop
-        endif
-        
-        find_point_sources $
-           , infile = infile $
-           , outfile=outfile $
-           , fwhm=7.5/3600. $
-           , exclude_ra = this_dat.ra_deg $
-           , exclude_dec = this_dat.dec_deg $
-           , exclude_tol = 15./3600. $
-           , n_star=n_star $
-           , star_ra=star_ra $
-           , star_dec=star_dec $
-           , star_intens=star_intens $
-           , star_km=star_km $
-           , show=show $
-           , pause=pause
-
-;       SAVE AN IDL FILE LISTING THE STARS THAT OVERLAP THIS FIELD
-        if n_star gt 0 then begin
-           outfile = out_dir+pgc_name+'_found_stars.idl'
-           save, file=outfile, n_star, star_ra, star_dec, star_km
-        endif
-        
-;       LOOP OVER BANDS TO REMOVE THE STARS
 
         for jj = 0, 5 do begin
 
            atlas_dir = unwise_dir
+           if jj eq 4 or jj eq 5 then atlas_dir = galex_dir
+           
            if jj eq 0 then band = 'w1'
            if jj eq 1 then band = 'w2'
            if jj eq 2 then band = 'w3'
            if jj eq 3 then band = 'w4'
 
-
            if jj eq 4 then band = 'nuv'
            if jj eq 5 then band = 'fuv'
-
-           if jj eq 4 or jj eq 5 then atlas_dir = galex_dir
            
            for mm = 0, 1 do begin
-
+              
               if mm eq 0 then begin
-                 res = 'gauss15'
                  fwhm = 15.0/3600.
+                 res = 'gauss15'
               endif
+
               if mm eq 1 then begin
-                 res = 'gauss7p5'
                  fwhm = 7.5/3600.
+                 res = 'gauss7p5'
                  if band eq 'w4' then continue
               endif
-              
+
+;             FOCUS ON THE SMALL CUTOUTS              
               infile = atlas_dir+pgc_name+'_'+band+'_'+res+'_small.fits'
               if file_test(infile) eq 0 then begin
                  print, "File missing, proceeding ... ", infile
@@ -385,38 +366,156 @@ pro compile_mask_atlas $
                  continue
               endif
               
-              found_star_mask_file = $
-                 out_dir+pgc_name+'_'+band+'_'+res+'_found_stars.fits'
+;             PREDICTION FILE
+              bright_star_pred_file = $
+                 out_dir+pgc_name+'_'+band+'_'+res+'_bright_stars.fits'
 
-              if n_star eq 0 then begin
-
-                 print, "... writing blank mask."
-                 map = readfits(infile, hdr)
-                 mask = finite(map)*0B
-                 sxaddpar, hdr, 'BUNIT', 'MASK'
-                 writefits, found_star_mask_file, map, hdr
-                 continue
-
-              endif 
+;             MASK FILE
+              bright_star_mask_file = $
+                 out_dir+pgc_name+'_'+band+'_'+res+'_mask_stars.fits'
               
+;             TRANSLATE PREDICTION TO MASK
               build_bright_star_mask $
-                 , infile = infile $
-                 , fwhm = fwhm $
-                 , outfile = found_star_mask_file $     
+                 , pgcname=pgc_name $
+                 , galdata=this_dat $
                  , band = band $
-                 , star_ra = star_ra $
-                 , star_dec = star_dec $
-                 , star_km = star_km $
+                 , res=res $
+                 , infile=infile $
+                 , predfile = bright_star_pred_file $
+                 , outfile = bright_star_mask_file $
                  , show=show $
-                 , pause=pause
-              
+                 , pause=pause           
+
            endfor
-           
+
         endfor
+        
+     endfor     
 
-     endfor
+  endif  
 
-  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; MAKE POINT SOURCE MASKS (DEPRECATED)
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+;  !p.multi=0
+;
+;  if keyword_set(do_find_stars) then begin
+;
+;     for ii = 0, n_pgc-1 do begin
+;
+;        pgc_name = strcompress(pgc_list[ii], /rem)
+;        this_dat = gal_data[ii]
+;
+;        if n_elements(just) gt 0 then $
+;           if total(pgc_name eq just) eq 0 then $
+;              continue
+;
+;;         print, ''
+;;         print, 'Unsharp star mask construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+;;         print, ''
+
+;; ;       FIND THE STARS IN THE WISE1 7.5" IMAGE
+;;         infile = unwise_dir+pgc_name+'_w1_gauss7p5_small.fits'
+;;         if file_test(infile) eq 0 then begin
+;;            print, "No WISE1 7.5'' image. Stopping."
+;;            stop
+;;         endif
+        
+;;         find_point_sources $
+;;            , infile = infile $
+;;            , outfile=outfile $
+;;            , fwhm=7.5/3600. $
+;;            , exclude_ra = this_dat.ra_deg $
+;;            , exclude_dec = this_dat.dec_deg $
+;;            , exclude_tol = 15./3600. $
+;;            , n_star=n_star $
+;;            , star_ra=star_ra $
+;;            , star_dec=star_dec $
+;;            , star_intens=star_intens $
+;;            , star_km=star_km $
+;;            , show=show $
+;;            , pause=pause
+
+;; ;       SAVE AN IDL FILE LISTING THE STARS THAT OVERLAP THIS FIELD
+;;         if n_star gt 0 then begin
+;;            outfile = out_dir+pgc_name+'_found_stars.idl'
+;;            save, file=outfile, n_star, star_ra, star_dec, star_km
+;;         endif
+        
+;; ;       LOOP OVER BANDS TO REMOVE THE STARS
+
+;;         for jj = 0, 5 do begin
+
+;;            atlas_dir = unwise_dir
+;;            if jj eq 0 then band = 'w1'
+;;            if jj eq 1 then band = 'w2'
+;;            if jj eq 2 then band = 'w3'
+;;            if jj eq 3 then band = 'w4'
+
+
+;;            if jj eq 4 then band = 'nuv'
+;;            if jj eq 5 then band = 'fuv'
+
+;;            if jj eq 4 or jj eq 5 then atlas_dir = galex_dir
+           
+;;            for mm = 0, 1 do begin
+
+;;               if mm eq 0 then begin
+;;                  res = 'gauss15'
+;;                  fwhm = 15.0/3600.
+;;               endif
+;;               if mm eq 1 then begin
+;;                  res = 'gauss7p5'
+;;                  fwhm = 7.5/3600.
+;;                  if band eq 'w4' then continue
+;;               endif
+              
+;;               infile = atlas_dir+pgc_name+'_'+band+'_'+res+'_small.fits'
+;;               if file_test(infile) eq 0 then begin
+;;                  print, "File missing, proceeding ... ", infile
+;;                  continue
+;;               endif
+
+;;               hdr = headfits(infile)
+;;               if sxpar(hdr, 'SKIP') eq 1 then begin
+;;                  print, "Header says to skip."
+;;                  continue
+;;               endif
+              
+;;               found_star_mask_file = $
+;;                  out_dir+pgc_name+'_'+band+'_'+res+'_found_stars.fits'
+
+;;               if n_star eq 0 then begin
+
+;;                  print, "... writing blank mask."
+;;                  map = readfits(infile, hdr)
+;;                  mask = finite(map)*0B
+;;                  sxaddpar, hdr, 'BUNIT', 'MASK'
+;;                  writefits, found_star_mask_file, map, hdr
+;;                  continue
+
+;;               endif 
+              
+;;               build_bright_star_mask $
+;;                  , infile = infile $
+;;                  , fwhm = fwhm $
+;;                  , outfile = found_star_mask_file $     
+;;                  , band = band $
+;;                  , star_ra = star_ra $
+;;                  , star_dec = star_dec $
+;;                  , star_km = star_km $
+;;                  , show=show $
+;;                  , pause=pause
+              
+;;            endfor
+           
+;;         endfor
+
+;;      endfor
+
+;;   endif
 
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%

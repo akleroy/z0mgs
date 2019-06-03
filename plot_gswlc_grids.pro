@@ -35,8 +35,8 @@ pro plot_gswlc_grids $
 
   if gridname eq 'ssfr_mstar' then begin
      ext = 'ssfrmstar'
-     xtitle = "!6log!d10!n SFR / M!d*!n [yr!u-1!n]"
-     ytitle = "!6log!d10!n Stellar Mass from CIGALE [M!d!9n!n!6]"
+     ytitle = "!6log!d10!n SFR / M!d*!n [yr!u-1!n]"
+     xtitle = "!6log!d10!n Stellar Mass from CIGALE [M!d!9n!n!6]"
   endif
 
   if gridname eq 'nuvw1_w3w1' then begin
@@ -189,7 +189,7 @@ pro plot_gswlc_grids $
         , position=[0.2, 0.2, 0.925, 0.75] $
         , color=cgcolor('black',255) $
         , missing = cgcolor('white',254), reserve=5 $
-        , min=-43.0, max=-42.0
+        , min=-43.25, max=-42.25
 
   for ii = 0, sz_grid[1]-2 do $
      oplot, (x_axis[ii]+delta_x*0.5)*[1,1], [-100,100], lines=1, color=cgcolor('black')
@@ -205,7 +205,7 @@ pro plot_gswlc_grids $
   
   !p.charthick=3
   viridis
-  cgColorbar, Range=[-43.0, -42.0] $
+  cgColorbar, Range=[-43.25, -42.25] $
               , Position=[0.2, 0.925, 0.925, 0.975] $
               , xtickformat='(F5.1)' $
               , title='!6log!d10!n C WISE4+FUV [M!d!9n!6!n yr!u-1!n (erg s!u-1!n)!u-1!n]' $
@@ -238,7 +238,7 @@ pro plot_gswlc_grids $
         , position=[0.2, 0.2, 0.925, 0.75] $
         , color=cgcolor('black',255) $
         , missing = cgcolor('white',254), reserve=5 $
-        , min=-43.0, max=-42.0
+        , min=-43.25, max=-42.25
 
   for ii = 0, sz_grid[1]-2 do $
      oplot, (x_axis[ii]+delta_x*0.5)*[1,1], [-100,100], lines=1, color=cgcolor('black')
@@ -254,7 +254,7 @@ pro plot_gswlc_grids $
   
   !p.charthick=3
   viridis
-  cgColorbar, Range=[-43.0, -42.0] $
+  cgColorbar, Range=[-43.25, -42.25] $
               , Position=[0.2, 0.925, 0.925, 0.975] $
               , xtickformat='(F5.1)' $
               , title='!6log!d10!n C WISE3+FUV [M!d!9n!6!n yr!u-1!n (erg s!u-1!n)!u-1!n]' $
@@ -336,7 +336,7 @@ pro plot_gswlc_grids $
         , position=[0.2, 0.2, 0.925, 0.75] $
         , color=cgcolor('black',255) $
         , missing = cgcolor('white',254), reserve=5 $
-        , min=-43.0, max=-42.0
+        , min=-43.25, max=-42.25
 
   for ii = 0, sz_grid[1]-2 do $
      oplot, (x_axis[ii]+delta_x*0.5)*[1,1], [-100,100], lines=1, color=cgcolor('black')
@@ -352,7 +352,7 @@ pro plot_gswlc_grids $
   
   !p.charthick=3
   viridis
-  cgColorbar, Range=[-43.0, -42.0] $
+  cgColorbar, Range=[-43.25, -42.25] $
               , Position=[0.2, 0.925, 0.925, 0.975] $
               , xtickformat='(F5.1)' $
               , title='!6log!d10!n C WISE3 only [M!d!9n!6!n yr!u-1!n (erg s!u-1!n)!u-1!n]' $

@@ -1,6 +1,7 @@
 pro build_gswlc_grid
 
   thresh = 10
+  ston = 3.0
   @constants.bat
   lsun_3p4 = 1.83d18
   restore, '../gswlc/gswlc_data.idl'
@@ -20,11 +21,11 @@ pro build_gswlc_grid
 
   ind = where(gws_logmstar gt 0 $
                   and w1_lum gt 0 $
-                  and gws_w1 gt 5.*gws_ew1 $
-                  and gws_w3 gt 5.*gws_ew3 $
-                  and gws_w4 gt 5.*gws_ew4 $
-                  and gws_nuv gt 5.*gws_enuv $
-                  and gws_fuv gt 5.*gws_efuv $
+                  and gws_w1 gt ston*gws_ew1 $
+                  and gws_w3 gt ston*gws_ew3 $
+                  and gws_w4 gt ston*gws_ew4 $
+                  and gws_nuv gt ston*gws_enuv $
+                  and gws_fuv gt ston*gws_efuv $
                   and gws_flagsed eq 0 $
                  )  
 
@@ -62,32 +63,32 @@ pro build_gswlc_grid
   min_fuvw1 = -3.5
   max_fuvw1 = 0.5
   bin_fuvw1 = 0.05
-  tol_fuvw1 = 0.1
+  tol_fuvw1 = 0.05;0.1
 
   min_nuvw1 = -3.5
   max_nuvw1 = 0.5
   bin_nuvw1 = 0.05
-  tol_nuvw1 = 0.1
+  tol_nuvw1 = 0.05;0.1
 
   min_w4w1 = -2.0
   max_w4w1 = 2.0
   bin_w4w1 = 0.05
-  tol_w4w1 = 0.1
+  tol_w4w1 = 0.05;0.1
 
   min_w3w1 = -2.0
   max_w3w1 = 2.0
   bin_w3w1 = 0.05
-  tol_w3w1 = 0.1
+  tol_w3w1 = 0.05;0.1
 
   min_ssfr = -12.
   max_ssfr = -8.
   bin_ssfr = 0.125
-  tol_ssfr = 0.25
+  tol_ssfr = 0.125 ;0.25
 
   min_mstar = 9.0
   max_mstar = 11.0
   bin_mstar = 0.125
-  tol_mstar = 0.25  
+  tol_mstar = 0.125 ;0.25  
 
   count_fuvw1_w4w1 = $
      grid_data(fuvw1, w4w1, /nan $

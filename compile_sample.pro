@@ -27,6 +27,8 @@ pro compile_sample
      , wise3_rms: nan $
      , wise4: nan $
      , wise4_rms: nan $
+     , galmask: 0B $
+     , starmask: 0B $
      }
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -50,6 +52,10 @@ pro compile_sample
      pgc_name = strcompress(tab[ii].pgc_name, /rem)
      
      rgrid = readfits(atlas_dir+pgc_name+'_gauss15_rgrid.fits', rhdr, /silent)
+
+     gmask = readfits(atlas_dir+pgc_name+'_gauss15_galaxies.fits', ghdr, /silent)
+
+     smask = readfits(atlas_dir+pgc_name+'_w1_gauss15_stars.fits', shdr, /silent)
 
      wise1_fname = atlas_dir+pgc_name+'_w1_gauss15.fits'
      wise1 = readfits(wise1_fname, wise1_hdr, /silent)
@@ -106,6 +112,8 @@ pro compile_sample
      sample[counter:(counter+samp_ct-1)].pgc = tab[ii].pgc
      sample[counter:(counter+samp_ct-1)].ra_deg = ri[samp_ind]
      sample[counter:(counter+samp_ct-1)].dec_deg = di[samp_ind]
+     sample[counter:(counter+samp_ct-1)].galmask = gmask[samp_ind]
+     sample[counter:(counter+samp_ct-1)].starmask = smask[samp_ind]
 
      sample[counter:(counter+samp_ct-1)].fuv = fuv[samp_ind]
      sample[counter:(counter+samp_ct-1)].nuv = nuv[samp_ind]

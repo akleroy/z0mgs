@@ -29,7 +29,7 @@ pro build_delivery $
      , dat = gal_data $
      , start = start_num $
      , stop = stop_num $
-     , exclude = ['PGC17223']
+     , exclude = ['PGC17223','PGC89980','PGC917425']
   n_pgc = n_elements(pgc_list)
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -187,6 +187,7 @@ pro build_delivery $
            if do_rebin then begin
               new_sz = [sz[1]/2, sz[2]/2]
               hrebin, map, hdr, out=new_sz
+              map = map ge 0.1
            endif
            writefits, outfile, map, hdr
         endif
@@ -203,7 +204,7 @@ pro build_delivery $
               if res_str eq 'gauss7p5' then continue
            endif
 
-           infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_bright_stars.fits'           
+           infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_mask_stars.fits'           
            outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_stars.fits'            
            if file_test(infile) then begin
               map = readfits(infile, hdr, /silent)
@@ -211,6 +212,7 @@ pro build_delivery $
               if do_rebin then begin
                  new_sz = [sz[1]/2, sz[2]/2]
                  hrebin, map, hdr, out=new_sz
+                 map = map ge 0.1
               endif
               writefits, outfile, map, hdr
            endif
@@ -237,6 +239,7 @@ pro build_delivery $
               if do_rebin then begin
                  new_sz = [sz[1]/2, sz[2]/2]
                  hrebin, map, hdr, out=new_sz
+                 map = map ge 0.1
               endif
               writefits, outfile, map, hdr
            endif

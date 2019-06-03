@@ -1,9 +1,12 @@
 pro inspect_masks $
    , radius=do_radius $
    , galaxies=do_galaxies $
+   , stars=do_stars $
+   , big=do_big_galaxies $
    , pause=pause $
    , band=band $
    , res=res $
+   , skip=skip_empty $
    , start=start_num $
    , stop=stop_num
 
@@ -33,6 +36,11 @@ pro inspect_masks $
   
   n_pgc = n_elements(pgc_list)
 
+  if keyword_set(do_big_galaxies) then begin
+     thresh = 200./3600.
+     ind = where(gal_data.r25_deg gt thresh, ct)     
+  endif
+
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; LOOP OVER GALAXIES
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -45,8 +53,13 @@ pro inspect_masks $
 
   for ii = start_num, stop_num-1 do begin
      
-     pgc_name = strcompress(pgc_list[ii], /rem)
-     this_dat = gal_data[ii]
+     if keyword_set(do_big_galaxies) then begin
+        pgc_name = strcompress(pgc_list[ind[ii]], /rem)
+        this_dat = gal_data[ind[ii]]
+     endif else begin
+        pgc_name = strcompress(pgc_list[ii], /rem)
+        this_dat = gal_data[ii]
+     endelse
      
      if n_elements(just) gt 0 then $
         if total(pgc_name eq just) eq 0 then $
@@ -55,10 +68,22 @@ pro inspect_masks $
      image_file = delivery_dir+pgc_name+'_'+band+'_'+res+'.fits'
      rad_mask_file = delivery_dir+pgc_name+'_'+res+'_rgrid.fits'
      gal_mask_file = delivery_dir+pgc_name+'_'+res+'_galaxies.fits'
+     star_mask_file = delivery_dir+pgc_name+'_w1_'+res+'_stars.fits'
+
+     if keyword_set(do_galaxies) then begin
+        gals = readfits(gal_mask_file, rhdr)
+        if keyword_set(skip_empty) then begin
+           if total(gals) eq 0 then $
+              continue
+        endif
+     endif
      
      image = readfits(image_file, image_hdr)
      loadct, 0
-     disp, image, min=0., max=0.25
+     reversect
+     disp, image, min=0, max=1. $ ; was 0.25
+           , reserve=5, color=cgcolor('black', 255) $
+           , title=pgc_name
 
      if keyword_set(do_radius) then begin
         rad = readfits(rad_mask_file, rhdr)
@@ -69,6 +94,12 @@ pro inspect_masks $
      if keyword_set(do_galaxies) then begin
         gals = readfits(gal_mask_file, rhdr)
         contour, gals, /overplot, color=cgcolor('red'), thick=3 $
+                 , lev=[1]
+     endif
+
+     if keyword_set(do_stars) then begin
+        stars = readfits(star_mask_file, rhdr)
+        contour, stars, /overplot, color=cgcolor('cyan'), thick=3 $
                  , lev=[1]
      endif
 

@@ -2,6 +2,7 @@ pro plot_gswlc_sfruv $
    , show=show
 
   thresh = 10
+  ston = 3.0
   @constants.bat
   lsun_3p4 = 1.83d18
   restore, '../gswlc/gswlc_data.idl'
@@ -21,11 +22,11 @@ pro plot_gswlc_sfruv $
 
   ind = where(gws_logmstar gt 0 $
               and w1_lum gt 0 $
-              and gws_w1 gt 5.*gws_ew1 $
-              and gws_w3 gt 5.*gws_ew3 $
-              and gws_w4 gt 5.*gws_ew4 $
-              and gws_nuv gt 5.*gws_enuv $
-              and gws_fuv gt 5.*gws_efuv $
+              and gws_w1 gt ston*gws_ew1 $
+              and gws_w3 gt ston*gws_ew3 $
+              and gws_w4 gt ston*gws_ew4 $
+              and gws_nuv gt ston*gws_enuv $
+              and gws_fuv gt ston*gws_efuv $
               and gws_flagsed eq 0 $
              )
   

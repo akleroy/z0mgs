@@ -1,10 +1,17 @@
-pro train_gaia_starflags
+pro train_gaia_starflags $
+   , res_str = res_str
 
-  restore, '../measurements/gaia_stars_gauss7p5.idl', /v
+  if n_elements(res_str) eq 0 then $
+     res_str = 'gauss7p5'
+
+  restore, '../measurements/gaia_stars_'+res_str+'.idl', /v
 
   w1_bins = bin_data(gmag, w1, /nan, xmin=10, xmax=19., binsize=0.5)
   w2_bins = bin_data(gmag, w2, /nan, xmin=10, xmax=19., binsize=0.5)
   w3_bins = bin_data(gmag, w3, /nan, xmin=10, xmax=19., binsize=0.5)
+  if n_elements(w4) gt 0 then begin
+     w4_bins = bin_data(gmag, w4, /nan, xmin=10, xmax=19., binsize=0.5)
+  endif
   nuv_bins = bin_data(gmag, nuv, /nan, xmin=10, xmax=19., binsize=0.5)
   fuv_bins = bin_data(gmag, fuv, /nan, xmin=10, xmax=19., binsize=0.5)
 
@@ -12,23 +19,32 @@ pro train_gaia_starflags
   w1_flux = 10.^(-1.0*w1_bins.xmid/2.5)
   w2_flux = 10.^(-1.0*w2_bins.xmid/2.5)
   w3_flux = 10.^(-1.0*w3_bins.xmid/2.5)
+  if n_elements(w4) gt 0 then begin
+     w4_flux = 10.^(-1.0*w4_bins.xmid/2.5)
+  endif
   nuv_flux = 10.^(-1.0*nuv_bins.xmid/2.5)
   fuv_flux = 10.^(-1.0*fuv_bins.xmid/2.5)
 
   w1_rat = median((w1_bins.ymed / w1_flux)[ind])
   w2_rat = median((w2_bins.ymed / w2_flux)[ind])
   w3_rat = median((w3_bins.ymed / w3_flux)[ind])
+  if n_elements(w4) gt 0 then begin
+     w4_rat = median((w4_bins.ymed / w4_flux)[ind])
+  endif
   nuv_rat = median((nuv_bins.ymed / nuv_flux)[ind])
   fuv_rat = median((fuv_bins.ymed / fuv_flux)[ind])
 
   print, 'WISE1 ratio : ', w1_rat
   print, 'WISE2 ratio : ', w2_rat
   print, 'WISE3 ratio : ', w3_rat
+  if n_elements(w4) gt 0 then begin
+     print, 'WISE4 ratio : ', w4_rat
+  endif
   print, 'NUV ratio : ', nuv_rat
   print, 'FUV ratio : ', fuv_rat
 
-  psfile = '../plots/gaia_stacks.eps'
-  pnfile = '../plots/gaia_stacks.png'
+  psfile = '../plots/gaia_stacks'+res_str+'.eps'
+  pnfile = '../plots/gaia_stacks'+res_str+'.png'
   ps, /def, /ps, xs=5, ys=5, /color, /encaps $
       , file=psfile
   
@@ -56,19 +72,29 @@ pro train_gaia_starflags
 
   oplot, w2_bins.xmid, alog10(w2_bins.ymed) $
         , ps=cgsymcat('filledcircle'), symsize=1.5 $
-         , color=cgcolor('salmon')
+         , color=cgcolor('red')
   oplot, fid, alog10(10.^(-1.*fid/2.5)*w2_rat), lines=0 $
-         , color=cgcolor('salmon')
+         , color=cgcolor('red')
   oplot, [0, 1d6], alog10(3e-3*5.)*[1,1], lines=2 $
-         , color=cgcolor('salmon'), thick=10
+         , color=cgcolor('red'), thick=10
 
   oplot, w3_bins.xmid, alog10(w3_bins.ymed) $
          , ps=cgsymcat('filledcircle'), symsize=1.5 $
-         , color=cgcolor('goldenrod')
+         , color=cgcolor('salmon')
   oplot, fid, alog10(10.^(-1.*fid/2.5)*w3_rat), lines=0 $
-         , color=cgcolor('goldenrod')
+         , color=cgcolor('salmon')
   oplot, [0, 1d6], alog10(0.1*5.)*[1,1], lines=2 $
-         , color=cgcolor('goldenrod'), thick=10
+         , color=cgcolor('salmon'), thick=10
+
+  if n_elements(w4) gt 0 then begin
+     oplot, w4_bins.xmid, alog10(w4_bins.ymed) $
+            , ps=cgsymcat('filledcircle'), symsize=1.5 $
+            , color=cgcolor('goldenrod')
+     oplot, fid, alog10(10.^(-1.*fid/2.5)*w4_rat), lines=0 $
+            , color=cgcolor('goldenrod')
+     ;oplot, [0, 1d6], alog10(0.1*5.)*[1,1], lines=2 $
+     ;       , color=cgcolor('goldenrod'), thick=10
+  endif
 
   oplot, nuv_bins.xmid, alog10(nuv_bins.ymed) $
          , ps=cgsymcat('filledcircle'), symsize=1.5 $

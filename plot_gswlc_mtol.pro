@@ -1,6 +1,7 @@
 pro plot_gswlc_mtol
 
   thresh = 10
+  ston = 3.0
 
   @constants.bat
   lsun_3p4 = 1.83d18
@@ -12,11 +13,11 @@ pro plot_gswlc_mtol
 
   mtol_ind = where(gws_logmstar gt 0 $
                    and w1_lum gt 0 $
-                   and gws_w1 gt 5.*gws_ew1 $
-                   and gws_w3 gt 5.*gws_ew3 $
-                   and gws_w4 gt 5.*gws_ew4 $
-                   and gws_nuv gt 5.*gws_enuv $
-                   and gws_fuv gt 5.*gws_efuv $
+                   and gws_w1 gt ston*gws_ew1 $
+                   and gws_w3 gt ston*gws_ew3 $
+                   and gws_w4 gt ston*gws_ew4 $
+                   and gws_nuv gt ston*gws_enuv $
+                   and gws_fuv gt ston*gws_efuv $
                    and gws_flagsed eq 0 $
                   )
 
@@ -121,7 +122,7 @@ pro plot_gswlc_mtol
 
   plot, findgen(101), xtitle='!6'
 
-  n_quant = 9
+  n_quant = 10
 
   for ii = 0, n_quant-1 do begin
 
@@ -148,8 +149,8 @@ pro plot_gswlc_mtol
      endif
 
      if ii eq 2 then begin
-        x = alog10(ssfr_like)
-        xtitle = '!6log!d10!n SFR(FUV+W4)/W1 Lum.  [M!d!9n!6!n yr!u-1!n L!d!9n!6!n!u-1!n]'
+        x = alog10(ssfr_like_fuvw4)
+        xtitle = '!6log!d10!n SFR(FUV+W4)/W1 Lum. [M!d!9n!6!n yr!u-1!n L!d!9n!6!n!u-1!n]'
         tag = 'ssfrlike'
         xmin = -12.5
         xmax = -9.5
@@ -159,6 +160,17 @@ pro plot_gswlc_mtol
      endif
 
      if ii eq 3 then begin
+        x = alog10(ssfr_like_nuvw4)
+        xtitle = '!6log!d10!n SFR(NUV+W4)/W1 Lum. [M!d!9n!6!n yr!u-1!n L!d!9n!6!n!u-1!n]'
+        tag = 'ssfrlike'
+        xmin = -12.5
+        xmax = -9.5
+        binmin = -12.5
+        binmax = -10.0
+        binsize = 0.1
+     endif
+
+     if ii eq 4 then begin
         x = w2w1
         xtitle = '!6log!d10!n W2-to-W1'
         tag = 'w2w1'
@@ -169,7 +181,7 @@ pro plot_gswlc_mtol
         binsize = 0.025
      endif
 
-     if ii eq 4 then begin
+     if ii eq 5 then begin
         x = w4w1
         xtitle = '!6log!d10!n W4-to-W1'
         tag = 'w4w1'
@@ -180,7 +192,7 @@ pro plot_gswlc_mtol
         binsize = 0.1
      endif
 
-     if ii eq 5 then begin
+     if ii eq 6 then begin
         x = w3w1
         xtitle = '!6log!d10!n W3-to-W1'
         tag = 'w3w1'
@@ -191,7 +203,7 @@ pro plot_gswlc_mtol
         binsize = 0.1
      endif
 
-     if ii eq 6 then begin
+     if ii eq 7 then begin
         x = fuvw1
         xtitle = '!6log!d10!n FUV-to-W1'
         tag = 'fuvw1'
@@ -202,7 +214,7 @@ pro plot_gswlc_mtol
         binsize = 0.1
      endif
 
-     if ii eq 7 then begin
+     if ii eq 8 then begin
         x = nuvw1
         xtitle = '!6log!d10!n NUV-to-W1'
         tag = 'nuvw1'
@@ -213,7 +225,7 @@ pro plot_gswlc_mtol
         binsize = 0.1
      endif
 
-     if ii eq 8 then begin
+     if ii eq 9 then begin
         x = alog10(w1_lum/lsun_3p4)
         xtitle = '!6log!d10!n W1 Luminosity [L!d!9n!6!n]'
         tag = 'wise1'

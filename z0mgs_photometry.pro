@@ -154,47 +154,41 @@ pro z0mgs_photometry $
               if this_index[ii].has_fuv eq 0 then continue
               y = fuv
               h = fuv_hdr
-              bright_stars = readfits(fuv_root+'_bright_stars.fits', bhdr,/silent)
-              found_stars = readfits(fuv_root+'_found_stars.fits', fhdr,/silent)
+              stars = readfits(fuv_root+'_stars.fits', star_hdr,/silent)
               corr = 1.0
            endif
            if kk eq 1 then begin
               if this_index[ii].has_nuv eq 0 then continue
               y = nuv
               h = nuv_hdr
-              bright_stars = readfits(nuv_root+'_bright_stars.fits', bhdr,/silent)
-              found_stars = readfits(nuv_root+'_found_stars.fits', fhdr,/silent)
+              stars = readfits(nuv_root+'_stars.fits', star_hdr,/silent)
               corr = 1.0
            endif
            if kk eq 2 then begin
               y = w1
               h = w1_hdr
-              bright_stars = readfits(w1_root+'_bright_stars.fits', bhdr,/silent)
-              found_stars = readfits(w1_root+'_found_stars.fits', fhdr,/silent)
+              stars = readfits(w1_root+'_stars.fits', star_hdr,/silent)
               corr = wise1_corr
            endif
            if kk eq 3 then begin
               if this_index[ii].has_wise2 eq 0 then continue
               y = w2
               h = w2_hdr
-              bright_stars = readfits(w2_root+'_bright_stars.fits', bhdr,/silent)
-              found_stars = readfits(w2_root+'_found_stars.fits', fhdr,/silent)
+              stars = readfits(w2_root+'_stars.fits', star_hdr,/silent)
               corr = wise2_corr
            endif
            if kk eq 4 then begin
               if this_index[ii].has_wise3 eq 0 then continue
               y = w3
               h = w3_hdr
-              bright_stars = readfits(w3_root+'_bright_stars.fits', bhdr,/silent)
-              found_stars = readfits(w3_root+'_found_stars.fits', fhdr,/silent)
+              stars = readfits(w3_root+'_stars.fits', star_hdr,/silent)
               corr = wise3_corr
            endif
            if kk eq 5 then begin
               if this_index[ii].has_wise4 eq 0 then continue
               y = w4
               h = w4_hdr
-              bright_stars = readfits(w4_root+'_bright_stars.fits', bhdr,/silent)
-              found_stars = readfits(w4_root+'_found_stars.fits', fhdr,/silent)
+              stars = readfits(w4_root+'_stars.fits', star_hdr,/silent)
               corr = wise4_corr
            endif
 
@@ -241,10 +235,14 @@ pro z0mgs_photometry $
 ;          ... use the masks to set the image to NaN in places where
 ;          bright stars cause a problem.
 
-           bad_ind = where(((bright_stars eq 1 or bright_stars eq 11) and (rad_deg ge 0.5*this_fiducial_limit)) or $
-                           (gal_mask eq 1 and rad_deg ge this_fiducial_limit) or $
-                           ((found_stars eq 1 or found_stars eq 11) and (rad_deg ge 0.5*this_fiducial_limit)) $
-                           ,bad_ct)
+;bad_ind = where(((bright_stars eq 1 or bright_stars eq 11) and (rad_deg ge 0.5*this_fiducial_limit)) or $
+;                (gal_mask eq 1 and rad_deg ge this_fiducial_limit) or $
+;                ((found_stars eq 1 or found_stars eq 11) and (rad_deg ge 0.5*this_fiducial_limit)) $
+;                ,bad_ct)
+           bad_ind = $
+              where(((stars eq 1) and (rad_deg ge 0.5*this_fiducial_limit)) or $
+                    (gal_mask eq 1 and rad_deg ge this_fiducial_limit) $
+                    , bad_ct)
            if bad_ct gt 0 then y[bad_ind] = !values.f_nan
 
            ;loadct, 0

@@ -13,73 +13,99 @@ pro plot_samples
   grid = $
      grid_data(w3w1, nuvw1, /nan $
                , xaxis_out = x_axis, yaxis_out = y_axis $
-               , xmin=-1., xmax=1., binsize_x=0.01 $
-               , ymin=-3, ymax=0, binsize_y=0.01)
+               , xmin=-1.5, xmax=1.5, binsize_x=0.01 $
+               , ymin=-3.5, ymax=0.5, binsize_y=0.01)
   grid /= (0.01*0.01)
   psf = psf_gaussian(fwhm=5, npix=21, /norm)
   grid = convol(grid, psf, /edge_zero)
 
   psfile = '../plots/nuvw1_vs_w3w1.eps'
   pnfile = '../plots/nuvw1_vs_w3w1.png'
-  ps, /def, /ps, xs=8, ys=8, /color, /encaps $
+  ps, /def, /ps, xs=5, ys=6, /color, /encaps $
       , file=psfile
 
-  ;viridis
-  loadct, 0
-  reversect
+  viridis
+  ;loadct, 0
+  ;reversect
   minval = 3.0
   maxval = 6.5
   disp, alog10(grid), x_axis, y_axis $
         , reserve=5, color=cgcolor('black',255) $
         , xthick=5, ythick=5 $
-        , charthick=3, charsize=1.5 $
+        , charthick=3, charsize=1.25 $
         , xtitle='!6log!d10!n WISE3-to-WISE1' $
         , ytitle='!6log!d10!n NUV-to-WISE1' $
         , max=maxval, min=minval $
         , position=[0.2, 0.2, 0.95, 0.75]
 
-  levs = 3.0+alog10(2.^(findgen(16)))
+  levs = 4.0+alog10(2.^(findgen(16)))
   contour, alog10(grid), x_axis, y_axis $
            , lev=levs $
            , /overplot, c_color=cgcolor('white')
 
   for ii = -100, 100 do $
-     oplot, ii*0.5*[1,1], [-100, 100], lines=1, color=cgcolor('gray')
+     oplot, ii*0.5*[1,1], [-100, 100], lines=1, color=cgcolor('white')
 
   for ii = -100, 100 do $
-     oplot, [-100, 100], ii*0.5*[1,1], lines=1, color=cgcolor('gray')
+     oplot, [-100, 100], ii*0.5*[1,1], lines=1, color=cgcolor('white')
 
-  xyouts, [-0.75], [-2.75], align=0.5, color=cgcolor('firebrick') $
-          , ['!8Old stars!6'], charsize=1.5, charthick=7
-  xyouts, [-0.75], [-2.75], align=0.5, color=cgcolor('salmon') $
-          , ['!8Old stars!6'], charsize=1.5, charthick=3
+  al_legend, /bottom, /left, lines=-99 $
+             , box=0 $
+             , textcolor=cgcolor('white') $
+             , ['!6Old','!6stars'] $
+             , charthick=3, charsize=1.25
 
-  xyouts, [0.5], [-2.75], align=0.5, color=cgcolor('firebrick') $
-          , ['!8Dusty!6'], charsize=1.5, charthick=7
-  xyouts, [0.5], [-2.75], align=0.5, color=cgcolor('salmon') $
-          , ['!8Dusty!6'], charsize=1.5, charthick=3
+  al_legend, /top, /right, lines=-99 $
+             , box=0 $
+             , textcolor=cgcolor('white') $
+             , ['!6Star','!6forming'] $
+             , charthick=3, charsize=1.25
 
-  xyouts, [-0.75], [-0.25], align=0.5, color=cgcolor('firebrick') $
-          , ['!8Dust Free!6'], charsize=1.5, charthick=7
-  xyouts, [-0.75], [-0.25], align=0.5, color=cgcolor('salmon') $
-          , ['!8Dust Free!6'], charsize=1.5, charthick=3
+  al_legend, /top, /left, lines=-99 $
+             , box=0 $
+             , textcolor=cgcolor('white') $
+             , ['!6Dust','!6free'] $
+             , charthick=3, charsize=1.25
 
-  xyouts, [0.5], [-0.25], align=0.5, color=cgcolor('firebrick') $
-          , ['!8Star Formation!6'], charsize=1.5, charthick=7
-  xyouts, [0.5], [-0.25], align=0.5, color=cgcolor('salmon') $
-          , ['!8Star Formation!6'], charsize=1.5, charthick=3
+  al_legend, /bottom, /right, lines=-99 $
+             , box=0 $
+             , textcolor=cgcolor('white') $
+             , ['!6Dusty'] $
+             , charthick=3, charsize=1.25
 
-  ;viridis
-  loadct, 0
-  reversect
+  ;; xyouts, [-1.25], [-2.75], align=0.5, color=cgcolor('black') $
+  ;;         , ['!8Old!cstars!6'], charsize=1.5, charthick=7
+  ;; xyouts, [-1.25], [-2.75], align=0.5, color=cgcolor('white') $
+  ;;         , ['!8Old!cstars!6'], charsize=1.5, charthick=3
+
+  ;; xyouts, [0.5], [-3.25], align=0.5, color=cgcolor('black') $
+  ;;         , ['!8Dusty!6'], charsize=1.5, charthick=7
+  ;; xyouts, [0.5], [-3.25], align=0.5, color=cgcolor('white') $
+  ;;         , ['!8Dusty!6'], charsize=1.5, charthick=3
+
+  ;; xyouts, [-1.25], [-0.25], align=0.5, color=cgcolor('black') $
+  ;;         , ['!8Dust!cfree!6'], charsize=1.5, charthick=7
+  ;; xyouts, [-1.25], [-0.25], align=0.5, color=cgcolor('white') $
+  ;;         , ['!8Dust!cfree!6'], charsize=1.5, charthick=3
+
+  ;; xyouts, [1.0], [0.25], align=0.5, color=cgcolor('black') $
+  ;;         , ['!8Star!cforming!6'], charsize=1.5, charthick=7
+  ;; xyouts, [1.0], [0.25], align=0.5, color=cgcolor('white') $
+  ;;         , ['!8Star!cforming!6'], charsize=1.5, charthick=3
+
+  viridis
+  ;loadct, 0
+  ;reversect
   cgColorBar, range=[minval, maxval] $
               , position = [0.2, 0.925, 0.95, 0.95] $
-              , title='!6log!d10!n Density of Data [lines of sight dex!u-2!n]' $
-              , textthick=3, charsize=1.5, xthick=5 $
+              , title='!6log!d10!n Data Density [lines of sight dex!u-2!n]' $
+              , textthick=3, charsize=1.25, xthick=5 $
               , color=cgcolor('black',255)
 
   ps, /xw
   spawn, 'evince '+psfile+' &'
+
+  stop
 
 ; NOW LOOK AT BAND-TO-BAND CORRELATION
 
@@ -147,7 +173,7 @@ pro plot_samples
 
   psfile = '../plots/band_vs_band.eps'
   pnfile = '../plots/band_vs_band.png'
-  ps, /def, /ps, xs=8, ys=8, /color, /encaps $
+  ps, /def, /ps, xs=5, ys=6, /color, /encaps $
       , file=psfile
 
   viridis
@@ -157,26 +183,32 @@ pro plot_samples
         , min=0.5, max=1.1 $
         , title='Rank Correlation Between Bands' $
         , reserve=5, color=cgcolor('black', 255) $
-        , charthick=3, charsize=1.5 $
-        , position=[0.15, 0.15, 0.95, 0.95]
+        , charthick=3, charsize=1.25 $
+        , position=[0.15, 0.15, 0.95, 0.75]
+
+  for ii = -100, 100 do $
+     oplot, ii*1.0*[1,1], [-100, 100], lines=1, color=cgcolor('white')
+
+  for ii = -100, 100 do $
+     oplot, [-100, 100], ii*1.0*[1,1], lines=1, color=cgcolor('white')
 
   for ii = 0, 5 do $
      xyouts $
      , -0.5, 0.5+ii, align=0.5, orient=90. $
      , label_vec[ii], color=cgcolor('black') $
-     , charsize=1.5, charthick=3
+     , charsize=1.1, charthick=3
 
   for ii = 0, 5 do $
      xyouts $
      , 0.5+ii, -0.5, align=0.5, orient=0. $
      , label_vec[ii], color=cgcolor('black') $
-     , charsize=1.5, charthick=3
+     , charsize=1.1, charthick=3
   
   for ii = 0, 5 do $
      for jj = 0, 5 do $
         xyouts, 0.5+ii, 0.5+jj, align=0.5 $
                 , '('+string(sig_rcorr_grid[ii,jj], format='(F5.2)')+')'  $
-                , charsize=1.5, charthick=3, color=cgcolor('white')
+                , charsize=1.0, charthick=3, color=cgcolor('white')
 
   ps, /xw
   spawn, 'evince '+psfile+' &'

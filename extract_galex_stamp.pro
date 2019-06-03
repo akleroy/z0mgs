@@ -22,7 +22,7 @@ pro extract_galex_stamp $
 
 ; DIRECTORIES   
   index_dir = '../z0mgs/'
-  data_dir = '../galex/all_tiles/'
+  data_dir = '/data/fourier/leroy.42/allsky/all_tiles/'
 
 ; READ THE INDEX FILE (IF NOT PASSED IN)
   if n_elements(index) eq 0 then $
