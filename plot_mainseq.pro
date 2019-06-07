@@ -228,7 +228,7 @@ pro plot_mainseq
 ; GSWLC + z0MGS
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
 
-  psfile = '../plots/z0mgs+gwslc_mainseq_contours.eps'
+  psfile = '../plots/z0mgs+gswlc_mainseq_contours.eps'
   pnfile = '../plots/z0mgs+gswlc_mainseq_contours.png'
   ps, /def, /ps, xs=5, ys=5, /color, /encaps $
       , file=psfile

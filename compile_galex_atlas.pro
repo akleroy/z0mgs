@@ -515,6 +515,61 @@ pro compile_galex_atlas $
   endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; SPECIAL FITTING FOR M31 AND M33
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  if keyword_set(do_special) then begin
+
+     !p.multi=0
+
+     for ii = 0, n_pgc-1 do begin
+
+        pgc_name = pgc_list[ii] 
+        this_dat = gal_data[ii]
+
+        if n_elements(just) gt 0 then $
+           if total(pgc_name eq just) eq 0 then $
+              continue
+
+        print, ''
+        print, 'Special processing for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, ''
+
+        for jj = 0, 1 do begin
+           if jj eq 0 then begin
+              band = 'fuv'
+           endif
+           if jj eq 1 then begin
+              band = 'nuv'
+           endif
+
+           for mm = 0, 1 do begin
+              if mm eq 0 then res_str = 'gauss15'
+              if mm eq 1 then res_str = 'gauss7p5'
+
+              infile = out_dir+pgc_name+'_'+band+'_'+res_str+'_small.fits'
+              wtfile = out_dir+pgc_name+'_'+band+'_weight_'+res_str+'_small.fits'
+              outfile = out_dir+pgc_name+'_'+band+'_'+res_str+'_bkgrd.fits'
+              rejfile = out_dir+pgc_name+'_'+band+'_'+res_str+'_rejected.fits'
+
+              radfile = mask_dir+pgc_name+'_'+res_str+'_rgrid.fits'
+              galfile = mask_dir+pgc_name+'_'+res_str+'_galaxies.fits'
+              starfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_star_mask.fits'
+              handfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_custom.fits'
+
+              masklist = [galfile, starfile, handfile]
+           
+              @special_galex_processing.pro
+
+           endfor
+
+        endfor
+
+     endfor
+
+  endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SUBTRACT THE BACKGROUND FIT AT 15" FROM BOTH IMAGES
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
@@ -568,11 +623,38 @@ pro compile_galex_atlas $
               map = readfits(infile, hdr, /silent)
               bksub = map - bkgrd             
 
-              sxaddpar, hdr, 'RMS', sxpar(bkgrd_hdr,'RMS')
-              sxaddpar, hdr, 'STDDEV', sxpar(bkgrd_hdr,'STDDEV')
-              sxaddpar, hdr, 'MASKFRAC', sxpar(bkgrd_hdr,'MASKFRAC')
-              sxaddpar, hdr, 'REJFRAC', sxpar(bkgrd_hdr,'REJFRAC')
-              sxaddpar, hdr, 'FITPLANE', sxpar(bkgrd_hdr,'FITPLANE')
+              if res_str eq 'gauss15' then begin
+
+                 sxaddpar, hdr, 'RMS', sxpar(bkgrd_hdr,'RMS')
+                 sxaddpar, hdr, 'STDDEV', sxpar(bkgrd_hdr,'STDDEV')
+                 sxaddpar, hdr, 'MASKFRAC', sxpar(bkgrd_hdr,'MASKFRAC')
+                 sxaddpar, hdr, 'REJFRAC', sxpar(bkgrd_hdr,'REJFRAC')
+                 sxaddpar, hdr, 'FITPLANE', sxpar(bkgrd_hdr,'FITPLANE')
+                 
+              endif
+
+              if res_str eq 'gauss7p5' then begin
+
+                 ; read rejected file
+                 rejfile = out_dir+pgc_name+'_'+band+'_gauss15_rejected.fits'
+                 mask = readfits(rejfile, rejhdr, /silent)
+                 rms_ind = where(mask eq 1 or mask eq 3, rms_ct)
+                 std_ind = where(mask eq 2 or mask eq 3, std_ct)
+                 if rms_ct eq 0 or std_ct eq 0 then begin
+                    print, "Weird. Stopping."
+                    stop
+                 endif
+
+                 rms = mad(bksub[rms_ind])
+                 std = stddev(bksub[std_ind],/nan)
+
+                 sxaddpar, hdr, 'RMS', rms
+                 sxaddpar, hdr, 'STDDEV', std
+                 sxaddpar, hdr, 'MASKFRAC', sxpar(bkgrd_hdr,'MASKFRAC')
+                 sxaddpar, hdr, 'REJFRAC', sxpar(bkgrd_hdr,'REJFRAC')
+                 sxaddpar, hdr, 'FITPLANE', sxpar(bkgrd_hdr,'FITPLANE')
+                 
+              endif
 
               writefits, outfile, bksub, hdr
 
@@ -582,61 +664,6 @@ pro compile_galex_atlas $
 
      endfor
      
-  endif
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; SPECIAL POST- OR RE-PROCESSING
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-  if keyword_set(do_special) then begin
-
-     !p.multi=0
-
-     for ii = 0, n_pgc-1 do begin
-
-        pgc_name = pgc_list[ii] 
-        this_dat = gal_data[ii]
-
-        if n_elements(just) gt 0 then $
-           if total(pgc_name eq just) eq 0 then $
-              continue
-
-        print, ''
-        print, 'Special processing for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
-        print, ''
-
-        for jj = 0, 1 do begin
-           if jj eq 0 then begin
-              band = 'fuv'
-           endif
-           if jj eq 1 then begin
-              band = 'nuv'
-           endif
-
-           for mm = 0, 1 do begin
-              if mm eq 0 then res_str = 'gauss15'
-              if mm eq 1 then res_str = 'gauss7p5'
-
-              infile = out_dir+pgc_name+'_'+band+'_'+res_str+'_small.fits'
-              wtfile = out_dir+pgc_name+'_'+band+'_weight_'+res_str+'_small.fits'
-              outfile = out_dir+pgc_name+'_'+band+'_'+res_str+'_bksub.fits'
-              rejfile = out_dir+pgc_name+'_'+band+'_'+res_str+'_rejected.fits'
-
-              radfile = mask_dir+pgc_name+'_'+res_str+'_rgrid.fits'
-              galfile = mask_dir+pgc_name+'_'+res_str+'_galaxies.fits'
-              starfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_star_mask.fits'
-              handfile = mask_dir+pgc_name+'_'+str(band)+'_'+res_str+'_custom.fits'
-
-              masklist = [galfile, starfile, handfile]
-           
-              @special_galex_processing.pro
-
-           endfor
-
-        endfor
-
-     endfor
-
   endif
         
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%

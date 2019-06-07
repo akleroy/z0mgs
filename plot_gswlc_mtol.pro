@@ -126,6 +126,8 @@ pro plot_gswlc_mtol
 
   for ii = 0, n_quant-1 do begin
 
+     if ii ne 2 and ii ne 3 then continue
+
      if ii eq 0 then begin
         x = gws_logmstar
         xtitle = '!6log!d10!n Stellar Mass from CIGALE [M!d!9n!6!n]'
@@ -159,16 +161,17 @@ pro plot_gswlc_mtol
         binsize = 0.1
      endif
 
-     if ii eq 3 then begin
-        x = alog10(ssfr_like_nuvw4)
-        xtitle = '!6log!d10!n SFR(NUV+W4)/W1 Lum. [M!d!9n!6!n yr!u-1!n L!d!9n!6!n!u-1!n]'
-        tag = 'ssfrlike'
-        xmin = -12.5
-        xmax = -9.5
-        binmin = -12.5
-        binmax = -10.0
-        binsize = 0.1
-     endif
+     if ii eq 3 then continue
+     ;if ii eq 3 then begin
+     ;   x = alog10(ssfr_like_nuvw4)
+     ;   xtitle = '!6log!d10!n SFR(NUV+W4)/W1 Lum. [M!d!9n!6!n yr!u-1!n L!d!9n!6!n!u-1!n]'
+     ;   tag = 'ssfrlike'
+     ;   xmin = -12.5
+     ;   xmax = -9.5
+     ;   binmin = -12.5
+     ;   binmax = -10.0
+     ;   binsize = 0.1
+     ;endif
 
      if ii eq 4 then begin
         x = w2w1

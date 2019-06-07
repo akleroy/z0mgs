@@ -1,7 +1,6 @@
 if pgc_name eq 'PGC2557' then begin
 
   rgrid = readfits(radfile, rhdr)
-
   tempfile = infile+'.temp.fits'  
 
   blank_map_from_list $
@@ -36,19 +35,21 @@ if pgc_name eq 'PGC2557' then begin
      , aperture=0.8 $
      , plane=0
 
-  map = readfits(outfile, hdr)
-    
-  mask = abs(map gt 3d-4)
-  ind = where(mask eq 0)
-  medval = median(map[ind])
-  map -= medval
-  mask = abs(map gt 3d-4)
-  ind = where(mask eq 0)
-  medval = median(map[ind])
-  map -= medval
-
-  writefits, outfile, map, hdr
+  bkgrd = readfits(outfile, bkgrd_hdr)
+  ind = where(rgrid gt 1.5*sxpar(rhdr, 'FIDRAD'))
+  map[ind] = !values.f_nan
+  writefits, outfile, bkgrd, bkgrd_hdr
   
+  ;mask = abs(map gt 3d-4)
+  ;ind = where(mask eq 0)
+  ;medval = median(map[ind])
+  ;map -= medval
+  ;mask = abs(map gt 3d-4)
+  ;ind = where(mask eq 0)
+  ;medval = median(map[ind])
+  ;map -= medval
+
+
 endif
 
 if pgc_name eq 'PGC5818' then begin
@@ -75,5 +76,10 @@ if pgc_name eq 'PGC5818' then begin
       , pause=pause $
       , aperture=1.0 $
       , /plane                 
+
+  bkgrd = readfits(outfile, bkgrd_hdr)
+  ind = where(rgrid gt 2.0*sxpar(rhdr, 'FIDRAD'))
+  map[ind] = !values.f_nan
+  writefits, outfile, bkgrd, bkgrd_hdr
 
 endif

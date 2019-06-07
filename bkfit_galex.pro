@@ -169,7 +169,17 @@ pro bkfit_galex $
      
      bkgrd = coefs[0] + coefs[1]*x + coefs[2]*y
      fit_a_plane = 1B
-  endif
+  endif else begin
+
+     bkind = where(aperture, ct)
+     if ct eq 0 then begin
+        print, "Should not be here."
+        stop
+     endif
+     
+     bkgrd = finite(map)*0.0 + median(map[bkind]) 
+     
+  endelse
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; RECENTER HISTOGRAM
@@ -264,6 +274,9 @@ pro bkfit_galex $
      sxaddpar, hdr_copy, 'STDDEV', std     
      sxaddpar, hdr_copy, 'MASKFRAC', mask_frac
      sxaddpar, hdr_copy, 'REJFRAC', rej_frac 
+     rejected = finite(aperture_mask)*0B
+     rejected[fit_ind] = rejected[fit_ind]+1B
+     rejected[where(aperture_mask eq 0)] = rejected[where(aperture_mask eq 0)]+2B
      writefits, rejfile, rejected, hdr_copy
   endif
 
