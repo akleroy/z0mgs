@@ -10,8 +10,19 @@ pro print_sfr_mstar_table
   n_index = n_elements(index15)
 
   ngc_names = pgc_to_othername(index15.pgc, prefix='NGC')
+  test = gal_data(ngc_names)
+  zap = where(index15.pgc ne test.pgc or strlen(ngc_names) gt 10)
+  ngc_names[zap] = ''
+
   ugc_names = pgc_to_othername(index15.pgc, prefix='UGC')
+  test = gal_data(ugc_names)
+  zap = where(index15.pgc ne test.pgc or strlen(ugc_names) gt 10)
+  ugc_names[zap] = ''
+
   ic_names = pgc_to_othername(index15.pgc, prefix='IC')
+  test = gal_data(ic_names)
+  zap = where(index15.pgc ne test.pgc or strlen(ic_names) gt 10)
+  ic_names[zap] = ''
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; PRINT THE TEXT FILE
@@ -80,23 +91,23 @@ pro print_sfr_mstar_table
      line += string(index15[ii].dist_mpc,format='(F5.1)')+', '
      line += string(index15[ii].e_dist_dex,format='(F5.2)')+', '
 
-     if finite(index15[ii].logmass_color) then begin
-        line += string(index15[ii].logmass_color,format='(F5.2)')+', '
-        line += string(index15[ii].e_logmass_color,format='(F5.2)')+', '
-        line += string(index15[ii].mtol_color,format='(F5.2)')+', '
+     if finite(index15[ii].logmass) then begin
+        line += string(index15[ii].logmass,format='(F5.2)')+', '
+        line += string(index15[ii].e_logmass,format='(F5.2)')+', '
+        line += string(index15[ii].mtol,format='(F5.2)')+', '
      endif else begin
-        line += string(index15[ii].logmass_color*nan,format='(F5.2)')+', '
-        line += string(index15[ii].e_logmass_color*nan,format='(F5.2)')+', '
-        line += string(index15[ii].mtol_color*nan,format='(F5.2)')+', '
+        line += string(index15[ii].logmass*nan,format='(F5.2)')+', '
+        line += string(index15[ii].e_logmass*nan,format='(F5.2)')+', '
+        line += string(index15[ii].mtol*nan,format='(F5.2)')+', '
      endelse
      line += string(index15[ii].method_mtol,format='(A10)')+', '     
 
-     if finite(index15[ii].logsfr_fixed) then begin
-        line += string(index15[ii].logsfr_fixed,format='(F5.2)')+', '
-        line += string(index15[ii].e_logsfr_fixed,format='(F5.2)')+', '
+     if finite(index15[ii].logsfr) then begin
+        line += string(index15[ii].logsfr,format='(F5.2)')+', '
+        line += string(index15[ii].e_logsfr,format='(F5.2)')+', '
      endif else begin
-        line += string(index15[ii].logsfr_fixed*nan,format='(F5.2)')+', '
-        line += string(index15[ii].e_logsfr_fixed*nan,format='(F5.2)')+', '
+        line += string(index15[ii].logsfr*nan,format='(F5.2)')+', '
+        line += string(index15[ii].e_logsfr*nan,format='(F5.2)')+', '
      endelse
 
      line += string(index15[ii].method_sfr,format='(A10)')+', '
@@ -105,8 +116,6 @@ pro print_sfr_mstar_table
      flags = ''
      if index15[ii].galaxy_overlap_flag then $
         flags+='G'
-     if index15[ii].photometry_mismatch_flag then $
-        flags+='P'
      if index15[ii].sat_effects_wise1 or $
         index15[ii].sat_effects_wise2 or $
         index15[ii].sat_effects_wise3 or $
@@ -191,23 +200,23 @@ pro print_sfr_mstar_table
      line += '$'+string(index15[ii].dist_mpc,format='(F5.1)')+'$ & '
      line += '$'+string(index15[ii].e_dist_dex,format='(F5.2)')+'$ & '
 
-     if finite(index15[ii].logmass_color) then begin
-        line += '$'+string(index15[ii].logmass_color,format='(F5.2)')+'$ $\pm$ '
-        line += '$'+string(index15[ii].e_logmass_color,format='(F5.2)')+'$ & '
-        line += '$'+string(index15[ii].mtol_color,format='(F5.2)')+'$ & '
+     if finite(index15[ii].logmass) then begin
+        line += '$'+string(index15[ii].logmass,format='(F5.2)')+'$ $\pm$ '
+        line += '$'+string(index15[ii].e_logmass,format='(F5.2)')+'$ & '
+        line += '$'+string(index15[ii].mtol,format='(F5.2)')+'$ & '
      endif else begin
-        line += '$'+string(index15[ii].logmass_color*nan,format='(F5.2)')+'$ $\pm$ '
-        line += '$'+string(index15[ii].e_logmass_color*nan,format='(F5.2)')+'$ & '
-        line += '$'+string(index15[ii].mtol_color*nan,format='(F5.2)')+'$ & '
+        line += '$'+string(index15[ii].logmass*nan,format='(F5.2)')+'$ $\pm$ '
+        line += '$'+string(index15[ii].e_logmass*nan,format='(F5.2)')+'$ & '
+        line += '$'+string(index15[ii].mtol*nan,format='(F5.2)')+'$ & '
      endelse
      line += string(index15[ii].method_mtol,format='(A10)')+' & '     
 
-     if finite(index15[ii].logsfr_fixed) then begin
-        line += '$'+string(index15[ii].logsfr_fixed,format='(F5.2)')+'$ $\pm$ '
-        line += '$'+string(index15[ii].e_logsfr_fixed,format='(F5.2)')+'$ & '
+     if finite(index15[ii].logsfr) then begin
+        line += '$'+string(index15[ii].logsfr,format='(F5.2)')+'$ $\pm$ '
+        line += '$'+string(index15[ii].e_logsfr,format='(F5.2)')+'$ & '
      endif else begin
-        line += '$'+string(index15[ii].logsfr_fixed*nan,format='(F5.2)')+'$ $\pm$ '
-        line += '$'+string(index15[ii].e_logsfr_fixed*nan,format='(F5.2)')+'$ & '
+        line += '$'+string(index15[ii].logsfr*nan,format='(F5.2)')+'$ $\pm$ '
+        line += '$'+string(index15[ii].e_logsfr*nan,format='(F5.2)')+'$ & '
      endelse
 
      line += string(index15[ii].method_sfr,format='(A10)')+' & '
@@ -216,8 +225,6 @@ pro print_sfr_mstar_table
      flags = ''
      if index15[ii].galaxy_overlap_flag then $
         flags+='G'
-     if index15[ii].photometry_mismatch_flag then $
-        flags+='P'
      if index15[ii].sat_effects_wise1 or $
         index15[ii].sat_effects_wise2 or $
         index15[ii].sat_effects_wise3 or $

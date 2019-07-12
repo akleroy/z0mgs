@@ -5,8 +5,8 @@ pro plot_mainseq
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   index15 = mrdfits('../measurements/delivery_index_gauss15.fits',1,h15)
-  z0mgs_x = index15.logmass_color
-  z0mgs_y = index15.logsfr_fixed - index15.logmass_color
+  z0mgs_x = index15.logmass
+  z0mgs_y = index15.logsfr - index15.logmass
 ; super restrictive:
 ;  ind = where(index15.has_wise4 and index15.has_fuv and
 ;  abs(index15.gb_deg gt 30.) and index15.dist_mpc le 50.)

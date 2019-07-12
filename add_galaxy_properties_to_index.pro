@@ -2,8 +2,6 @@ pro add_galaxy_properties_to_index
 
 ;+
 ;
-;
-;
 ;-
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -50,6 +48,14 @@ pro add_galaxy_properties_to_index
 
      this_index.dist_mpc = dat.dist_mpc
      this_index.e_dist_dex = dat.e_dist_dex
+
+;    ... ... b band luminosity
+     this_b_apparent = dat.btc
+     this_btc_abs = this_b_apparent - dat.distmod
+     this_index.absbtc = this_btc_abs
+     this_index.complete_sample = $
+        (this_index.absbtc le -18.) and $
+        (this_index.dist_mpc le 50.)
 
 ;    ... ... luminosity
 
@@ -102,20 +108,20 @@ pro add_galaxy_properties_to_index
      ind = where(this_index.has_wise1 and $
                  this_index.has_wise4, ct)
      if ct gt 0 then begin
-        this_index[ind].mtol_color = $
+        this_index[ind].mtol = $
            lookup_mtol(w4w1=w4w1[ind])
-        this_index[ind].logmass_color = $
-           alog10((w1_lum/lsun_3p4*this_index.mtol_color)[ind])
+        this_index[ind].logmass = $
+           alog10((w1_lum/lsun_3p4*this_index.mtol)[ind])
         this_index[ind].method_mtol = 'W4W1'
      endif
 
      ind = where(this_index.has_fuv and $
                  this_index.has_wise4, ct)
      if ct gt 0 then begin
-        this_index[ind].mtol_color = $
+        this_index[ind].mtol = $
            lookup_mtol(ssfrlike=ssfrlike_fuvw4[ind])           
-        this_index[ind].logmass_color = $
-           alog10(w1_lum[ind]/lsun_3p4*this_index[ind].mtol_color)
+        this_index[ind].logmass = $
+           alog10(w1_lum[ind]/lsun_3p4*this_index[ind].mtol)
         this_index[ind].method_mtol = 'SSFRLIKE'
      endif
      
@@ -123,14 +129,14 @@ pro add_galaxy_properties_to_index
                  this_index.has_wise4 and $
                  this_index.has_fuv eq 0, ct)
      if ct gt 0 then begin
-        this_index[ind].mtol_color = $
+        this_index[ind].mtol = $
            lookup_mtol(ssfrlike=ssfrlike_nuvw4[ind])
-        this_index[ind].logmass_color = $
-           alog10(w1_lum[ind]/lsun_3p4*this_index[ind].mtol_color)        
+        this_index[ind].logmass = $
+           alog10(w1_lum[ind]/lsun_3p4*this_index[ind].mtol)        
         this_index[ind].method_mtol = 'SSFRLIKE'
      endif     
    
-     this_index.e_logmass_color = $
+     this_index.e_logmass = $
         sqrt(0.1^2 + (alog10(this_index.std_flux_wise1/this_index.flux_wise1+1.))^2)
      
 ;    ... star formation rates
@@ -138,8 +144,8 @@ pro add_galaxy_properties_to_index
      ind = where(this_index.has_fuv and $
                  this_index.has_wise4, ct)    
      if ct gt 0 then begin
-        this_index[ind].logsfr_fixed = alog10(sfr_fuvw4[ind])
-        this_index[ind].e_logsfr_fixed = $
+        this_index[ind].logsfr = alog10(sfr_fuvw4[ind])
+        this_index[ind].e_logsfr = $
            sqrt(alog10((e_sfr_fuvw4/sfr_fuvw4+1.0)[ind])^2+0.2^2)
         this_index[ind].method_sfr = 'FUV+WISE4'
      endif
@@ -148,8 +154,8 @@ pro add_galaxy_properties_to_index
                  this_index.has_fuv eq 0 and $
                  this_index.has_wise4, ct)    
      if ct gt 0 then begin
-        this_index[ind].logsfr_fixed = alog10(sfr_nuvw4[ind])
-        this_index[ind].e_logsfr_fixed = $
+        this_index[ind].logsfr = alog10(sfr_nuvw4[ind])
+        this_index[ind].e_logsfr = $
            sqrt(alog10((e_sfr_nuvw4/sfr_nuvw4+1.0)[ind])^2+0.2^2)
         this_index[ind].method_sfr = 'NUV+WISE4'
      endif
@@ -158,8 +164,8 @@ pro add_galaxy_properties_to_index
                  this_index.has_fuv eq 0 and $
                  this_index.has_wise4, ct)    
      if ct gt 0 then begin
-        this_index[ind].logsfr_fixed = alog10(sfr_justw4[ind])
-        this_index[ind].e_logsfr_fixed = $
+        this_index[ind].logsfr = alog10(sfr_justw4[ind])
+        this_index[ind].e_logsfr = $
            sqrt(alog10((e_sfr_justw4/sfr_justw4+1.0)[ind])^2+0.2^2)
         this_index[ind].method_sfr = 'WISE4'
      endif
@@ -168,10 +174,10 @@ pro add_galaxy_properties_to_index
      
      xnorm = 10.0
      ssfr_pred = $
-        (-0.34)*(this_index.logmass_color-xnorm) - $
+        (-0.34)*(this_index.logmass-xnorm) - $
         10.11
      ssfr_measure = $
-        this_index.logsfr_fixed - this_index.logmass_color
+        this_index.logsfr - this_index.logmass
      resid = $
         ssfr_measure - ssfr_pred
      ind = where((this_index.has_nuv ne 0 or $

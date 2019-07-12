@@ -43,7 +43,7 @@ function index_one_galaxy $
      , has_wise1: 0B $
      , has_wise2: 0B $
      , has_wise3: 0B $
-     , has_wise4: 0B $     
+     , has_wise4: 0B $
 ;    DEPTH OF GALEX
      , time_fuv: nan $
      , time_nuv: nan $
@@ -52,22 +52,16 @@ function index_one_galaxy $
 ;    NOISE IN IMAGE
      , rms_fuv: nan $
      , std_fuv: nan $
-     , maskfrac_fuv: nan $
      , rms_nuv: nan $
      , std_nuv: nan $
-     , maskfrac_nuv: nan $
      , rms_wise1: nan $
      , std_wise1: nan $
-     , maskfrac_wise1: nan $
      , rms_wise2: nan $
      , std_wise2: nan $
-     , maskfrac_wise2: nan $
      , rms_wise3: nan $
      , std_wise3: nan $
-     , maskfrac_wise3: nan $
      , rms_wise4: nan $
      , std_wise4: nan $
-     , maskfrac_wise4: nan $
 ;    FLAGS
      , sat_effects_fuv: 0B $
      , star_area_fuv: 0.0d $
@@ -95,59 +89,42 @@ function index_one_galaxy $
      , star_flag_wise4: 0B $
      , galaxy_mask_overlap: 0.0d $
      , galaxy_overlap_flag: 0B $
-     , photometry_mismatch_flag: 0B $ ; TBD
-     , photometry_mismatch: '' $      ; TBD
 ;    PHOTOMETRY
      , flux_fuv: nan $
      , rms_flux_fuv: nan $
      , std_flux_fuv: nan $
-     , outer_flux_fuv: nan $
      , flux_nuv: nan $
      , rms_flux_nuv: nan $
      , std_flux_nuv: nan $
-     , outer_flux_nuv: nan $
      , flux_wise1: nan $
      , rms_flux_wise1: nan $
      , std_flux_wise1: nan $
-     , outer_flux_wise1: nan $
      , flux_wise2: nan $
      , rms_flux_wise2: nan $
      , std_flux_wise2: nan $
-     , outer_flux_wise2: nan $
      , flux_wise3: nan $
      , rms_flux_wise3: nan $
      , std_flux_wise3: nan $
-     , outer_flux_wise3: nan $
      , flux_wise4: nan $
      , rms_flux_wise4: nan $
      , std_flux_wise4: nan $
-     , outer_flux_wise4: nan $
 ;    PHYSICAL PROPERTIES
      , dist_mpc: nan $
      , e_dist_dex: nan $
 ;    ... MASS-TO-LIGHT
-     , mtol_color: nan $
+     , mtol: nan $
      , method_mtol: '' $
-     , mtol_iter: nan $
-     , logmass_color: nan $
-     , e_logmass_color: nan $
-     , logmass_iter: nan $
-     , e_logmass_iter: nan $
+     , logmass: nan $
+     , e_logmass: nan $
 ;    ... STAR FORMATION RATE
-     , cfuvw4_iter: nan $
-     , cnuvw4_iter: nan $
-     , cfuvw3_iter: nan $
-     , cnuvw3_iter: nan $
-     , cjustw4_iter: nan $
-     , cjustw3_iter: nan $
-     , logsfr_fixed: nan $
-     , e_logsfr_fixed: nan $
+     , logsfr: nan $
+     , e_logsfr: nan $
      , method_sfr: '' $
-     , logsfr_iter: nan $
-     , e_logsfr_iter: nan $
 ;    ... OFFSET FROM MS
      , deltams: nan $
-     , e_deltams: nan $
+;    SAMPLE MEMBERSHIP
+     , absbtc: nan $
+     , complete_sample: 0B $
      }
 
   if keyword_set(empty) then begin
@@ -208,10 +185,14 @@ function index_one_galaxy $
 
   if index.has_wise1 then begin
      map = readfits(wise1_fname, hdr,/silent)
+     sxdelpar, hdr, 'MASKFRAC'
+     sxdelpar, hdr, 'REJFRAC'
+     sxdelpar, hdr, 'HISTORY'
+     sxdelpar, hdr, 'COMMENT'
 
      index.rms_wise1 = sxpar(hdr, 'RMS')
      index.std_wise1 = sxpar(hdr, 'STDDEV')
-     index.maskfrac_wise1 = sxpar(hdr, 'MASKFRAC')
+     ;index.maskfrac_wise1 = sxpar(hdr, 'MASKFRAC')
 
      index.sat_effects_wise1 = total((map gt sat_thresh_wise1)*footprint) ge 1
      sxaddpar, hdr, 'SATURATE', index.sat_effects_wise1, 'Saturation inside footprint.'
@@ -241,10 +222,14 @@ function index_one_galaxy $
 
   if index.has_wise2 then begin
      map = readfits(wise2_fname, hdr,/silent)
+     sxdelpar, hdr, 'MASKFRAC'
+     sxdelpar, hdr, 'REJFRAC'
+     sxdelpar, hdr, 'HISTORY'
+     sxdelpar, hdr, 'COMMENT'
 
      index.rms_wise2 = sxpar(hdr, 'RMS')
      index.std_wise2 = sxpar(hdr, 'STDDEV')
-     index.maskfrac_wise2 = sxpar(hdr, 'MASKFRAC')
+     ;index.maskfrac_wise2 = sxpar(hdr, 'MASKFRAC')
 
      index.sat_effects_wise2 = total((map gt sat_thresh_wise2)*footprint) ge 1
      sxaddpar, hdr, 'SATURATE', index.sat_effects_wise2, 'Saturation inside footprint.'
@@ -273,10 +258,14 @@ function index_one_galaxy $
 
   if index.has_wise3 then begin
      map = readfits(wise3_fname, hdr,/silent)
+     sxdelpar, hdr, 'MASKFRAC'
+     sxdelpar, hdr, 'REJFRAC'
+     sxdelpar, hdr, 'HISTORY'
+     sxdelpar, hdr, 'COMMENT'
 
      index.rms_wise3 = sxpar(hdr, 'RMS')
      index.std_wise3 = sxpar(hdr, 'STDDEV')
-     index.maskfrac_wise3 = sxpar(hdr, 'MASKFRAC')
+     ;index.maskfrac_wise3 = sxpar(hdr, 'MASKFRAC')
 
      index.sat_effects_wise3 = total((map gt sat_thresh_wise3)*footprint) ge 1
      sxaddpar, hdr, 'SATURATE', index.sat_effects_wise3, 'Saturation inside footprint.'
@@ -307,10 +296,14 @@ function index_one_galaxy $
 
   if index.has_wise4 then begin
      map = readfits(wise4_fname, hdr,/silent)
+     sxdelpar, hdr, 'MASKFRAC'
+     sxdelpar, hdr, 'REJFRAC'
+     sxdelpar, hdr, 'HISTORY'
+     sxdelpar, hdr, 'COMMENT'
 
      index.rms_wise4 = sxpar(hdr, 'RMS')
      index.std_wise4 = sxpar(hdr, 'STDDEV')
-     index.maskfrac_wise4 = sxpar(hdr, 'MASKFRAC')
+     ;index.maskfrac_wise4 = sxpar(hdr, 'MASKFRAC')
 
      index.sat_effects_wise4 = total((map gt sat_thresh_wise4)*footprint) ge 1
      sxaddpar, hdr, 'SATURATE', index.sat_effects_wise4,  'Saturation inside footprint.'
@@ -341,11 +334,15 @@ function index_one_galaxy $
 
   if index.has_nuv then begin
      map = readfits(nuv_fname, hdr,/silent)
+     sxdelpar, hdr, 'MASKFRAC'
+     sxdelpar, hdr, 'REJFRAC'
+     sxdelpar, hdr, 'HISTORY'
+     sxdelpar, hdr, 'COMMENT'
 
      index.time_nuv = sxpar(hdr, 'MEANINT')
      index.rms_nuv = sxpar(hdr, 'RMS')
      index.std_nuv = sxpar(hdr, 'STDDEV')
-     index.maskfrac_nuv = sxpar(hdr, 'MASKFRAC')
+     ;index.maskfrac_nuv = sxpar(hdr, 'MASKFRAC')
      index.anuv = sxpar(hdr, 'MWEXT')
 
      index.sat_effects_nuv = total((map gt sat_thresh_nuv)*footprint) ge 1
@@ -377,11 +374,18 @@ function index_one_galaxy $
 
   if index.has_fuv then begin
      map = readfits(fuv_fname, hdr,/silent)
+     extast, hdr, astr
+     delast, hdr
+     putast, hdr, astr, CD_TYPE=2
+
+     sxdelpar, hdr, 'MASKFRAC'
+     sxdelpar, hdr, 'HISTORY'
+     sxdelpar, hdr, 'COMMENT'
 
      index.time_fuv = sxpar(hdr, 'MEANINT')
      index.rms_fuv = sxpar(hdr, 'RMS')
      index.std_fuv = sxpar(hdr, 'STDDEV')
-     index.maskfrac_fuv = sxpar(hdr, 'MASKFRAC')
+     ;index.maskfrac_fuv = sxpar(hdr, 'MASKFRAC')
      index.afuv = sxpar(hdr, 'MWEXT')
 
      index.sat_effects_fuv = total((map gt sat_thresh_fuv)*footprint) ge 1

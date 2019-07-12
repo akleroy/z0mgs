@@ -53,6 +53,10 @@ pro compile_mask_atlas $
            if total(pgc_name eq just) eq 0 then $
               continue
 
+        if n_elements(skip) gt 0 then $
+           if total(pgc_name eq skip) eq 1 then $
+              continue
+
         print, ''
         print, 'Radial mask construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
@@ -109,6 +113,10 @@ pro compile_mask_atlas $
 
         if n_elements(just) gt 0 then $
            if total(pgc_name eq just) eq 0 then $
+              continue
+
+        if n_elements(skip) gt 0 then $
+           if total(pgc_name eq skip) eq 1 then $
               continue
 
         print, ''
@@ -177,6 +185,10 @@ pro compile_mask_atlas $
            if total(pgc_name eq just) eq 0 then $
               continue
 
+        if n_elements(skip) gt 0 then $
+           if total(pgc_name eq skip) eq 1 then $
+              continue
+
         print, ''
         print, 'Querying GAIA '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
@@ -220,8 +232,12 @@ pro compile_mask_atlas $
            if total(pgc_name eq just) eq 0 then $
               continue
 
+        if n_elements(skip) gt 0 then $
+           if total(pgc_name eq skip) eq 1 then $
+              continue
+
         print, ''
-        print, 'Bright star predcition construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
+        print, 'Bright star prediction construction for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
 
         for jj = 0, 5 do begin
@@ -323,6 +339,10 @@ pro compile_mask_atlas $
            if total(pgc_name eq just) eq 0 then $
               continue
 
+        if n_elements(skip) gt 0 then $
+           if total(pgc_name eq skip) eq 1 then $
+              continue
+
         print, ''
         print, 'Bright star mask derivation for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
         print, ''
@@ -410,6 +430,10 @@ pro compile_mask_atlas $
 ;
 ;        if n_elements(just) gt 0 then $
 ;           if total(pgc_name eq just) eq 0 then $
+;              continue
+;
+;        if n_elements(skip) gt 0 then $
+;           if total(pgc_name eq skip) eq 1 then $
 ;              continue
 ;
 ;;         print, ''
@@ -533,6 +557,10 @@ pro compile_mask_atlas $
 
         if n_elements(just) gt 0 then $
            if total(pgc_name eq just) eq 0 then $
+              continue
+
+        if n_elements(skip) gt 0 then $
+           if total(pgc_name eq skip) eq 1 then $
               continue
 
         print, ''

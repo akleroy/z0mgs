@@ -50,6 +50,8 @@ pro build_bright_star_mask $
 
 ; check that they have the same astrometry?
     
+  error_beam = (sxpar(hdr, 'BMAJ')*3600. > 7.5/3600.)
+
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; THRESHOLDS / TUNING PARAMETERS
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -89,8 +91,6 @@ pro build_bright_star_mask $
      if band eq 'w4' then sat_edge = 3d1
      if band eq 'nuv' then sat_edge = 1d6
      if band eq 'fuv' then sat_edge = 1d6
-
-     error_beam = (sxpar(hdr, 'BMAJ')*3600. > 7.5/3600.)
 
   endif
 

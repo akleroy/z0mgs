@@ -140,7 +140,6 @@ pro build_delivery $
               writefits, outfile, map, hdr
            endif           
 
-
            infile = galex_dir + pgc_name+'_'+band+'_weight_'+res_str+'_small.fits'
            outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_weight.fits'           
            if file_test(infile) then begin
