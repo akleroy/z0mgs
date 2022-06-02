@@ -1,1 +1,7 @@
 *~
+*.fits
+*.out
+*.bkup
+*.log
+*.old
+#*
