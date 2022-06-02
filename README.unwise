@@ -1,0 +1,24 @@
+This is our all-sky unWISE directory. The procedure goes more or less
+like this:
+
+1) Downloaded the tile list from the unWISE site, "tiles.fits"
+
+2) Ran the script "fetch_all_unwise_tiles" to loop through this
+directory and fetch all these files. For the moment, we have fetched
+ONLY the images - the supporting files are not fetched. We may need to
+change this moving forward.
+
+These tiles now all sit in data/
+
+To sort these into our working directories, did this:
+
+1) Used sort_tiles_unwise to look at the headers of each tile and copy
+them into "sorted_tiles" directory, these are broken by hour angle of
+the center of the image to keep a smaller number of files per
+directory.
+
+4) Built a FITS file index that notes the file name, min and max RA,
+min and max DEC, mean RA and DEC, and the type of file. This is done
+in "compile_unwise_index.pro"
+
+From here, we have the backbone needed to build cutouts.

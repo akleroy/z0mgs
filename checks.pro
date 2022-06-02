@@ -28,3 +28,4 @@ if badct gt 0 then $
    print, ic[icind[badic]] $
 else $
    print, "No mismatches"
+

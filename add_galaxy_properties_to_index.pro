@@ -17,6 +17,8 @@ pro add_galaxy_properties_to_index
   nu_w2 = c/(4.5d-6*1d2)
   nu_w3 = c/(12.d-6*1d2)
   nu_w4 = c/(22.d-6*1d2)
+
+  fixed_mtol = 0.5
  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; LOAD INDEX FILES
@@ -40,9 +42,11 @@ pro add_galaxy_properties_to_index
 
 ;    ... look up galaxy index
 
-     dat = gal_data(pgc=this_index.pgc)     
+     dat = gal_data(pgc=this_index.pgc, /full)     
      
-;    ... calculate luminosities, first SFR estimates, and colors
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Calculate luminosities, first SFR estimates, and colors
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 ;    ... ... distance
 
@@ -85,18 +89,24 @@ pro add_galaxy_properties_to_index
      e_sfr_nuvw4 = $
         lum_to_sfr(band='NUV', cal='Z19', lum=e_nuv_lum*nu_nuv) + $
         lum_to_sfr(band='WISE4+NUV', cal='Z19', lum=e_w4_lum*nu_w4)
-
+     isul_nuvw4 = $
+        sfr_nuvw4 le 0.0
+     
      sfr_fuvw4 = $
         lum_to_sfr(band='FUV', cal='Z19', lum=fuv_lum*nu_fuv) + $
         lum_to_sfr(band='WISE4+FUV', cal='Z19', lum=w4_lum*nu_w4)
      e_sfr_fuvw4 = $
         lum_to_sfr(band='FUV', cal='Z19', lum=e_fuv_lum*nu_fuv) + $
-        lum_to_sfr(band='WISE4+FUV', cal='Z19', lum=e_w4_lum*nu_w4)
+        lum_to_sfr(band='WISE4+FUV', cal='Z19', lum=e_w4_lum*nu_w4)     
+     isul_fuvw4 = $
+        sfr_fuvw4 le 0.0
 
      sfr_justw4 = $
         lum_to_sfr(band='WISE4', cal='Z19', lum=w4_lum*nu_w4)
      e_sfr_justw4 = $
         lum_to_sfr(band='WISE4', cal='Z19', lum=e_w4_lum*nu_w4)
+     isul_justw4 = $
+        sfr_justw4 le 0.0
      
 ;    ... ... colors
 
@@ -104,10 +114,30 @@ pro add_galaxy_properties_to_index
      ssfrlike_fuvw4 = alog10(sfr_fuvw4 / (w1_lum/lsun_3p4))
      ssfrlike_nuvw4 = alog10(sfr_nuvw4 / (w1_lum/lsun_3p4))
 
-;    ... mass-to-light ratio
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Mass-to-light ratio
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+;    WE HAVE NO WISE4
+     ind = where(this_index.has_wise4 eq 0.0, ct)
+     if ct gt 0 then begin        
+        this_index[ind].mtol = fixed_mtol
+        this_index[ind].method_mtol = 'FIXEDUL'
+        this_index[ind].logmass = $
+           alog10((w1_lum/lsun_3p4*this_index.mtol)[ind])
+     endif
+
+;    WE ONLY HAVE W4/W1 
+
+;    ... AND IT'S NOT AN UPPER LIMIT
      ind = where(this_index.has_wise1 and $
-                 this_index.has_wise4, ct)
-     if ct gt 0 then begin
+                 this_index.has_wise4 and $
+                 this_index.has_fuv eq 0 and $
+                 this_index.has_nuv eq 0 and $
+                 this_index.flux_wise1 gt 0 and $
+                 isul_justw4 eq 0 $
+                 , ct)
+     if ct gt 0 then begin        
         this_index[ind].mtol = $
            lookup_mtol(w4w1=w4w1[ind])
         this_index[ind].logmass = $
@@ -115,8 +145,30 @@ pro add_galaxy_properties_to_index
         this_index[ind].method_mtol = 'W4W1'
      endif
 
-     ind = where(this_index.has_fuv and $
-                 this_index.has_wise4, ct)
+;    ... AND IT IS AN UPPER LIMIT
+     ind = where(this_index.has_wise1 and $
+                 this_index.has_wise4 and $
+                 this_index.has_fuv eq 0 and $
+                 this_index.has_nuv eq 0 and $
+                 this_index.flux_wise1 gt 0 and $
+                 isul_justw4 eq 1 $
+                 , ct)
+     if ct gt 0 then begin        
+        this_index[ind].mtol = fixed_mtol
+        this_index[ind].logmass = $
+           alog10((w1_lum/lsun_3p4*this_index.mtol)[ind])
+        this_index[ind].method_mtol = 'FIXEDUL'
+     endif
+
+;    WE HAVE FUV AND W4
+
+;    ... AND IT'S NOT AN UPPER LIMIT
+     ind = where(this_index.has_wise1 and $
+                 this_index.has_fuv and $
+                 this_index.has_wise4 and $
+                 this_index.flux_wise1 gt 0 and $
+                 isul_fuvw4 eq 0 $
+                 , ct)
      if ct gt 0 then begin
         this_index[ind].mtol = $
            lookup_mtol(ssfrlike=ssfrlike_fuvw4[ind])           
@@ -125,9 +177,27 @@ pro add_galaxy_properties_to_index
         this_index[ind].method_mtol = 'SSFRLIKE'
      endif
      
-     ind = where(this_index.has_nuv and $
+;    ... IT IS AN UPPER LIMIT
+     ind = where(this_index.has_wise1 and $
+                 this_index.has_fuv and $
                  this_index.has_wise4 and $
-                 this_index.has_fuv eq 0, ct)
+                 this_index.flux_wise1 gt 0 and $
+                 isul_fuvw4 eq 1 $
+                 , ct)
+     if ct gt 0 then begin
+        this_index[ind].mtol = fixed_mtol
+        this_index[ind].logmass = $
+           alog10((w1_lum/lsun_3p4*this_index.mtol)[ind])
+        this_index[ind].method_mtol = 'FIXEDUL'
+     endif     
+
+;    WE HAVE NUV AND W4
+     ind = where(this_index.has_wise1 and $
+                 this_index.has_nuv and $
+                 this_index.has_fuv eq 0 and $
+                 this_index.has_wise4 and $
+                 this_index.flux_wise1 gt 0 and $
+                 isul_nuvw4 eq 0, ct)
      if ct gt 0 then begin
         this_index[ind].mtol = $
            lookup_mtol(ssfrlike=ssfrlike_nuvw4[ind])
@@ -135,14 +205,43 @@ pro add_galaxy_properties_to_index
            alog10(w1_lum[ind]/lsun_3p4*this_index[ind].mtol)        
         this_index[ind].method_mtol = 'SSFRLIKE'
      endif     
-   
+
+     ind = where(this_index.has_wise1 and $
+                 this_index.has_nuv and $
+                 this_index.has_fuv eq 0 and $
+                 this_index.has_wise4 and $
+                 this_index.flux_wise1 gt 0 and $
+                 isul_nuvw4 eq 1, ct)
+     if ct gt 0 then begin
+        this_index[ind].mtol = fixed_mtol
+        this_index[ind].logmass = $
+           alog10((w1_lum/lsun_3p4*this_index.mtol)[ind])
+        this_index[ind].method_mtol = 'FIXEDUL'
+     endif     
+
+;    UNCERTAINTY
      this_index.e_logmass = $
         sqrt(0.1^2 + (alog10(this_index.std_flux_wise1/this_index.flux_wise1+1.))^2)
-     
-;    ... star formation rates
 
+;    WISE1 IS LESS THAN 0
+     ind = where(this_index.flux_wise1 le 0.0, ct)
+     if ct gt 0 then begin        
+        this_index[ind].mtol = fixed_mtol
+        this_index[ind].method_mtol = 'FIXEDUL'
+        this_index[ind].logmass = !values.f_nan
+        this_index[ind].e_logmass = alog10((3.*e_w1_lum/lsun_3p4*this_index.mtol)[ind])
+     endif
+     
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%     
+; Star formation rates
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+;    has W4 and FUV
+
+;    ... and is not an upper limit
      ind = where(this_index.has_fuv and $
-                 this_index.has_wise4, ct)    
+                 this_index.has_wise4 and $
+                 isul_fuvw4 eq 0, ct)    
      if ct gt 0 then begin
         this_index[ind].logsfr = alog10(sfr_fuvw4[ind])
         this_index[ind].e_logsfr = $
@@ -150,9 +249,24 @@ pro add_galaxy_properties_to_index
         this_index[ind].method_sfr = 'FUV+WISE4'
      endif
 
+;    ... and is an upper limit
+     ind = where(this_index.has_fuv and $
+                 this_index.has_wise4 and $
+                 isul_fuvw4 eq 1, ct)    
+     if ct gt 0 then begin
+        this_index[ind].logsfr = !values.f_nan
+        this_index[ind].e_logsfr = alog10(3.0*e_sfr_fuvw4[ind])
+        this_index[ind].method_sfr = 'FUV+WISE4'
+     endif
+
+;    has W4 and NUV
+
+;    ... and is not an upper limit
+
      ind = where(this_index.has_nuv and $
                  this_index.has_fuv eq 0 and $
-                 this_index.has_wise4, ct)    
+                 this_index.has_wise4 and $
+                 isul_nuvw4 eq 0, ct)    
      if ct gt 0 then begin
         this_index[ind].logsfr = alog10(sfr_nuvw4[ind])
         this_index[ind].e_logsfr = $
@@ -160,9 +274,26 @@ pro add_galaxy_properties_to_index
         this_index[ind].method_sfr = 'NUV+WISE4'
      endif
 
+;    ... and is an upper limit
+
+     ind = where(this_index.has_nuv and $
+                 this_index.has_fuv eq 0 and $
+                 this_index.has_wise4 and $
+                 isul_nuvw4 eq 1, ct)    
+     if ct gt 0 then begin
+        this_index[ind].logsfr = !values.f_nan
+        this_index[ind].e_logsfr = alog10(3.0*e_sfr_nuvw4[ind])
+        this_index[ind].method_sfr = 'NUV+WISE4'
+     endif
+
+;    has only W4
+
+;    ... and is not an upper limit
+
      ind = where(this_index.has_nuv eq 0  and $
                  this_index.has_fuv eq 0 and $
-                 this_index.has_wise4, ct)    
+                 this_index.has_wise4 and $
+                 isul_justw4 eq 0, ct)    
      if ct gt 0 then begin
         this_index[ind].logsfr = alog10(sfr_justw4[ind])
         this_index[ind].e_logsfr = $
@@ -170,7 +301,21 @@ pro add_galaxy_properties_to_index
         this_index[ind].method_sfr = 'WISE4'
      endif
 
-;    ... offset from the main sequence
+;    ... and is an upper limit
+
+     ind = where(this_index.has_nuv eq 0  and $
+                 this_index.has_fuv eq 0 and $
+                 this_index.has_wise4 and $
+                 isul_justw4 eq 1, ct)    
+     if ct gt 0 then begin
+        this_index[ind].logsfr = !values.f_nan
+        this_index[ind].e_logsfr = alog10(3.0*e_sfr_justw4[ind])
+        this_index[ind].method_sfr = 'WISE4'
+     endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Offset from the main sequence
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
      
      xnorm = 10.0
      ssfr_pred = $
@@ -191,9 +336,9 @@ pro add_galaxy_properties_to_index
            resid[ind]
      endif
 
-;    ... iterations
-
-;    ... save the results
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Save the results
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
      if jj eq 0 then index15 = this_index
      if jj eq 1 then index7p5 = this_index

@@ -1,6 +1,10 @@
 pro z0mgs_photometry $
    , start=start $
-   , stop = stop
+   , stop = stop $
+   , just_pgc = just_pgc $
+   , skip_pgc = skip_pgc $
+   , pause = pause $
+   , verbose = verbose
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
@@ -90,8 +94,6 @@ pro z0mgs_photometry $
 
      for ii = start, stop do begin
 
-        if ii eq 302 then continue
-
         counter, ii, n_pgc, 'Photometry for galaxy '
         
         this_pgc = s[ii].pgc
@@ -103,6 +105,16 @@ pro z0mgs_photometry $
         if this_index[ii].has_wise1 eq 0 then begin
            print, this_pgc, ' lacks WISE1. Should not.'
            continue
+        endif
+
+        if n_elements(just_pgc) gt 0 then begin
+           if total(just_pgc eq this_pgc) eq 0 then $
+              continue
+        endif
+
+        if n_elements(skip_pgc) gt 0 then begin
+           if total(just_pgc eq skip_pgc) gt 0 then $
+              continue
         endif
 
         pgc_name = strcompress('PGC'+str(this_pgc), /rem)
@@ -147,18 +159,50 @@ pro z0mgs_photometry $
 ;    -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
         for kk = 0, n_bands-1 do begin
+
+           if keyword_set(verbose) then $
+              print, "Band # "+str(kk)
            
            this_phot = empty
+
+;          Metadata
+           this_phot.pgc = s[ii].pgc
+           this_phot.gl_deg = s[ii].gl_deg
+           this_phot.gb_deg = s[ii].gb_deg
+           this_phot.band = bands[kk]
+           this_phot.present = 1B
+           this_phot.true_r25 = true_r25
+           this_phot.fiducial_limit = this_fiducial_limit
            
            if kk eq 0 then begin
-              if this_index[ii].has_fuv eq 0 then continue
+              if this_index[ii].has_fuv eq 0 then begin
+                 if res_str eq 'gauss15' then begin
+                    phot_gauss15[ii,kk] = this_phot 
+                 endif
+                 
+                 if res_str eq 'gauss7p5' then begin
+                    phot_gauss7p5[ii,kk] = this_phot 
+                 endif
+                 
+                 continue
+              endif
               y = fuv
               h = fuv_hdr
               stars = readfits(fuv_root+'_stars.fits', star_hdr,/silent)
               corr = 1.0
            endif
            if kk eq 1 then begin
-              if this_index[ii].has_nuv eq 0 then continue
+              if this_index[ii].has_nuv eq 0 then begin
+                 if res_str eq 'gauss15' then begin
+                    phot_gauss15[ii,kk] = this_phot 
+                 endif
+                 
+                 if res_str eq 'gauss7p5' then begin
+                    phot_gauss7p5[ii,kk] = this_phot 
+                 endif
+                 
+                 continue
+              endif
               y = nuv
               h = nuv_hdr
               stars = readfits(nuv_root+'_stars.fits', star_hdr,/silent)
@@ -171,21 +215,52 @@ pro z0mgs_photometry $
               corr = wise1_corr
            endif
            if kk eq 3 then begin
-              if this_index[ii].has_wise2 eq 0 then continue
+              if this_index[ii].has_wise2 eq 0 then begin
+                 if res_str eq 'gauss15' then begin
+                    phot_gauss15[ii,kk] = this_phot 
+                 endif
+                 
+                 if res_str eq 'gauss7p5' then begin
+                    phot_gauss7p5[ii,kk] = this_phot 
+                 endif
+
+                 continue
+              endif
               y = w2
               h = w2_hdr
               stars = readfits(w2_root+'_stars.fits', star_hdr,/silent)
               corr = wise2_corr
            endif
            if kk eq 4 then begin
-              if this_index[ii].has_wise3 eq 0 then continue
+              if this_index[ii].has_wise3 eq 0 then begin
+                 if res_str eq 'gauss15' then begin
+                    phot_gauss15[ii,kk] = this_phot 
+                 endif
+                 
+                 if res_str eq 'gauss7p5' then begin
+                    phot_gauss7p5[ii,kk] = this_phot 
+                 endif
+                 
+                 continue
+              endif
               y = w3
               h = w3_hdr
               stars = readfits(w3_root+'_stars.fits', star_hdr,/silent)
               corr = wise3_corr
            endif
            if kk eq 5 then begin
-              if this_index[ii].has_wise4 eq 0 then continue
+              if this_index[ii].has_wise4 eq 0 then begin
+
+                 if res_str eq 'gauss15' then begin
+                    phot_gauss15[ii,kk] = this_phot 
+                 endif
+                 
+                 if res_str eq 'gauss7p5' then begin
+                    phot_gauss7p5[ii,kk] = this_phot 
+                 endif
+                 
+                 continue
+              endif
               y = w4
               h = w4_hdr
               stars = readfits(w4_root+'_stars.fits', star_hdr,/silent)
@@ -202,15 +277,6 @@ pro z0mgs_photometry $
 ;          Apply correction factor
            y = y*corr
 
-;          Metadata
-           this_phot.pgc = s[ii].pgc
-           this_phot.gl_deg = s[ii].gl_deg
-           this_phot.gb_deg = s[ii].gb_deg
-           this_phot.band = bands[kk]
-           this_phot.present = 1B
-           this_phot.true_r25 = true_r25
-           this_phot.fiducial_limit = this_fiducial_limit
-
 ;          Noise
            this_rms = sxpar(h, 'RMS')*1d6 ; MJy -> Jy
            this_std = sxpar(h, 'STDDEV')*1d6 ; MJy -> Jy
@@ -224,11 +290,31 @@ pro z0mgs_photometry $
            if phot_ct eq 0 then begin           
               if s[ii].pgc eq 0 then stop
               print, "No valid data for PGC "+str(s[ii].pgc)
+
+              if res_str eq 'gauss15' then begin
+                 phot_gauss15[ii,kk] = this_phot 
+              endif
+              
+              if res_str eq 'gauss7p5' then begin
+                 phot_gauss7p5[ii,kk] = this_phot 
+              endif
+
               continue
            endif                     
                       
-           if total(finite(y[phot_ind])) eq 0 then $
+           if total(finite(y[phot_ind])) eq 0 then begin
+              print, "No valid data for PGC "+str(s[ii].pgc)
+
+              if res_str eq 'gauss15' then begin
+                 phot_gauss15[ii,kk] = this_phot 
+              endif
+              
+              if res_str eq 'gauss7p5' then begin
+                 phot_gauss7p5[ii,kk] = this_phot 
+              endif
+
               continue
+           endif
 
 ;          Two profiles: one to count pixels, the other to count flux
 
@@ -294,6 +380,10 @@ pro z0mgs_photometry $
      endfor
 
   endfor
+
+  if keyword_set(do_pause) then begin
+     stop
+  endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; WRITE TO DISK

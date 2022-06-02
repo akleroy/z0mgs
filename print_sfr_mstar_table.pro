@@ -45,6 +45,10 @@ pro print_sfr_mstar_table
   printf, 1, '# Column 13: Method used to estimate star formation rate'
   printf, 1, '# Column 14: Offset from star forming main sequence [dex]'
   printf, 1, '# Column 16: Flags'
+  printf, 1, '# NOTE on Column 7/8: If log10 of mass is NaN then Uncertainty reports 3sigma upper limit.'
+  printf, 1, '# NOTE on 9/10: If no SFR is present, assume M/L of 0.5 Msun/Lsun, a reasonable upper limit (FIXEDUL).'
+  printf, 1, '# NOTE on Column 11/12: If log10 of SFR is NaN then Uncertainty reports 3sigma upper limit.'
+
 
   for ii = 0, n_index-1 do begin
 

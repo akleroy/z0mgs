@@ -1,0 +1,26 @@
+This is our all-sky GALEX directory. The procedure goes more or less
+like this:
+
+1) Ran a CAS job to build a wget request for all GALEX files, asking
+for images and flags. This sits in MyAllSkyTable_akleroy.csv
+
+2) Ran these wgets one after the other using fetch_all_galex_tiles,
+which was parallelized (stupidly) just running a bunch of start and
+stop calls.
+
+These tiles now all sit in all_tiles - where they are zipped.
+
+To sort these into our working directories, did this:
+
+1) Made a copy of all_tiles into scratch_tiles
+
+2) Used sort_tiles_galex to unzip all of these things. The .gz storage
+slows down file access, so its worth keeping them unzipped.
+
+3) Ran sort_tiles_galex to look at the headers of each tile and
+shuffle them into "sorted_tiles" using "mv" commands.
+
+4) Built a FITS file index that notes the file name, min and max RA,
+min and max DEC, and mean RA and DEC.
+
+From here, we have the backbone needed to build cutouts.

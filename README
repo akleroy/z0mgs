@@ -1,0 +1,81 @@
+This code is designed to pull all of the GALEX tiles for a given galaxy from the galbase at OSU, mosaic those files to create a single image, and generate a cutout FITS file. It also writes to a file (gal_reproj_info_fuv.txt) the name of the galaxy, band, number of input images, and time in minutes to create the cutout for that galaxy as well as the weight map.
+
+A separate piece of code will generate a noise map from the input images for each galaxy.
+
+
+The two pieces that do that are:
+make_cutouts.py -- takes in command line options, gathers data for each galaxy from galbase to feed name, ra, and dec into extract_stamp.
+extract_stamp.py -- Given a galaxy name, ra, dec, and other options, it pulls all of the GALEX tiles in an overlap region around the galaxy, stitches them together, and outputs a FITS postage stamp.
+
+Other requirements:
+Montage
+Python montage_wrapper
+
+You will also need to change _WORK_DIR at the top of extract_stamp.py and _GALDATA_DIR at the top of make_cutouts.py to point to your desired working directory and the directory that stores the GALBASE in your path. You will also need to create a directory called `cutouts' in your working directory, or change it to your desired directory for storing the resulting cutout FITS files.
+
+
+The code can be run as follows:
+
+In the terminal:
+python make_cutouts.py **kwargs
+
+In an iPython shell:
+%run make_cutouts.py **kwargs
+
+
+You can see the kwargs by typing the following:
+python make_cutouts.py -h
+
+OR
+
+%run make_cutouts.py -h
+
+
+Optional arguments are
+--imtype IMTYPE -- input image type to use. Default is `int' but you will want to change to `intbgsub'
+--wttype WTTYPE -- weight image type to use. Default is `rrhr'. This will probably not change.
+--size SIZE 	-- cutout size in arcminutes. Default is 30. The cutouts will be square.
+--desired_pix_scale DESIRED_PIX_SCALE -- desired pixel scale of output image. Default is 1.5, which is the GALEX pixel scale.
+--band BAND  	-- GALEX band to use (fuv or nuv). If you don't specify the band, it will automatically do both fuv and nuv.
+--model_bg MODEL_BG -- The background is automatically modeled by Montage. If you DO NOT want to model the background, then include --model_bg False
+--weight_ims WEIGHT_IMS -- The input images are automatically weighted by the weight images. If you DO NOT want to weight the input images, then include --weight_ims False
+--convert_mjysr -- Including --convert_mjysr in the call will convert the input images to MJy/sr
+--galaxy_list GALAXY_LIST -- Specify the galaxies for which you want to make cutouts. E.g., --galaxy_list NGC0300 NGC0628 NGC2976
+--all_galaxies -- Include the arguemnt --all_galaxies if you want to make cutouts of all the galaxies
+--tag TAG -- the tag to use to specify a group in the galbase, e.g., --tag SINGS
+--inds IND1 IND2 -- the start and stop indices to use for indexing the gals array. 
+
+
+Right now, you must include one of --galaxy_list, --all_galaxies, --tag, --inds IND1 IND2
+
+
+Examples:
+---------
+python make_cutouts.py --size 45 --band fuv --convert_mjysr --tag SINGS
+
+%run make_cutouts.py --size 45 --band fuv --convert_mjysr --tag SINGS
+
+
+python make_cutouts.py --band fuv --galaxy_list NGC0300 NGC0628 NGC2976 NGC6744 --convert_mjysr --model_bg False
+
+%run make_cutouts.py --band fuv --galaxy_list NGC0300 NGC0628 NGC2976 NGC6744 --convert_mjysr --model_bg False
+
+
+
+It will currently not run if you want to import it from another python program. To get it to run, you need to change make_cutouts.py. Just inside main(), do the following:
+
+imtype = kwargs.get('imtype', 'int') -- (or intbgsub)
+wttype = kwargs.get('wttype', 'rrhr')
+size = kwargs.get('size', 30)
+etc for all of the optional arguments specified in the get_args() function. 
+Then you also need to change any of the variable names that use kwargs['imtype'], kwargs['size'], to their new variable names, e.g., imtype, wttype, size, etc
+This only needs to be done in make_cutous.py
+
+
+
+
+
+
+
+
+

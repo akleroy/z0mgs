@@ -192,6 +192,111 @@ pro extract_gswlc_data
      , mtol_w1, gws_ssfr, ssfr_like_fuvw4, ssfr_like_nuvw4, ssfr_like_nuvw3 $
      , w2w1, w3w1, w4w1, nuvw1, fuvw1 $
      , file='../gswlc/gswlc_data.idl'  
+  
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; RECAST INTO A TABLE
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
+
+  nan = !values.f_nan  
+  empty = $
+     { $
+     gws_objid:-1L, $
+     gws_glxid:-1L, $
+     gws_plate:-1L, $
+     gws_mjd:-1L, $
+     gws_fiber:-1L, $
+     gws_ra: nan, $
+     gws_dec: nan, $
+     gws_z: nan, $ 
+     gws_chisq: nan, $
+     gws_logmstar: nan, $     
+     gws_elogmstar: nan, $    
+     gws_logsfrsed: nan, $   
+     gws_elogsfrsed: nan, $    
+     gws_afuv: nan, $
+     gws_eafuv: nan, $    
+     gws_ab: nan, $
+     gws_eab: nan, $    
+     gws_av: nan, $  
+     gws_eav: nan, $    
+     gws_flagsed: -1L, $
+     gws_uvsurvey: -1L, $
+     gws_uvflag: -1L, $
+     gws_midir: -1L, $
+     gws_mgs: -1L, $
+     gws_fuv: nan, $
+     gws_efuv: nan, $
+     gws_nuv: nan, $
+     gws_enuv: nan, $
+     gws_w1: nan, $
+     gws_ew1: nan, $
+     gws_w2: nan, $
+     gws_ew2: nan, $
+     gws_w3: nan, $
+     gws_ew3: nan, $
+     gws_w4: nan, $
+     gws_ew4: nan, $
+     dist_cm: nan, $
+     fuv_lum: nan, $
+     nuv_lum: nan, $
+     w1_lum: nan, $
+     w2_lum: nan, $
+     w3_lum: nan, $
+     w4_lum: nan $
+     }
+
+  n = n_elements(w1_lum)
+  dat = replicate(empty, n)
+  for ii = 0, n-1 do begin
+     counter, ii, n, 'Filling entry: '
+
+     dat[ii].gws_objid = gws_objid[ii]
+     dat[ii].gws_glxid = gws_glxid[ii]
+     dat[ii].gws_plate = gws_plate[ii]
+     dat[ii].gws_mjd = gws_mjd[ii]
+     dat[ii].gws_fiber = gws_fiber[ii]
+     dat[ii].gws_ra = gws_ra[ii]
+     dat[ii].gws_dec = gws_dec[ii]
+     dat[ii].gws_z = gws_z[ii]
+     dat[ii].gws_chisq = gws_chisq[ii]
+     dat[ii].gws_logmstar = gws_logmstar[ii]
+     dat[ii].gws_elogmstar = gws_elogmstar[ii]
+     dat[ii].gws_logsfrsed = gws_logsfrsed[ii]
+     dat[ii].gws_elogsfrsed = gws_elogsfrsed[ii]
+     dat[ii].gws_afuv = gws_afuv[ii]
+     dat[ii].gws_eafuv = gws_eafuv[ii]
+     dat[ii].gws_ab = gws_ab[ii]
+     dat[ii].gws_eab = gws_eab[ii]
+     dat[ii].gws_av = gws_av[ii]
+     dat[ii].gws_eav = gws_eav[ii]
+     dat[ii].gws_flagsed = gws_flagsed[ii]
+     dat[ii].gws_uvsurvey = gws_uvsurvey[ii]
+     dat[ii].gws_uvflag = gws_uvflag[ii]
+     dat[ii].gws_midir = gws_midir[ii]
+     dat[ii].gws_mgs = gws_mgs[ii]
+     dat[ii].gws_fuv = gws_fuv[ii]
+     dat[ii].gws_efuv = gws_efuv[ii]
+     dat[ii].gws_nuv = gws_nuv[ii]
+     dat[ii].gws_enuv = gws_enuv[ii]
+     dat[ii].gws_w1 = gws_w1[ii]
+     dat[ii].gws_ew1 = gws_ew1[ii]
+     dat[ii].gws_w2 = gws_w2[ii]
+     dat[ii].gws_ew2 = gws_ew2[ii]
+     dat[ii].gws_w3 = gws_w3[ii]
+     dat[ii].gws_ew3 = gws_ew3[ii]
+     dat[ii].gws_w4 = gws_w4[ii]
+     dat[ii].gws_ew4 = gws_ew4[ii]
+     dat[ii].dist_cm = dist_cm[ii]
+     dat[ii].fuv_lum = fuv_lum[ii]
+     dat[ii].nuv_lum = nuv_lum[ii]
+     dat[ii].w1_lum = w1_lum[ii]
+     dat[ii].w2_lum = w2_lum[ii]
+     dat[ii].w3_lum = w3_lum[ii]
+     dat[ii].w4_lum = w4_lum[ii]
+
+  endfor
+
+  mwrfits, dat, '../gswlc/gswlc_with_fluxes.fits', /create
 
   stop
 

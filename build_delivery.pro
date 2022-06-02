@@ -33,6 +33,18 @@ pro build_delivery $
   n_pgc = n_elements(pgc_list)
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; MANUAL BY-BAND EXCLUSIONS
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  exclude_wise1 = []
+  exclude_wise2 = []
+  exclude_wise3 = []
+  exclude_wise4 = []
+
+  exclude_fuv = ['PGC10062', 'PGC63234', 'PGC70474', 'PGC90262']
+  exclude_nuv = ['PGC90262', 'PGC213312']
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; WIPE EVERYTHING
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
@@ -73,6 +85,18 @@ pro build_delivery $
         if jj eq 3 then band = 'w4'
 
         if keyword_set(do_wise) eq 0 then continue
+
+        if band eq 'w1' and total(pgc_name eq exclude_wise1) eq 1 then $
+           continue
+
+        if band eq 'w2' and total(pgc_name eq exclude_wise2) eq 1 then $
+           continue
+
+        if band eq 'w3' and total(pgc_name eq exclude_wise3) eq 1 then $
+           continue
+
+        if band eq 'w4' and total(pgc_name eq exclude_wise4) eq 1 then $
+           continue
         
         for mm = 0, 1 do begin
            
@@ -112,7 +136,13 @@ pro build_delivery $
 
         if jj eq 0 then band = 'fuv'
         if jj eq 1 then band = 'nuv'
+        
+        if band eq 'fuv' and total(pgc_name eq exclude_fuv) eq 1 then $
+           continue
 
+        if band eq 'nuv' and total(pgc_name eq exclude_nuv) eq 1 then $
+           continue
+        
         for mm = 0, 1 do begin
            
            if mm eq 0  then begin
@@ -138,14 +168,14 @@ pro build_delivery $
                  hrebin, map, hdr, out=new_sz
               endif
               writefits, outfile, map, hdr
-           endif           
 
-           infile = galex_dir + pgc_name+'_'+band+'_weight_'+res_str+'_small.fits'
-           outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_weight.fits'           
-           if file_test(infile) then begin
-              map = readfits(infile, hdr, /silent)
-              writefits, outfile, map, hdr
-           endif
+              infile = galex_dir + pgc_name+'_'+band+'_weight_'+res_str+'_small.fits'
+              outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_weight.fits'           
+              if file_test(infile) then begin
+                 map = readfits(infile, hdr, /silent)
+                 writefits, outfile, map, hdr
+              endif
+           endif        
            
         endfor
         
@@ -203,6 +233,24 @@ pro build_delivery $
               if res_str eq 'gauss7p5' then continue
            endif
 
+           if band eq 'w1' and total(pgc_name eq exclude_wise1) eq 1 then $
+              continue
+
+           if band eq 'w2' and total(pgc_name eq exclude_wise2) eq 1 then $
+              continue
+
+           if band eq 'w3' and total(pgc_name eq exclude_wise3) eq 1 then $
+              continue
+
+           if band eq 'w4' and total(pgc_name eq exclude_wise4) eq 1 then $
+              continue
+
+           if band eq 'fuv' and total(pgc_name eq exclude_fuv) eq 1 then $
+              continue
+           
+           if band eq 'nuv' and total(pgc_name eq exclude_nuv) eq 1 then $
+              continue
+           
            infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_mask_stars.fits'           
            outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_stars.fits'            
            if file_test(infile) then begin
@@ -216,19 +264,19 @@ pro build_delivery $
               writefits, outfile, map, hdr
            endif
            
-           ; CURRENTLY DEPRECATED
+                                ; CURRENTLY DEPRECATED
 
-           ;infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_found_stars.fits'           
-           ;outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_found_stars.fits'           
-           ;if file_test(infile) then begin
-           ;   map = readfits(infile, hdr, /silent)
-           ;   sz = size(map)
-           ;   if do_rebin then begin
-           ;      new_sz = [sz[1]/2, sz[2]/2]
-           ;      hrebin, map, hdr, out=new_sz
-           ;   endif
-           ;   writefits, outfile, map, hdr
-           ;endif
+                                ;infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_found_stars.fits'           
+                                ;outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_found_stars.fits'           
+                                ;if file_test(infile) then begin
+                                ;   map = readfits(infile, hdr, /silent)
+                                ;   sz = size(map)
+                                ;   if do_rebin then begin
+                                ;      new_sz = [sz[1]/2, sz[2]/2]
+                                ;      hrebin, map, hdr, out=new_sz
+                                ;   endif
+                                ;   writefits, outfile, map, hdr
+                                ;endif
            
            infile = mask_dir + pgc_name+'_'+band+'_'+res_str+'_custom.fits'           
            outfile = out_dir + pgc_name+'_'+band+'_'+res_str+'_custom_mask.fits'           

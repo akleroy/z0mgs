@@ -19,54 +19,65 @@ pro write_pared_down_gauss7p5_index
 ; REMOVE FIELDS THAT WE DON'T WANT TO DELIVER TWICE
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
+  fid_entry = index[0]
+
 ; zap photometry 
 
-  struct_delete_field, index, 'flux_fuv'
-  struct_delete_field, index, 'rms_flux_fuv'
-  struct_delete_field, index, 'std_flux_fuv'
+  struct_delete_field, fid_entry, 'flux_fuv'
+  struct_delete_field, fid_entry, 'rms_flux_fuv'
+  struct_delete_field, fid_entry, 'std_flux_fuv'
 
-  struct_delete_field, index, 'flux_nuv'
-  struct_delete_field, index, 'rms_flux_nuv'
-  struct_delete_field, index, 'std_flux_nuv'
+  struct_delete_field, fid_entry, 'flux_nuv'
+  struct_delete_field, fid_entry, 'rms_flux_nuv'
+  struct_delete_field, fid_entry, 'std_flux_nuv'
 
-  struct_delete_field, index, 'flux_wise1'
-  struct_delete_field, index, 'rms_flux_wise1'
-  struct_delete_field, index, 'std_flux_wise1'
+  struct_delete_field, fid_entry, 'flux_wise1'
+  struct_delete_field, fid_entry, 'rms_flux_wise1'
+  struct_delete_field, fid_entry, 'std_flux_wise1'
 
-  struct_delete_field, index, 'flux_wise2'
-  struct_delete_field, index, 'rms_flux_wise2'
-  struct_delete_field, index, 'std_flux_wise2'
+  struct_delete_field, fid_entry, 'flux_wise2'
+  struct_delete_field, fid_entry, 'rms_flux_wise2'
+  struct_delete_field, fid_entry, 'std_flux_wise2'
 
-  struct_delete_field, index, 'flux_wise3'
-  struct_delete_field, index, 'rms_flux_wise3'
-  struct_delete_field, index, 'std_flux_wise3'
+  struct_delete_field, fid_entry, 'flux_wise3'
+  struct_delete_field, fid_entry, 'rms_flux_wise3'
+  struct_delete_field, fid_entry, 'std_flux_wise3'
 
-  struct_delete_field, index, 'flux_wise4'
-  struct_delete_field, index, 'rms_flux_wise4'
-  struct_delete_field, index, 'std_flux_wise4'
+  struct_delete_field, fid_entry, 'flux_wise4'
+  struct_delete_field, fid_entry, 'rms_flux_wise4'
+  struct_delete_field, fid_entry, 'std_flux_wise4'
 
 ; REMOVE MOST PHYSICAL PROPERTIES
 
-  struct_delete_field, index, 'dist_mpc'
-  struct_delete_field, index, 'e_dist_mpc'
+  struct_delete_field, fid_entry, 'dist_mpc'
+  struct_delete_field, fid_entry, 'e_dist_dex'
 
-  struct_delete_field, index, 'mtol'
-  struct_delete_field, index, 'method_mtol'
-  struct_delete_field, index, 'logmass'
-  struct_delete_field, index, 'e_logmass'
+  struct_delete_field, fid_entry, 'mtol'
+  struct_delete_field, fid_entry, 'method_mtol'
+  struct_delete_field, fid_entry, 'logmass'
+  struct_delete_field, fid_entry, 'e_logmass'
 
-  struct_delete_field, index, 'logsfr'
-  struct_delete_field, index, 'e_logsfr'  
-  struct_delete_field, index, 'method_sfr'
+  struct_delete_field, fid_entry, 'logsfr'
+  struct_delete_field, fid_entry, 'e_logsfr'  
+  struct_delete_field, fid_entry, 'method_sfr'
 
-  struct_delete_field, index, 'absbtc'
-  struct_delete_field, index, 'complete_sample'  
+  struct_delete_field, fid_entry, 'absbtc'
+  struct_delete_field, fid_entry, 'complete_sample'  
 
+  struct_delete_field, fid_entry, 'deltams'
+  
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; NOW COPY AND ASSIGN
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+  new_index = replicate(fid_entry, n_elements(index))
+  struct_assign, index, new_index, /verbose
+  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; WRITE TO DISK
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  mwrfits, index, outfile, /create  
+  mwrfits, new_index, outfile, /create  
 
   stop
 

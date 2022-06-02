@@ -29,7 +29,8 @@ pro add_photometry_to_index
         if ct eq 0 then begin
            print, "I'm missing a measurement I should have."
            stop
-        endif                           
+        endif                      
+     
         this_flux = phot7p5_sub[ind].mean[mean_ind] + $
                     (phot7p5_sub[ind].med[med_ind]-phot7p5_sub[ind].med[mean_ind])
         this_noise = phot7p5_sub[ind].unc_stat[med_ind]

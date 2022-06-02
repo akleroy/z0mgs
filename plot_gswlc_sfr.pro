@@ -64,6 +64,8 @@ pro plot_gswlc_sfr $
 
   fid = -42.68
 
+  y_justw4 = alog10(coef_justw4[ind])
+
   for ii = 0, 3 do begin
      
      if ii eq 0 then begin
@@ -112,7 +114,10 @@ pro plot_gswlc_sfr $
 
      psfile = '../plots/gswlc_cfuvw4_'+tag+'.eps'
      pnfile = '../plots/gswlc_cfuvw4_'+tag+'.png'
-     
+
+     txtfile = '../measurements/gswlc_cfuvw4_'+tag+'.txt'
+     txtfile_justw4 = '../measurements/gswlc_justw4_'+tag+'.txt'
+
      ps, /def, /ps, xs=5, ys=3.5, /color, /encaps $
          , file=psfile
      
@@ -145,14 +150,20 @@ pro plot_gswlc_sfr $
      contour, /overplot, alog10(cfuvw4_grid), xaxis_grid, yaxis_grid $
               , lev=[1., 1.5, 2.0, 2.5, 3.0], c_color=cgcolor('black')
      
-     bins = bin_data(x, y $
-                     , xmin=binmin, xmax=binmax, binsize=binsize, /nan)
+     bins = $
+        bin_data(x, y $
+                 , xmin=binmin, xmax=binmax, binsize=binsize, /nan)
+
+     bins_justw4 = $
+        bin_data(x, y_justw4 $
+                 , xmin=binmin, xmax=binmax, binsize=binsize, /nan)
+
      oploterror, bins.xmid $
                  , bins.ymed, bins.ymad $
                  , color=cgcolor('red') $
                  , psym=cgsymcat('filledsquare') $
-                 , errthick=5, /nohat   
-     
+                 , errthick=5, /nohat            
+
      al_legend, /top, /left $
                 , box=1, clear=1, lines=-99, background=['lightgray'] $
                 , charthick=3, charsize=1.25 $
@@ -163,6 +174,26 @@ pro plot_gswlc_sfr $
         spawn, 'evince '+psfile+' &'
      endif
      spawn, 'convert -density 300x300 '+psfile+' '+pnfile
+     
+     get_lun, lun
+     openw, lun, txtfile
+     printf, lun, '# coeff on w4 in FUV+W4 SFR'
+     printf, lun, '# binned by '+tag
+     printf, lun, '# format x, coeff, scatter'
+     printf, lun, 'x coeff scatter'
+     for yy = 0, n_elements(bins)-1 do $
+        printf, lun, bins[yy].xmid, bins[yy].ymed, bins[yy].ymad
+     close, lun
+
+     get_lun, lun
+     openw, lun, txtfile_justw4
+     printf, lun, '# coeff on w4 in just W4 SFR'
+     printf, lun, '# binned by '+tag
+     printf, lun, '# format x, coeff, scatter'
+     printf, lun, 'x coeff scatter'
+     for yy = 0, n_elements(bins)-1 do $
+        printf, lun, bins_justw4[yy].xmid, bins_justw4[yy].ymed, bins[yy].ymad
+     close, lun
      
   endfor
 
