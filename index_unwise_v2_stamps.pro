@@ -5,81 +5,112 @@ pro index_unwise_v2_stamps
   nan = !values.f_nan
   empty = $
      { $
-     'z0mgs_name':'' $
-     , 'pgc':-1 $
-     , 'tlc_ra':nan $
-     , 'tlc_dec':nan $
-     , 'brc_ra':nan $
-     , 'brc_dec':nan $
-     , 'has_w1':0B $
-     , 'has_w2':0B $
-     , 'has_w3':0B $
-     , 'has_w4':0B $     
-  }
+     z0mgs_name:'' $
+     , pgc:-1 $
+     , subsample:'' $
+     , ra_ctr: nan $
+     , dec_ctr: nan $     
+     , blc_ra:nan $
+     , blc_dec:nan $
+     , trc_ra:nan $
+     , trc_dec:nan $
+     }
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Loop over four datasets
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
   
+  for vv = 0, 3 do begin
+
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Karachentsev catalog
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
 
-  kdir = '../orig_data/unwise_v2/v2_karachentsev/'
-  
-  kflist = file_search(kdir+'*/*/unwise-*-w1-img-m.fits', count=kct)
-  ; check - kflist_w4 = file_search(kdir+'*/*/unwise-*-w4-img-m.fits', count=kct_w4)
+     if vv eq 0 then begin
+        
+        dir = '../orig_data/unwise_v2/v2_karachentsev/'        
+        flist = file_search(dir+'*/*/unwise-*-w1-img-m.fits', count=ct)
+        subsample = 'localvolume'
+        
+     endif
 
-  kdbase = replicate(empty, kct)
-  for ii = 0, kct-1 do begin
-     this_file = kflist[ii]
-     stop
-  endfor
-
-  mwrfits, kdbase, '../measurements/unwise_v2_index_karachentsev.fits', /create
-  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Large LEDA galaxies
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
 
-  ldir = '../orig_data/unwise_v2/v2_largegals/'
+     if vv eq 1 then begin
+        
+        dir = '../orig_data/unwise_v2/v2_largegals/'        
+        flist = file_search(dir+'*/unwise-*-w1-img-m.fits', count=ct)  
+        subsample = 'largeleda'
+        
+     endif
 
-  lflist = file_search(ldir+'*/unwise-*-w1-img-m.fits', count=lct)  
-
-  ldbase = replicate(empty, lct)
-  for ii = 0, lct-1 do begin
-     this_file = lflist[ii]
-     stop
-  endfor
-
-  mwrfits, ldbase, '../measurements/unwise_v2_index_largegals.fits', /create
-  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Small LEDA galaxies
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
 
-  sdir =  '../orig_data/unwise_v2/v2_smallgals/'
-
-  sflist = file_search(sdir+'*/*/unwise-*-w1-img-m.fits', count=sct)  
-  sdbase = replicate(empty, sct)
-  for ii = 0, sct-1 do begin
-     this_file = sflist[ii]
-     stop
-  endfor
-
-  mwrfits, sdbase, '../measurements/unwise_v2_index_smallgals.fits', /create
-  
+     if vv eq 2 then begin
+        
+        dir = '../orig_data/unwise_v2/v2_smallgals/'
+        flist = file_search(dir+'*/*/unwise-*-w1-img-m.fits', count=ct)
+        subsample = 'smallleda'
+        
+     endif
+     
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; MANGA dir
+; MANGA
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
 
-  mdir = '../orig_data/unwise_v2/v2_unmanga/'
-  
-  mflist = file_search(sdir+'*/unwise-*-w1-img-m.fits', count=mct)  
-  mdbase = replicate(empty, mct)
-  for ii = 0, mct-1 do begin
-     this_file = mflist[ii]
-     stop
+     if vv eq 3 then begin
+        
+        dir = '../orig_data/unwise_v2/v2_unmanga/'
+        flist = file_search(dir+'*/unwise-*-w1-img-m.fits', count=ct)
+        subsample = 'manga'
+        
+     endif
+     
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Loop over files
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
+     
+     dbase = replicate(empty, ct)
+
+     for ii = 0, ct-1 do begin
+        counter, ii, ct, 'Indexing galaxy '
+        
+        this_file = flist[ii]
+        start_pos = strpos(this_file, 'unwise-')+strlen('unwise-')
+        stop_pos = strlen(this_file) - strlen('-w1-img-m.fits')
+        this_name = strmid(this_file,start_pos,stop_pos-start_pos)
+
+        hdr = headfits(this_file)
+        make_axes, hdr, ri=ri, di=di
+        sz = size(ri)
+        
+        dbase[ii].z0mgs_name = this_name
+        dbase[ii].subsample = subsample
+        if (subsample eq 'smallleda') or (subsample eq 'largeleda') then begin
+           dbase[ii].pgc = long(strmid(this_name,3,strlen(this_name)-3))
+        endif
+        
+        dbase[ii].ra_ctr = ri[sz[1]/2,sz[2]/2]
+        dbase[ii].dec_ctr = di[sz[1]/2,sz[2]/2]
+        dbase[ii].blc_ra = ri[0,0]
+        dbase[ii].blc_dec = di[0,0]
+        dbase[ii].trc_ra = ri[sz[1]-1,sz[2]-1]
+        dbase[ii].trc_dec = di[sz[1]-1,sz[2]-1]
+        
+     endfor
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Write to disk
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
+     
+     mwrfits, dbase, '../measurements/unwise_v2_index_'+subsample+'.fits', /create
+
   endfor
   
-  mwrfits, mdbase, '../measurements/unwise_v2_index_manga.fits', /create
-
   stop
   
 end
