@@ -8,13 +8,24 @@ pro index_unwise_v2_stamps
      z0mgs_name:'' $
      , pgc:-1 $
      , subsample:'' $
+     , w1_fname:'' $
      , ra_ctr: nan $
      , dec_ctr: nan $     
      , blc_ra:nan $
      , blc_dec:nan $
      , trc_ra:nan $
      , trc_dec:nan $
+     , use_w1:1B $
+     , use_w2:1B $
+     , use_w3:1B $
+     , use_w4:1B $
      }
+
+  skip_galaxy = []
+  skip_w1 = []
+  skip_w2 = []
+  skip_w3 = []
+  skip_w4 = []    
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Loop over four datasets
@@ -85,21 +96,47 @@ pro index_unwise_v2_stamps
         this_name = strmid(this_file,start_pos,stop_pos-start_pos)
 
         hdr = headfits(this_file)
-        make_axes, hdr, ri=ri, di=di
-        sz = size(ri)
+        nx = sxpar(hdr,'NAXIS1')
+        ny = sxpar(hdr,'NAXIS2')
+        xyad, hdr, 0, 0, blc_ra, blc_dec
+        xyad, hdr, nx-1, ny-1, trc_ra, trc_dec        
+        xyad, hdr, nx/2., ny/2., ra_ctr, dec_ctr
         
         dbase[ii].z0mgs_name = this_name
         dbase[ii].subsample = subsample
         if (subsample eq 'smallleda') or (subsample eq 'largeleda') then begin
            dbase[ii].pgc = long(strmid(this_name,3,strlen(this_name)-3))
         endif
+        dbase[ii].w1_fname = this_file
+        dbase[ii].ra_ctr = ra_ctr
+        dbase[ii].dec_ctr = dec_ctr
+        dbase[ii].blc_ra = blc_ra
+        dbase[ii].blc_dec = blc_dec
+        dbase[ii].trc_ra = trc_ra
+        dbase[ii].trc_dec = trc_ra
+
+        if total(this_name eq skip_galaxy) gt 0 then begin
+           dbase[ii].use_w1 = 0B
+           dbase[ii].use_w2 = 0B
+           dbase[ii].use_w3 = 0B
+           dbase[ii].use_w4 = 0B
+        endif       
+
+        if total(this_name eq skip_w1) gt 0 then begin
+           dbase[ii].use_w1 = 0B
+        endif       
+
+        if total(this_name eq skip_w2) gt 0 then begin
+           dbase[ii].use_w2 = 0B
+        endif       
+
+        if total(this_name eq skip_w3) gt 0 then begin
+           dbase[ii].use_w3 = 0B
+        endif       
         
-        dbase[ii].ra_ctr = ri[sz[1]/2,sz[2]/2]
-        dbase[ii].dec_ctr = di[sz[1]/2,sz[2]/2]
-        dbase[ii].blc_ra = ri[0,0]
-        dbase[ii].blc_dec = di[0,0]
-        dbase[ii].trc_ra = ri[sz[1]-1,sz[2]-1]
-        dbase[ii].trc_dec = di[sz[1]-1,sz[2]-1]
+        if total(this_name eq skip_w4) gt 0 then begin
+           dbase[ii].use_w4 = 0B
+        endif       
         
      endfor
 

@@ -1,59 +1,109 @@
 pro compile_unwise_atlas_v2 $
-   , units = do_units $
+   , subsample = subsample $
+   , just_galaxy = just_galaxy $
+   , skip_galaxy = skip_galaxy $   
+   , start_galaxy = start_galaxy $
+   , stop_galaxy = stop_galaxy $
+   , stage = do_stage $
+   , bksub = do_bksub $   
    , convol = do_convol $
    , extract = do_extract $
-   , bksub = do_bksub $
    , show = show $
    , only = only $
    , pause = pause $
-   , just = just $
    , tag = tag $
-   , start = start_num $
-   , stop = stop_num $
    , incremental = incremental
 
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; LOAD META DATA
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+; Default  
+  if n_elements(subsample) eq 0 then begin
+     subsample = 'largeleda'
+  endif
+
+  if subsample eq 'localvolume' then begin
+     tab = mrdfits('unwise_v2_index_localvolume.fits',1,tab_hdr)
+  endif
+  
+  if subsample eq 'largeleda' then begin
+     tab = mrdfits('unwise_v2_index_largeleda.fits',1,tab_hdr)
+  endif
+
+  if subsample eq 'smallleda' then begin
+     tab = mrdfits('unwise_v2_index_smallleda.fits',1,tab_hdr)
+  endif
+
+  if subsample eq 'manga' then begin
+     tab = mrdfits('unwise_v2_index_manga.fits',1,tab_hdr)
+  endif
+
+  n_gal = n_elements(tab)
+  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  in_dir = '../unwise/dlang_custom/z0mgs/PGC/'
+; TBD
   mask_dir = '../masks/'
   out_dir = '../unwise/atlas/'
-
-  build_galaxy_list $
-     , in_dir = in_dir $
-     , tag=tag $
-     , just=only $
-     , pgc_list = pgc_list $
-     , pgc_num = pgc_num $
-     , dat = gal_data $
-     , start = start_num $
-     , stop = stop_num $
-     , exclude = ['PGC17223','PGC89980']
   
-  n_pgc = n_elements(pgc_list)
-
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; COPY FILES AND CHANGE UNITS TO STAGE
+; LOOP OVER TARGETS  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  if keyword_set(do_units) then begin
+  first = 1B
+  last = 0B
+  for ii = 0, n_gal-1 do begin
+
+     this_galaxy = tab[ii].z0mgs_name
      
-     not_found_ct = 0L
-     openw, 1, 'filesnotfound.txt'
+     if n_elements(just_galaxy) gt 0 then begin
+        if total(just_galaxy eq this_galaxy) eq 0 then begin
+           continue
+        endif
+     endif
 
-     for ii = 0, n_pgc-1 do begin
+     if n_elements(skip_galaxy) gt 0 then begin
+        if total(skip_galaxy eq this_galaxy) gt 0 then begin
+           continue
+        endif
+     endif
 
-        pgc_name = pgc_list[ii]
-
-        if n_elements(just) gt 0 then $
-           if total(pgc_name eq just) eq 0 then $
+     if n_elements(start_galaxy) gt 0 then begin
+        if first eq 1B then begin
+           if total(start_galaxy eq this_galaxy) eq 0 then begin
               continue
+           endif else begin
+              first = 0B
+           endelse
+        endif
+     endif
 
-        print, ''
-        print, 'Unit conversion for '+str(ii)+' / '+str(n_pgc)+' ... '+pgc_name
-        print, ''
+     if n_elements(stop_galaxy) gt 0 then begin
+        if last eq 1B then begin
+           continue
+        endif
+        if last eq 0B then begin
+           if total(stop_galaxy eq this_galaxy) eq 0 then begin
+              continue
+           endif else begin
+              last = 1B
+           endelse
+        endif
+     endif
 
+     print, ''
+     print, 'Processing galaxy '+str(ii)+' / '+str(n_gal)+' ... '+z0mgs_name
+     print, ''
+     
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; COPY FILES, CHANGE UNITS, FLAG ON INVVAR TO STAGE
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+     if keyword_set(do_stage) then begin
+        
         for band = 1, 4 do begin
            
            infile = in_dir+pgc_name+'/'+'unwise-'+pgc_name+'-w'+str(band)+'-img-m.fits'
