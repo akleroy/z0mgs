@@ -1,4 +1,0 @@
-PGC13324 - no GALEX, dig in to this.
-PGC13840 - and earlier one, FUV seems pathological.
-../galex/all_tiles/AIS_385_sg27-fd-rrhr.fits.gz missing
-../galex/all_tiles/AIS_385_sg65-fd-rrhr.fits.gz missing
