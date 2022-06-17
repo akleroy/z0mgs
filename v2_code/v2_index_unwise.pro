@@ -6,7 +6,7 @@ pro index_unwise_v2_stamps
   empty = $
      { $
      z0mgs_name:'' $
-     , pgc:-1 $
+     , pgc:-1L $
      , subsample:'' $
      , w1_fname:'' $
      , ra_ctr: nan $
@@ -31,8 +31,8 @@ pro index_unwise_v2_stamps
 ; Loop over four datasets
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
   
-  for vv = 0, 3 do begin
-
+  for vv = 0, 4 do begin
+     
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Karachentsev catalog
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
@@ -80,6 +80,18 @@ pro index_unwise_v2_stamps
         subsample = 'manga'
         
      endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Local Group
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
+
+     if vv eq 4 then begin
+        
+        dir = '../orig_data/unwise_v2/v2_localgroup/'        
+        flist = file_search(dir+'*/*/unwise-*-w1-img-m.fits', count=ct)
+        subsample = 'localgroup'
+        
+     endif
      
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Loop over files
@@ -94,7 +106,7 @@ pro index_unwise_v2_stamps
         start_pos = strpos(this_file, 'unwise-')+strlen('unwise-')
         stop_pos = strlen(this_file) - strlen('-w1-img-m.fits')
         this_name = strmid(this_file,start_pos,stop_pos-start_pos)
-
+        
         hdr = headfits(this_file)
         nx = sxpar(hdr,'NAXIS1')
         ny = sxpar(hdr,'NAXIS2')
@@ -104,7 +116,9 @@ pro index_unwise_v2_stamps
         
         dbase[ii].z0mgs_name = this_name
         dbase[ii].subsample = subsample
-        if (subsample eq 'smallleda') or (subsample eq 'largeleda') then begin
+        if (subsample eq 'smallleda') or $
+           (subsample eq 'largeleda') or $
+           (subsample eq 'localgroup') then begin
            dbase[ii].pgc = long(strmid(this_name,3,strlen(this_name)-3))
         endif
         dbase[ii].w1_fname = this_file
