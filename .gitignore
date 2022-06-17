@@ -4,6 +4,7 @@
 *.bkup
 *.log
 *.old
+*.pyc
 #*
 */*~
 */*.fits
@@ -11,4 +12,9 @@
 */*.bkup
 */*.log
 */*.old
+*/*.pyc
 */#*
+*.gzip
+*.gz
+index.html
+v1_code/MyAllSkyTable_akleroy.csv
