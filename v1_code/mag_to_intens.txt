@@ -1,0 +1,33 @@
+# star magnitude band
+# atlas band
+# resolution
+# coefficient in intens = 10.^(-1.0d*mag/2.5)*coefficient
+ks	w1	gauss7p5	164900.
+ks	w2	gauss7p5	91800.
+ks	w3	gauss7p5	16800.
+ks	w4	gauss7p5	nan
+ks	nuv	gauss7p5	202.0
+ks	fuv	gauss7p5	1.35
+#
+ks	w1	gauss15		52000.
+ks	w2	gauss15		27400.
+ks	w3	gauss15		4760.
+ks	w4	gauss15		1550.
+ks	nuv	gauss15		69.7
+ks	fuv	gauss15		0.6
+#
+gaiag	w1	gauss7p5	829914.
+gaiag	w2	gauss7p5	450745.
+gaiag	w3	gauss7p5	77349.7
+gaiag	w4	gauss7p5	nan
+gaiag	nuv	gauss7p5	13060.2
+gaiag	fuv	gauss7p5	27.07
+#
+gaiag	w1	gauss15		211315.
+gaiag	w2	gauss15		114198.
+gaiag	w3	gauss15		18956.
+gaiag	w4	gauss15		8398.
+gaiag	nuv	gauss15		3382.
+gaiag	fuv	gauss15		16.47
+
+

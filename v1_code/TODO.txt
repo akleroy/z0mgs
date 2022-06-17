@@ -1,0 +1,33 @@
+
+ORPHAN GALAXIES
+
+A few (~20) catalog entries have no corresponding galbase entry. My
+searches suggest that this is because some of them are not objtype
+galaxy in LEDA and in a few other cases we may simply have been bit by
+LEDA versions. Some are galaxy pairs, etc.
+
+To see these, print_missing_from_galbase.pro
+
+PGC11750
+PGC25950
+PGC3166843
+PGC3443415
+PGC4094831
+PGC4176843
+PGC4533374
+PGC4534783
+PGC4570049
+PGC4570246
+PGC46910
+PGC50711
+PGC5075236
+PGC5076429
+PGC5076566
+PGC6719
+
+OLDER NOTES
+
+PGC13324 - no GALEX, dig in to this.
+PGC13840 - and earlier one, FUV seems pathological.
+../galex/all_tiles/AIS_385_sg27-fd-rrhr.fits.gz missing
+../galex/all_tiles/AIS_385_sg65-fd-rrhr.fits.gz missing

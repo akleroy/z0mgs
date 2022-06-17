@@ -1,0 +1,68 @@
+PGC11163       3
+../unwise/dlang_custom/z0mgs/PGC/PGC11163/unwise-PGC11163-w3-img-m.fits
+PGC12227       3
+../unwise/dlang_custom/z0mgs/PGC/PGC12227/unwise-PGC12227-w3-img-m.fits
+PGC13913       3
+../unwise/dlang_custom/z0mgs/PGC/PGC13913/unwise-PGC13913-w3-img-m.fits
+PGC14500       3
+../unwise/dlang_custom/z0mgs/PGC/PGC14500/unwise-PGC14500-w3-img-m.fits
+PGC15587       3
+../unwise/dlang_custom/z0mgs/PGC/PGC15587/unwise-PGC15587-w3-img-m.fits
+PGC17595       2
+../unwise/dlang_custom/z0mgs/PGC/PGC17595/unwise-PGC17595-w2-img-m.fits
+PGC18646       4
+../unwise/dlang_custom/z0mgs/PGC/PGC18646/unwise-PGC18646-w4-img-m.fits
+PGC21370       3
+../unwise/dlang_custom/z0mgs/PGC/PGC21370/unwise-PGC21370-w3-img-m.fits
+PGC21525       3
+../unwise/dlang_custom/z0mgs/PGC/PGC21525/unwise-PGC21525-w3-img-m.fits
+PGC22605       3
+../unwise/dlang_custom/z0mgs/PGC/PGC22605/unwise-PGC22605-w3-img-m.fits
+PGC31932       3
+../unwise/dlang_custom/z0mgs/PGC/PGC31932/unwise-PGC31932-w3-img-m.fits
+PGC32162       3
+../unwise/dlang_custom/z0mgs/PGC/PGC32162/unwise-PGC32162-w3-img-m.fits
+PGC42517       3
+../unwise/dlang_custom/z0mgs/PGC/PGC42517/unwise-PGC42517-w3-img-m.fits
+PGC53234       3
+../unwise/dlang_custom/z0mgs/PGC/PGC53234/unwise-PGC53234-w3-img-m.fits
+PGC54283       3
+../unwise/dlang_custom/z0mgs/PGC/PGC54283/unwise-PGC54283-w3-img-m.fits
+PGC54685       3
+../unwise/dlang_custom/z0mgs/PGC/PGC54685/unwise-PGC54685-w3-img-m.fits
+PGC55209       3
+../unwise/dlang_custom/z0mgs/PGC/PGC55209/unwise-PGC55209-w3-img-m.fits
+PGC56033       3
+../unwise/dlang_custom/z0mgs/PGC/PGC56033/unwise-PGC56033-w3-img-m.fits
+PGC57120       3
+../unwise/dlang_custom/z0mgs/PGC/PGC57120/unwise-PGC57120-w3-img-m.fits
+PGC57169       3
+../unwise/dlang_custom/z0mgs/PGC/PGC57169/unwise-PGC57169-w3-img-m.fits
+PGC57323       3
+../unwise/dlang_custom/z0mgs/PGC/PGC57323/unwise-PGC57323-w3-img-m.fits
+PGC59386       3
+../unwise/dlang_custom/z0mgs/PGC/PGC59386/unwise-PGC59386-w3-img-m.fits
+PGC61276       3
+../unwise/dlang_custom/z0mgs/PGC/PGC61276/unwise-PGC61276-w3-img-m.fits
+PGC61579       3
+../unwise/dlang_custom/z0mgs/PGC/PGC61579/unwise-PGC61579-w3-img-m.fits
+PGC61780       3
+../unwise/dlang_custom/z0mgs/PGC/PGC61780/unwise-PGC61780-w3-img-m.fits
+PGC61782       3
+../unwise/dlang_custom/z0mgs/PGC/PGC61782/unwise-PGC61782-w3-img-m.fits
+PGC61833       2
+../unwise/dlang_custom/z0mgs/PGC/PGC61833/unwise-PGC61833-w2-img-m.fits
+PGC62387       3
+../unwise/dlang_custom/z0mgs/PGC/PGC62387/unwise-PGC62387-w3-img-m.fits
+PGC69546       3
+../unwise/dlang_custom/z0mgs/PGC/PGC69546/unwise-PGC69546-w3-img-m.fits
+PGC89980       1
+../unwise/dlang_custom/z0mgs/PGC/PGC89980/unwise-PGC89980-w1-img-m.fits
+PGC134094       3
+../unwise/dlang_custom/z0mgs/PGC/PGC134094/unwise-PGC134094-w3-img-m.fits
+PGC135136       3
+../unwise/dlang_custom/z0mgs/PGC/PGC135136/unwise-PGC135136-w3-img-m.fits
+PGC917425       1
+../unwise/dlang_custom/z0mgs/PGC/PGC917425/unwise-PGC917425-w1-img-m.fits
+PGC3994656       3
+../unwise/dlang_custom/z0mgs/PGC/PGC3994656/unwise-PGC3994656-w3-img-m.fits

@@ -1,0 +1,11 @@
+# column 1: quantity name
+# column 2: low end
+# column 3: value below low end
+# column 4: high end
+# column 5: value above high end
+ssfr	    	  -10.9 	0.5	-9.5	0.2
+ssfrlike     	  -11.0		0.5	-10.20	0.2
+fuvw1	    	  -2.5		0.5	-0.7	0.2
+nuvw1	    	  -2.0		0.5	-0.7	0.2
+w4w1	    	   0.0		0.5	0.75	0.2
+w3w1	    	   0.1		0.5	0.75	0.2

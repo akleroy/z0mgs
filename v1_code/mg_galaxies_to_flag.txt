@@ -1,0 +1,73 @@
+#column 1: PGC name
+#column 2: reason flagged (mask, psf, radius)
+#column 3: other comments
+PGC45155	mask	bright source lower right
+PGC44582	mask	bright source lower left
+PGC44191	psf	W3 and W4
+PGC44182	mask	no source but really bad background
+PGC43495	radius	NUV and FUV
+PGC43254	radius	NUV and FUV
+PGC43189	mask	lower right and upper center
+PGC42863	radius	maybe NUV and FUV lower right
+PGC42734	mask	bright source right
+PGC39315	mask	bright source in W3 to right
+PGC39241	mask	something weird in NUV and FUV on right side
+PGC39225	radius	barely NUV and FUV
+PGC39212	mask	something weird in FUV on right side
+PGC39028	mask 	something weird in NUV on upper side
+PGC38950	mask	something weird in FUV in lower left
+PGC38524	mask	something weird in FUV lower left
+PGC37969	radius	NUV and FUV
+PGC37967	radius	NUV and FUV
+PGC37325	mask	bright source in left side 
+PGC37320	mask	maybe something on lower side
+PGC36921	radius	NUV and FUV
+PGC35797	mask	bright source on lower side
+PGC35616	radius	NUV and FUV
+PGC34554	radius	NUV and FUV
+PGC34030	radius	maybe on the right side
+PGC32292	mask	maybe on the right side
+PGC31671	radius	W1, W2, NUV, and FUV
+PGC30887	mask	something weird in NUV on left side
+PGC30108	mask	something weird in NUV and FUV on bottom
+PGC30087	mask	bright source on right side
+PGC29892	mask	something weird on FUV upper side
+PGC29855	radius	NUV and FUV
+PGC29814	mask	bright source upper left
+PGC29530	mask	something weird on FUV upper right
+PGC29472	psf	could just be a star?
+PGC28655	psf 	mostly W3 and W4
+PGC27885	mask	upper right
+PGC27762	psf	could just be a star?
+PGC27159	radius	NUV
+PGC26410	radius	NUV and FUV
+PGC26157	mask	upper right
+PGC26026	mask	lower right
+PGC24229	mask	right
+PGC21815	mask	lower right
+PGC21558	mask	left (particularly FUV)
+PGC21373	radius
+PGC18883	mask	something weird upper left
+PGC18797	psf	W3 and W4
+PGC17819	radius	NUV and FUV
+PGC17625	radius	NUV and FUV
+PGC16779	psf	W3 and W4 ALSO RADIUS
+PGC16517	mask	upper right
+PGC15405	mask	NUV lower right
+PGC14508	mask	upper side
+PGC14391	radius	NUV and FUV
+PGC14121	radius
+PGC13826	mask	something weird to the left and also above
+PGC13586	radius
+PGC13433	mask	upper right
+PGC13333	psf
+PGC12412	radius	NUV and FUV
+PGC12286	mask	upper left
+PGC11984	mask	upper right
+PGC11625	psf
+PGC10329	radius	FUV and NUV
+PGC10266	psf
+PGC10208	mask
+PGC3743		mask	upper
+PGC3089		radius	FUV and NUV
+PGC2789		mask	left
