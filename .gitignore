@@ -14,7 +14,7 @@
 */*.old
 */*.pyc
 */#*
-*.gzip
+*.zip
 *.gz
 index.html
 v1_code/MyAllSkyTable_akleroy.csv
