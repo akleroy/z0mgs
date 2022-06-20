@@ -1,4 +1,4 @@
-pro index_unwise_v2_stamps   
+pro v2_index_unwise
 
 ; Put together basic data on our second UNWISE atlas run
 
@@ -27,6 +27,8 @@ pro index_unwise_v2_stamps
   skip_w3 = []
   skip_w4 = []    
 
+  odir = '../../orig_data/'
+  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Loop over four datasets
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
@@ -39,7 +41,7 @@ pro index_unwise_v2_stamps
 
      if vv eq 0 then begin
         
-        dir = '../orig_data/unwise_v2/v2_karachentsev/'        
+        dir = odir+'unwise_v2/v2_karachentsev/'        
         flist = file_search(dir+'*/*/unwise-*-w1-img-m.fits', count=ct)
         subsample = 'localvolume'
         
@@ -51,7 +53,7 @@ pro index_unwise_v2_stamps
 
      if vv eq 1 then begin
         
-        dir = '../orig_data/unwise_v2/v2_largegals/'        
+        dir = odir+'unwise_v2/v2_largegals/'        
         flist = file_search(dir+'*/unwise-*-w1-img-m.fits', count=ct)  
         subsample = 'largeleda'
         
@@ -63,7 +65,7 @@ pro index_unwise_v2_stamps
 
      if vv eq 2 then begin
         
-        dir = '../orig_data/unwise_v2/v2_smallgals/'
+        dir = odir+'unwise_v2/v2_smallgals/'
         flist = file_search(dir+'*/*/unwise-*-w1-img-m.fits', count=ct)
         subsample = 'smallleda'
         
@@ -75,7 +77,7 @@ pro index_unwise_v2_stamps
 
      if vv eq 3 then begin
         
-        dir = '../orig_data/unwise_v2/v2_unmanga/'
+        dir = odir+'unwise_v2/v2_unmanga/'
         flist = file_search(dir+'*/unwise-*-w1-img-m.fits', count=ct)
         subsample = 'manga'
         
@@ -87,7 +89,7 @@ pro index_unwise_v2_stamps
 
      if vv eq 4 then begin
         
-        dir = '../orig_data/unwise_v2/v2_localgroup/'        
+        dir = odir+'unwise_v2/v2_localgroup/'        
         flist = file_search(dir+'*/*/unwise-*-w1-img-m.fits', count=ct)
         subsample = 'localgroup'
         
@@ -136,20 +138,33 @@ pro index_unwise_v2_stamps
            dbase[ii].use_w4 = 0B
         endif       
 
-        if total(this_name eq skip_w1) gt 0 then begin
+        w1_fname = strcompress(str_replace(this_file,'w1', 'w1'),/rem)
+        w2_fname = strcompress(str_replace(this_file,'w1', 'w2'),/rem)
+        w3_fname = strcompress(str_replace(this_file,'w1', 'w3'),/rem)
+        w4_fname = strcompress(str_replace(this_file,'w1', 'w4'),/rem)
+        
+        if total(this_name eq skip_w1) gt 0 or $
+           file_test(w1_fname) eq 0 then begin
            dbase[ii].use_w1 = 0B
+           print, "Missing W1 for PGC ", dbase[ii].pgc
         endif       
 
-        if total(this_name eq skip_w2) gt 0 then begin
+        if total(this_name eq skip_w2) gt 0 or $
+           file_test(w2_fname) eq 0 then begin
            dbase[ii].use_w2 = 0B
+           print, "Missing W2 for PGC ", dbase[ii].pgc
         endif       
 
-        if total(this_name eq skip_w3) gt 0 then begin
+        if total(this_name eq skip_w3) gt 0 or $
+           file_test(w3_fname) eq 0 then begin
            dbase[ii].use_w3 = 0B
+           print, "Missing W3 for PGC ", dbase[ii].pgc
         endif       
         
-        if total(this_name eq skip_w4) gt 0 then begin
+        if total(this_name eq skip_w4) gt 0 or $
+           file_test(w4_fname) eq 0 then begin
            dbase[ii].use_w4 = 0B
+           print, "Missing W4 for PGC ", dbase[ii].pgc
         endif       
         
      endfor
@@ -158,7 +173,8 @@ pro index_unwise_v2_stamps
 ; Write to disk
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%  
      
-     mwrfits, dbase, '../measurements/unwise_v2_index_'+subsample+'.fits', /create
+     mwrfits, dbase, '../../measurements/'+ $
+              'unwise_v2_index_'+subsample+'.fits', /create
 
   endfor
   

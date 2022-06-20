@@ -6,9 +6,9 @@ pro v2_build_invvar_mask $
 
   radius = 3
   
-  invvar = readfits(infile_invvar, hdr)
+  invvar = readfits(infile_invvar, hdr, /silent)
 
-  rms = mad(invvar)
+  rms = stddev(invvar,/nan)
   med = median(invvar)
   resid = (invvar-med)/rms
   

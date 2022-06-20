@@ -1,4 +1,4 @@
-pro v2_unwise_build_atlas $
+pro v2_galex_build_atlas $
    , subsample = subsample $
    , just_galaxy = just_galaxy $
    , skip_galaxy = skip_galaxy $   
@@ -20,7 +20,7 @@ pro v2_unwise_build_atlas $
                        , 'smallleda', 'manga']
      for ii = 0, n_elements(subsample_list)-1 do begin
         this_subsample = subsample_list[ii]
-        v2_unwise_build_atlas $
+        v2_galex_build_atlas $
            , subsample = this_subsample $
            , just_galaxy = just_galaxy $
            , skip_galaxy = skip_galaxy $   
@@ -38,7 +38,7 @@ pro v2_unwise_build_atlas $
   
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; LOAD META DATA
+; LOAD UNWISE META DATA
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
   tdir = '../../measurements/'
@@ -74,13 +74,13 @@ pro v2_unwise_build_atlas $
 ; SET DIRECTORY AND BUILD GALAXY LIST
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-  staged_dir = '../../working_data/unwise/staged/'+subsample+'/'
-  bkgrd_dir = '../../working_data/unwise/bkgrd/'+subsample+'/'
-  mask_dir = '../../working_data/unwise/masks/'+subsample+'/'
-  convolved_dir = '../../working_data/unwise/convolved/'+subsample+'/'
-  final_dir = '../../working_data/unwise/final/'+subsample+'/'
+  staged_dir = '../../working_data/galex/staged/'+subsample+'/'
+  bkgrd_dir = '../../working_data/galex/bkgrd/'+subsample+'/'
+  mask_dir = '../../working_data/galex/masks/'+subsample+'/'
+  convolved_dir = '../../working_data/galex/convolved/'+subsample+'/'
+  final_dir = '../../working_data/galex/final/'+subsample+'/'
 
-  bands = ['w1','w2','w3','w4']
+  bands = ['nuv','fuv']
   n_bands = n_elements(bands)
   
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -135,7 +135,7 @@ pro v2_unwise_build_atlas $
      print, ''
      
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; COPY FILES, CHANGE UNITS, FLAG ON INVVAR TO STAGE
+; CREATE CUTOUTS FROM TILES
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
      if keyword_set(do_stage) then begin
@@ -144,6 +144,8 @@ pro v2_unwise_build_atlas $
         
         for vv = 0, n_bands-1 do begin
 
+; rewor from here
+           
            if vv eq 0 and tab[ii].use_w1 eq 0 then continue
            if vv eq 1 and tab[ii].use_w2 eq 0 then continue
            if vv eq 2 and tab[ii].use_w3 eq 0 then continue
