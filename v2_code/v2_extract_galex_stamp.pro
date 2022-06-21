@@ -57,7 +57,7 @@ pro v2_extract_galex_stamp $
 ; FIND CONTRIBUTING TILES
   ind = where(index.fuv eq fuv and $
               tile_overlaps, ct_overlap)
-
+  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; INITIALIZE THE OUTPUT
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -153,10 +153,10 @@ pro v2_extract_galex_stamp $
 
 ;    CONVERT TO MJY/SR
      if keyword_set(fuv) then begin
-        im = fuv_cps_to_jy(im)/1d6
+        im = v2_fuv_cps_to_jy(im)/1d6
         im /= pix_sr
      endif else begin
-        im = nuv_cps_to_jy(im)/1d6
+        im = v2_nuv_cps_to_jy(im)/1d6
         im /= pix_sr
      endelse
 
@@ -172,7 +172,6 @@ pro v2_extract_galex_stamp $
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%          
 ; ALIGN
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%          
-     
      im = 1.0*im
      hastrom, im, hdr, target_hdr $
               , interp=1, missing=!values.f_nan $

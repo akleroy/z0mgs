@@ -35,8 +35,7 @@ pro v2_galex_build_atlas $
      endfor
      return
   endif 
-  
-  
+    
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; LOAD UNWISE META DATA
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -83,6 +82,8 @@ pro v2_galex_build_atlas $
   bands = ['nuv','fuv']
   n_bands = n_elements(bands)
   
+  galex_tile_index = mrdfits('galex_index_file.fits',1,tih)
+
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; LOOP OVER TARGETS  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -144,57 +145,48 @@ pro v2_galex_build_atlas $
         
         for vv = 0, n_bands-1 do begin
 
-; rewor from here
-           
-           if vv eq 0 and tab[ii].use_w1 eq 0 then continue
-           if vv eq 1 and tab[ii].use_w2 eq 0 then continue
-           if vv eq 2 and tab[ii].use_w3 eq 0 then continue
-           if vv eq 3 and tab[ii].use_w4 eq 0 then continue
+           ;if vv eq 0 and tab[ii].use_fuv eq 0 then continue
+           ;if vv eq 1 and tab[ii].use_nuv eq 0 then continue
            
            this_band = bands[vv]           
-           
-           infile_img = str_replace(w1_file,'w1', this_band)
-           infile_invar = str_replace(infile_img,'-img-m.fits' $
-                                      , '-invvar-m.fits')
 
-           test = file_search(infile_img, count=ct)
-           if ct eq 0 then begin
-              ;printf, 1, pgc_name, band, infile
-              print, 'NOT FOUND: ', this_galaxy, this_band, ' ', infile_img
-              not_found_ct += 1
-              stop
-           endif
-
-           outfile_img = staged_dir+this_galaxy+'_'+this_band+'_mjysr.fits'
-           outfile_mask = mask_dir+this_galaxy+'_'+this_band+'_artifacts.fits'
+           outfile_image = staged_dir+this_galaxy+ $
+                         '_'+this_band+'_mjysr.fits'
+           outfile_weight = staged_dir+this_galaxy+ $
+                            '_'+this_band+'_weight.fits'
            
            if keyword_set(incremental) then begin
-              img_present = file_search(outfile_img, count=img_ct)
-              mask_present = file_search(outfile_mask, count=mask_ct)              
-              if img_present gt 0 and mask_present gt 0 then continue
+              image_present = file_test(outfile_image)
+              weight_present = file_test(outfile_weight)
+              if image_present gt 0 and $
+                 weight_present gt 0 then $
+                 continue
            endif
 
-           v2_build_invvar_mask $
-              , infile=infile_invar $
-              , outfile=outfile_mask $
-              , show=show $
-              , pause=pause
+           ra_ctr = tab[ii].ra_ctr
+           dec_ctr = tab[ii].dec_ctr
+           size_deg = (tab[ii].trc_dec - tab[ii].blc_dec)
            
-           v2_convert_unwise_to_mjysr $
-              , infile = infile_img $
-              , outfile = outfile_img $
-              , band = this_band
+           v2_extract_galex_stamp $
+              , fuv=(this_band eq 'fuv') $
+              , ra_ctr=ra_ctr $
+              , dec_ctr=dec_ctr $
+              , size_deg=size_deg $
+              , index=galex_tile_index $
+              , /useint $
+              , show=show $
+              , pause=pause $
+              , image=image $
+              , weight=weight $
+              , hdr=hdr
+
+           writefits, outfile_image, image, hdr
+           writefits, outfile_weight, weight, hdr
            
         endfor
 
      endif
 
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; Make galaxy masks
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-     
-     
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Mask and fit the background
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%

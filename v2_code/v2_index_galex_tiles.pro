@@ -105,7 +105,10 @@ pro v2_index_galex_tiles
 
         fields[ii].min_ra = min_ra
         fields[ii].max_ra = max_ra
-     
+
+        fields[ii].min_dec = min_dec
+        fields[ii].max_dec = max_dec
+        
      endfor
 
      if kk eq 0 then $

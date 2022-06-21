@@ -15,6 +15,8 @@ pro v2_index_unwise
      , blc_dec:nan $
      , trc_ra:nan $
      , trc_dec:nan $
+     , use_fuv:1B $
+     , use_nuv:1B $
      , use_w1:1B $
      , use_w2:1B $
      , use_w3:1B $
@@ -129,7 +131,7 @@ pro v2_index_unwise
         dbase[ii].blc_ra = blc_ra
         dbase[ii].blc_dec = blc_dec
         dbase[ii].trc_ra = trc_ra
-        dbase[ii].trc_dec = trc_ra
+        dbase[ii].trc_dec = trc_dec
 
         if total(this_name eq skip_galaxy) gt 0 then begin
            dbase[ii].use_w1 = 0B

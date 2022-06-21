@@ -21,8 +21,8 @@ function v2_calc_tile_overlap $
      return, overlap
   endif
 
-  if dec_ctr-pad lt 85. then begin
-     overlap = mean_dec lt 85.
+  if dec_ctr-pad lt -85. then begin
+     overlap = mean_dec lt -85.
      return, overlap
   endif
   
