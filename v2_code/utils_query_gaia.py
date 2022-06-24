@@ -15,7 +15,8 @@ def query_gaia(
         add_fields=[],
         omit_fields=[],
         quiet=False,
-        dry_run=True):
+        dry_run=True,
+        skip_if_present=False):
     """
     Query GAIA DR3 with parameters of interest to extragalactic images in a rectangular footprint.
     """
@@ -82,14 +83,17 @@ def query_gaia(
         ''+delim+'AND'+delim+'src.dec'+delim+'BETWEEN'+delim+''+dec_low_string+''+delim+'AND'+delim+''+dec_high_string
         
     query = all_fields + ' ' + source + ' ' + selection
-        
+
     if dry_run == False:
         if quiet == False:
             print(query)
-        job = Gaia.launch_job_async(query)
-        tab = job.get_results()
-        if outfile is not None and twopart_call == False:
-            tab.write(outfile, format='fits', overwrite=True)
+        if outfile is not None:
+            if (os.path.isfile(outfile) == False) or \
+               (skip_if_present == False):            
+                job = Gaia.launch_job_async(query)
+                tab = job.get_results()
+                if twopart_call == False:            
+                    tab.write(outfile, format='fits', overwrite=True)
     else:
         if quiet == False:
             print(query)
@@ -99,7 +103,7 @@ def query_gaia(
 
     # From here only worry about the case where we wrapped around the meridian
   
-    first_part = call
+    first_part = query
     
     this_ramin = 0.0
     this_ramax = ra_max
@@ -116,15 +120,17 @@ def query_gaia(
     if dry_run == False:
         if quiet==False:
             print(query)
-        job = Gaia.launch_job_async(query)
-        tab2 = job.get_results()
-        tab = vstack([tab,tab2])
-        if outfile is not None:
-            tab.write(outfile, format='fits', overwrite=True)
+        if outfile is not None:            
+            if (os.path.isfile(outfile) == False) or \
+               (skip_if_present == False):                        
+                job = Gaia.launch_job_async(query)
+                tab2 = job.get_results()
+                tab = vstack([tab,tab2])
+                tab.write(outfile, format='fits', overwrite=True)
     else:
         if quiet==False:
             print(query)
 
-    return(query) 
+    return([first_part,query]) 
         
 

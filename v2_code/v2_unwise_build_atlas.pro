@@ -5,6 +5,8 @@ pro v2_unwise_build_atlas $
    , start_galaxy = start_galaxy $
    , stop_galaxy = stop_galaxy $
    , stage = do_stage $
+   , gaia = do_gaia $
+   , stack = do_stacks $
    , bkgrd = do_bkgrd $ 
    , convol = do_convol $
    , show = show $
@@ -188,16 +190,45 @@ pro v2_unwise_build_atlas $
      endif
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; Make galaxy masks
+; Query Gaia for stars
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
+     if keyword_set(do_gaia) then begin
+
+     endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Stack stars
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+     if keyword_set(do_stack_stars) then begin
+
+     endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Make star masks
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+     if keyword_set(do_make_star_masks) then begin
+
+     endif
+     
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Make galaxy masks
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+     
+     if keyword_set(do_galaxy_masks) then begin
+
+     endif
      
      
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Mask and fit the background
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-     
+     if keyword_set(do_bkgrd) then begin
+
+     endif
      
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Additional star and user masking
