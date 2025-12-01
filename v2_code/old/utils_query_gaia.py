@@ -36,9 +36,11 @@ def query_gaia(
         'ap.classprob_dsc_combmod_whitedwarf',
         'ap.teff_gspphot',
         'ap.teff_gspspec',
+        'src.phot_g_mean_flux',
+        'src.phot_g_mean_flux_error',
         'src.phot_g_mean_mag',
         'src.phot_bp_mean_mag',
-        'src.phot_rp_mean_mag',        
+        'src.phot_rp_mean_mag',                
         'src.parallax',
         'src.parallax_error',
         'src.pmra',
@@ -92,6 +94,7 @@ def query_gaia(
                (skip_if_present == False):            
                 job = Gaia.launch_job_async(query)
                 tab = job.get_results()
+                print(tab)
                 if twopart_call == False:            
                     tab.write(outfile, format='fits', overwrite=True)
     else:

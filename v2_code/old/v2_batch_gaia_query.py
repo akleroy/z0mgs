@@ -52,7 +52,7 @@ for this_sample in sample:
             outfile=out_file_name,
             add_fields=[],
             omit_fields=[],
-            quiet=True,
+            quiet=False,
             dry_run=False,
-            skip_if_present=True)
+            skip_if_present=False)
     

@@ -5,8 +5,10 @@ pro v2_unwise_build_atlas $
    , start_galaxy = start_galaxy $
    , stop_galaxy = stop_galaxy $
    , stage = do_stage $
-   , gaia = do_gaia $
-   , stack = do_stacks $
+   , galaxy_mask = do_galaxy_mask $
+   , aperture_mask = do_aperture_mask $
+   , star_pred = do_star_pred $
+   , star_mask = do_star_mask $
    , bkgrd = do_bkgrd $ 
    , convol = do_convol $
    , show = show $
@@ -71,7 +73,8 @@ pro v2_unwise_build_atlas $
   endif
 
   n_gal = n_elements(tab)
-
+  dat = gal_data(pgc=tab.pgc, /full)
+  
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; SET DIRECTORY AND BUILD GALAXY LIST
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -81,7 +84,8 @@ pro v2_unwise_build_atlas $
   mask_dir = '../../working_data/unwise/masks/'+subsample+'/'
   convolved_dir = '../../working_data/unwise/convolved/'+subsample+'/'
   final_dir = '../../working_data/unwise/final/'+subsample+'/'
-
+  gaia_dir = '../../working_data/gaia/'+subsample+'/'
+  
   bands = ['w1','w2','w3','w4']
   n_bands = n_elements(bands)
   
@@ -96,6 +100,7 @@ pro v2_unwise_build_atlas $
   for ii = 0, n_gal-1 do begin
 
      this_galaxy = strcompress(tab[ii].z0mgs_name,/rem)
+     this_pgc = tab[ii].pgc
      
      if n_elements(just_galaxy) gt 0 then begin
         if total(just_galaxy eq this_galaxy) eq 0 then begin
@@ -188,39 +193,183 @@ pro v2_unwise_build_atlas $
         endfor
 
      endif
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; Query Gaia for stars
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-     if keyword_set(do_gaia) then begin
-
-     endif
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; Stack stars
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-     if keyword_set(do_stack_stars) then begin
-
-     endif
-
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; Make star masks
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-     if keyword_set(do_make_star_masks) then begin
-
-     endif
      
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Make galaxy masks
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-     
-     if keyword_set(do_galaxy_masks) then begin
 
+; Use HyperLEDA's catalog to mask known galaxies in the field
+     
+     if keyword_set(do_galaxy_mask) then begin
+        
+        print, "... making galaxy mask"
+
+        template_image_file = 'None'
+        
+        for vv = 0, n_bands-1 do begin
+           
+           this_band = bands[vv]
+
+           test_image_file = $
+              staged_dir+this_galaxy+ $
+              '_'+this_band+'_mjysr.fits'
+
+           if file_test(test_image_file) then $
+              template_image_file = test_image_file
+        endfor
+        
+        galaxy_mask_file = $
+           mask_dir+this_galaxy+ $
+           '_galmask.fits'
+        
+        v2_build_galaxy_mask $           
+           , this_pgc=this_pgc $
+           , all_gal_data=all_gal_data $
+           , infile=template_image_file $
+           , outfile=galaxy_mask_file $
+           , show=show $
+           , pause=pause
+        
+     endif
+
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Make aperture masks / radius images
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+; Make an image of the location of the galaxy
+     
+     if keyword_set(do_aperture_mask) then begin        
+
+        print, "... making aperture mask"
+
+        template_image_file = 'None'
+        
+        for vv = 0, n_bands-1 do begin
+           
+           this_band = bands[vv]
+
+           test_image_file = $
+              staged_dir+this_galaxy+ $
+              '_'+this_band+'_mjysr.fits'
+
+           if file_test(test_image_file) then $
+              template_image_file = test_image_file
+        endfor
+
+        galaxy_mask_file = $
+           mask_dir+this_galaxy+ $
+           '_radius.fits'
+
+        ra = dat[ii].ra_deg
+        dec = dat[ii].dec_deg
+        pa = dat[ii].posang_deg
+        incl = dat[ii].incl_deg
+        fid_rad = dat[ii].r25_deg
+        
+        v2_build_aperture_mask $
+           , infile = template_image_file $
+           , ra = ra $
+           , dec = dec $
+           , posang = pa $
+           , incl = incl $
+           , fid_rad = fid_rad $
+           , outfile = galaxy_mask_file $ 
+           , show = show $
+           , pause = pause
+        
      endif
      
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Make star predictions
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+           
+; Makes a predicted star flux file with a Jy value in the nearest
+; pixel. Compared to the v1 approach this is a new intermediate data
+; product, and uses GAIA DR3. Convolving and masking comes after.
+     
+     if keyword_set(do_star_pred) then begin
+
+        for vv = 0, n_bands-1 do begin
+
+           this_band = bands[vv]
+
+           psf_dir = $
+              '/export/bell-tycho/leroy.42/ellohess/kernels/PSF_FITS_Files/'           
+           if this_band eq 'w1' then $
+              psf_file = psf_dir+'PSF_Corrected_WISE_ATLAS_3.4_added_wing.fits'
+           if this_band eq 'w2' then $
+              psf_file = psf_dir+'PSF_Corrected_WISE_ATLAS_4.6_added_wing.fits'
+           if this_band eq 'w3' then $
+              psf_file = psf_dir+'PSF_Corrected_WISE_ATLAS_11.6_added_wing.fits'     
+           if this_band eq 'w4' then $
+              psf_file = psf_dir+'PSF_Corrected_WISE_ATLAS_22.1_added_wing.fits'      
+
+           template_image_file = $
+              staged_dir+this_galaxy+ $
+              '_'+this_band+'_mjysr.fits'
+           
+           this_gaia_file = $
+              gaia_dir+this_galaxy+ $
+              '_gaia_dr3.fits'
+
+           star_flux_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_starflux.fits'
+
+           native_res_pred_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_starintens.fits'
+           
+           v2_build_star_pred $
+              , ra_ctr=tab[ii].ra_ctr $
+              , dec_ctr=tab[ii].dec_ctr $
+              , band=this_band $
+              , infile=template_image_file $
+              , gaia_file=this_gaia_file $
+              , pred_flux_file=star_flux_file $
+              , psf_file=psf_file $
+              , pred_image_file=native_res_pred_file $
+              , ks_struct=ks_struct $
+              , show=show $
+              , pause=pause
+           
+        endfor
+        
+     endif     
+     
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+; Turn the star predictions into masks
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+     if keyword_set(do_make_star_masks) then begin
+ 
+        for vv = 0, n_bands-1 do begin
+
+           this_band = bands[vv]
+
+           template_image_file = $
+              staged_dir+this_galaxy+ $
+              '_'+this_band+'_mjysr.fits'
+           
+           native_res_pred_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_starintens.fits'
+
+           star_mask_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_starmask.fits'
+
+           
+           v2_build_star_mask $
+              , map = template_image_file $
+              , pred = native_res_pred_file $
+              , outfile = star_mask_file $
+              , show = show $
+              , pause = pause
+           
+        endfor           
+        
+     endif
      
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Mask and fit the background
@@ -228,18 +377,73 @@ pro v2_unwise_build_atlas $
 
      if keyword_set(do_bkgrd) then begin
 
-     endif
-     
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-; Additional star and user masking
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+        for vv = 0, n_bands-1 do begin
 
-     
-     
+           this_band = bands[vv]
+
+           infile = $
+              staged_dir+this_galaxy+ $
+              '_'+this_band+'_mjysr.fits'
+
+           outfile = $
+              staged_dir+this_galaxy+ $
+              '_'+this_band+'_bksub.fits'
+           
+           star_mask_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_starmask.fits'
+
+           gal_mask_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_galmask.fits'
+
+           rad_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_radius.fits'
+           
+           v2_bkfit_unwise $
+              , infile=infile $
+              , band=this_band $              
+              , outfile=outfile $  
+              , radfile=rad_file $
+              , masklist=[star_mask_file, gal_mask_file] $
+              , show=show $
+              , pause=pause $
+              , plane=plane
+           
+        endfor           
+
+        
+     endif
+          
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 ; Make convolved masked and unmasked images
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
+     if keyword_set(do_convolve) then begin
+
+        for vv = 0, n_bands-1 do begin
+
+           this_band = bands[vv]
+
+           infile = $
+              staged_dir+this_galaxy+ $
+              '_'+this_band+'_bksub.fits'
+           
+           star_mask_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_starmask.fits'
+
+           gal_mask_file = $
+              mask_dir+this_galaxy+ $
+              '_'+this_band+'_galmask.fits'
+           
+           
+           
+        endfor           
+        
+     endif
+     
   endfor
      
 end

@@ -27,6 +27,9 @@ pro v2_extract_galex_stamp $
   if n_elements(index) eq 0 then $
      index = mrdfits(index_dir+'galex_index_file.fits',1,h)  
 
+  degree = 1
+  ngrid = 101
+  
 ; MAKE A HEADER
   pix_scale = 1.5/3600.
   pix_len = size_deg / pix_scale
@@ -113,7 +116,10 @@ pro v2_extract_galex_stamp $
      rrhr = readfits(this_rrhr_fname, rrhr_hdr, /silent)     
 
      flag = readfits(this_flag_fname, flag_hdr, /silent)
-     hastrom, flag, flag_hdr, hdr, interp=0, missing=1024
+
+     print, "Aligning flags"
+     hastrom, flag, flag_hdr, hdr, interp=0, missing=1024 $
+              , ngrid=ngrid, degree=degree
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%     
 ; APPLY THE FLAGS
@@ -171,20 +177,26 @@ pro v2_extract_galex_stamp $
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%          
 ; ALIGN
-; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%          
+; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+     print, "Aligning image"     
      im = 1.0*im
      hastrom, im, hdr, target_hdr $
               , interp=1, missing=!values.f_nan $
-              , errmsg=errmsg
+              , errmsg=errmsg  $
+              , ngrid=ngrid, degree=degree
      if strcompress(errmsg, /rem) ne '' then continue
 
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%               
 ; ACCUMULATE
 ; &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%               
-     
+
+     print, "Aligning rrhr"          
      rrhr = 1.0*rrhr
      hastrom, rrhr, rrhr_hdr, target_hdr $
-              , interp=1, missing=!values.f_nan
+              , interp=1, missing=!values.f_nan $
+              , errmsg=errmsg  $              
+              , ngrid=ngrid, degree=degree     
      if strcompress(errmsg, /rem) ne '' then continue
      
      im_ind = where(finite(rrhr) and (rrhr gt 0), im_ct)
