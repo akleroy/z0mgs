@@ -35,19 +35,26 @@ working_dir = {
     'w4':'../../working_data/unwise/',
 }
 
+skip_existing = False
+
 print("Gaia cutouts for sample: ", sample)
 
 gaia_root = '../../working_data/gaia/'
-
 
 for this_sample in sample:
 
     tab = Table.read(tab_dict[this_sample])
     
-    for this_row in ProgressBar(tab):
+    counter = 0
+    len_tab = len(tab)
+
+    for this_row in tab:
+
+        counter += 1
 
         print('')
         print('Querying ', this_row['Z0MGS_NAME'].strip())
+        print('... which is target ', counter, ' out of ', len_tab)
         
         if this_row['PGC'] in skip_pgc:
             print("Skipping ", this_row['Z0MGS_NAME'].strip())
@@ -61,7 +68,8 @@ for this_sample in sample:
             continue
         
         for this_band in bands:
-        
+
+            print("... querying band ", this_band)
             this_staged_dir = \
                 working_dir[this_band]+'staged/'+this_sample+'/'
             this_stack_dir = \
@@ -82,11 +90,17 @@ for this_sample in sample:
                 print("Image file not found, skipping: ", image_file_name)
                 continue
             
+            # If the file exists then optionally skip it
+
+            if skip_existing:
+                if os.path.isfile(out_file_name) == True:
+                    continue
+
             # Obtain and write the stack
             extract_gaia_stack(
                 image_file_name,
                 gaia_table_fname=gaia_table_name,
                 out_fname=out_file_name, overwrite=True,
-                oversamp_fac=2.0, half_width_pix=20,
+                oversamp_fac=2.0, half_width_pix=40,
                 order='bilinear')
             

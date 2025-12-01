@@ -137,4 +137,4 @@ def extract_gaia_stack(
         stack_hdu.writeto(out_fname, overwrite=overwrite)
     
     return(stack_hdu)
-        
+
