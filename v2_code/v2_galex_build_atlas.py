@@ -406,7 +406,7 @@ def extract_galex_stamp(
     if band == 'fuv':
         tiles_overlap *= index_tab['filter'] == 'fuv'
     else:
-        tiles_overlap *= index_tab['NUV'] == 'nuv'
+        tiles_overlap *= index_tab['filter'] == 'nuv'
         
     # Create a table of only tiles of interest
     overlap_tab = index_tab[tiles_overlap]
