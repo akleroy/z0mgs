@@ -13,7 +13,7 @@
 
 import os, glob, time
 import numpy as np
-from astropy.table import Table, Column
+from astropy.table import Table, Column, vstack
 import astropy.io.fits as fits
 import astropy.wcs as wcs
 from astropy.utils.console import ProgressBar
@@ -142,7 +142,7 @@ def compile_list_of_images(
             tab_dir = '../../working_data/unwise/index/'
             tab_file = 'unwise_custom_localvolume_list.fits'
             print("... localvolume")
-            compile_list_of_images(
+            tab_localvolume = compile_list_of_images(
                 root_dir=root_dir, selection=selection,
                 tab_dir=tab_dir, tab_file=tab_file)
 
@@ -151,7 +151,7 @@ def compile_list_of_images(
             tab_dir = '../../working_data/unwise/index/'
             tab_file = 'unwise_custom_largeleda_list.fits'
             print("... largeleda")
-            compile_list_of_images(
+            tab_largeleda = compile_list_of_images(
                 root_dir=root_dir, selection=selection,
                 tab_dir=tab_dir, tab_file=tab_file)            
 
@@ -160,7 +160,7 @@ def compile_list_of_images(
             tab_dir = '../../working_data/unwise/index/'
             tab_file = 'unwise_custom_smallleda_list.fits'
             print("... smallleda")
-            compile_list_of_images(
+            tab_smallleda = compile_list_of_images(
                 root_dir=root_dir, selection=selection,
                 tab_dir=tab_dir, tab_file=tab_file)            
 
@@ -169,7 +169,7 @@ def compile_list_of_images(
             tab_dir = '../../working_data/unwise/index/'
             tab_file = 'unwise_custom_manga_list.fits'
             print("... manga")
-            compile_list_of_images(
+            tab_manga = compile_list_of_images(
                 root_dir=root_dir, selection=selection,
                 tab_dir=tab_dir, tab_file=tab_file)            
 
@@ -178,9 +178,27 @@ def compile_list_of_images(
             tab_dir = '../../working_data/unwise/index/'
             tab_file = 'unwise_custom_localgroup_list.fits'
             print("... localgroup")
-            compile_list_of_images(
+            tab_localgroup = compile_list_of_images(
                 root_dir=root_dir, selection=selection,
                 tab_dir=tab_dir, tab_file=tab_file)            
+
+            tab_largeleda['subsample'] = ' ' * 15
+            tab_largeleda['subsample'] = 'largeleda'
+
+            tab_smallleda['subsample'] = ' ' * 15
+            tab_smallleda['subsample'] = 'smallleda'
+
+            tab_localvolume['subsample'] = ' ' * 15
+            tab_localvolume['subsample'] = 'localvolume'
+
+            tab_localgroup['subsample'] = ' ' * 15
+            tab_localgroup['subsample'] = 'localgroup'
+
+            tab_manga['subsample'] = ' ' * 15
+            tab_manga['subsample'] = 'manga'
+
+            tab = vstack([tab_largeleda, tab_smallleda, tab_localvolume, tab_localgroup, tab_manga])
+            tab.write('../../working_data/unwise/index/unwise_custom_list.fits', format='fits', overwrite=True)
             
             return()
             
@@ -399,7 +417,7 @@ def index_image_list(
 
     print("This took : ", stop_time-start_time, " seconds.")
     
-    return(filled_tab)
+    return(tab)
         
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Run the compilation
@@ -408,11 +426,11 @@ def index_image_list(
 do_fetch = False
 do_check = False
 do_flist = True
-do_index = True
+do_index = False
 
-do_unwise = False
+do_unwise = True
 do_sdss = False
-do_galex = True
+do_galex = False
 do_gaia = False
 
 if do_fetch:

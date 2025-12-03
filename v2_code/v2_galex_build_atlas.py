@@ -177,8 +177,8 @@ def galex_process_one_galaxy(
                        ra_ctr=ra_ctr,
                        dec_ctr=dec_ctr,
                        size_deg=size_deg,
-                       index_file = './galex_index_file.fits',
                        index_tab = None,
+                       index_file = '../../working_data/galex/index/galex_tile_index.fits',                       
                        use_int_files = True,
                        outfile_image = outfile_image,
                        outfile_weight = outfile_weight,
@@ -338,7 +338,7 @@ def extract_galex_stamp(
         ra_ctr = 0.0,
         dec_ctr = 0.0,
         size_deg = 0.01,
-        index_file = 'galex_index_file.fits',
+        index_file = '../../working_data/galex/index/galex_tile_index.fits',
         index_tab = None,
         use_int_files = True,
         outfile_image = None,
@@ -387,8 +387,8 @@ def extract_galex_stamp(
     # Read and parse the index if needed
     if index_tab is None:
         index_tab = (Table.read(index_file, format='fits'))
-        index_coords = SkyCoord(ra=np.array(index_tab['MEAN_RA'])*u.deg,
-                                dec=np.array(index_tab['MEAN_DEC'])*u.deg,
+        index_coords = SkyCoord(ra=np.array(index_tab['ctr_ra'])*u.deg,
+                                dec=np.array(index_tab['ctr_dec'])*u.deg,
                                 frame='icrs')
         
     # Define the distance to flag some overlap
@@ -404,9 +404,9 @@ def extract_galex_stamp(
     # Identify overlap
     tiles_overlap = (separations < tolerance)
     if band == 'fuv':
-        tiles_overlap *= index_tab['FUV'] == 1
+        tiles_overlap *= index_tab['filter'] == 'fuv'
     else:
-        tiles_overlap *= index_tab['NUV'] == 1
+        tiles_overlap *= index_tab['NUV'] == 'nuv'
         
     # Create a table of only tiles of interest
     overlap_tab = index_tab[tiles_overlap]
@@ -424,27 +424,22 @@ def extract_galex_stamp(
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     
     for ii, this_overlap_row in enumerate(overlap_tab):
-
+        
         print("... processing image ", ii, " of ", n_overlap)
-        this_in_dir = this_overlap_row['TILE_DIR'].strip()
 
         # Can use background subtracted or integrated images, we
         # prefer to do the background subtraction ourself.
         
         if use_int_files:
-            this_image_fname = this_in_dir + \
-                this_overlap_row['INT_FILE'].strip()
+            this_image_fname = this_overlap_row['fname'].strip()
         else:
-            this_image_fname = this_in_dir + \
-                this_overlap_row['BGSUB_FILE'].strip()            
+            this_image_fname = this_overlap_row['bgsub_fname'].strip()            
 
         # Relative response file name
-        this_rrhr_fname = this_in_dir + \
-            this_overlap_row['RRHR_FILE'].strip()
+        this_rrhr_fname = this_overlap_row['rrhr_fname'].strip()
 
         # Flag file name
-        this_flag_fname = this_in_dir + \
-            this_overlap_row['FLAG_FILE'].strip()
+        this_flag_fname = this_overlap_row['flag_fname'].strip()
 
         # Read in the image
         image_hdu = fits.open(this_image_fname)
