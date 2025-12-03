@@ -147,7 +147,7 @@ def compile_list_of_images(
                 tab_dir=tab_dir, tab_file=tab_file)
 
             root_dir = '../../orig_data/unwise_v2/v2_largegals/'
-            selection = '*/*/unwise-*-w*-img-m.fits'
+            selection = '*/unwise-*-w*-img-m.fits'
             tab_dir = '../../working_data/unwise/index/'
             tab_file = 'unwise_custom_largeleda_list.fits'
             print("... largeleda")
@@ -165,7 +165,7 @@ def compile_list_of_images(
                 tab_dir=tab_dir, tab_file=tab_file)            
 
             root_dir = '../../orig_data/unwise_v2/v2_unmanga/'
-            selection = '*/*/unwise-*-w*-img-m.fits'
+            selection = '*/unwise-*-w*-img-m.fits'
             tab_dir = '../../working_data/unwise/index/'
             tab_file = 'unwise_custom_manga_list.fits'
             print("... manga")
@@ -196,9 +196,11 @@ def compile_list_of_images(
 
             tab_manga['subsample'] = ' ' * 15
             tab_manga['subsample'] = 'manga'
-
+        
+            tab_fname = '../../working_data/unwise/index/unwise_custom_list.fits'
+            print("I wrote the combined stack to: ", tab_fname)
             tab = vstack([tab_largeleda, tab_smallleda, tab_localvolume, tab_localgroup, tab_manga])
-            tab.write('../../working_data/unwise/index/unwise_custom_list.fits', format='fits', overwrite=True)
+            tab.write(tab_fname, format='fits', overwrite=True)
             
             return()
             
