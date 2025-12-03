@@ -13,7 +13,7 @@
 
 import os, glob, time
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, Column
 import astropy.io.fits as fits
 import astropy.wcs as wcs
 from astropy.utils.console import ProgressBar
@@ -306,16 +306,16 @@ def index_image_list(
     # Read table
     tab = Table.read(list_table, format='fits')
     n_files = len(tab)
-
+    
     # Initialize output
     for this_field in ['ctr_ra','ctr_dec']:
         tab[this_field] = np.nan
     for this_field in ['nx','ny']:
         tab[this_field] = int(0)
-    if this_field in ['pix_scale_x','pix_scale_y']:
+    for this_field in ['pix_scale_x','pix_scale_y']:
         tab[this_field] = np.nan
 
-    tab['filter'] = ''
+    tab['filter'] = ' ' * 100
         
     if survey == 'sdss':
         tab['exptime'] = np.nan
@@ -324,16 +324,16 @@ def index_image_list(
         pass
         
     if survey == 'galex':
-        tab['rrhr_fname'] = ''
-        tab['flag_fname'] = ''
-        tab['bgsub_fname'] = ''
+        tab['rrhr_fname'] = ' ' * 150
+        tab['flag_fname'] = ' ' * 150
+        tab['bgsub_fname'] = ' ' * 150
         
     counter = 0
 
     for this_row in ProgressBar(tab):
 
         # Read, extract header and wcs from file
-        this_fname = this_file['fname']
+        this_fname = this_row['fname']
         this_hdulist = fits.open(this_fname)
         this_header = this_hdulist[0].header
         w = wcs.WCS(this_header)
@@ -375,19 +375,23 @@ def index_image_list(
                 this_row['filter'] = 'fuv'
             
         # Figure out and record corner and center coordinates
-        tab['nx'] = this_header['NAXIS1']
-        tab['ny'] = this_header['NAXIS2']
+        nx = this_header['NAXIS1']
+        ny = this_header['NAXIS2']
+        tab['nx'] = nx
+        tab['ny'] = ny
             
         # Convert to world coordinates
-        ctr_pix = [[(int(nx/2),int(ny/2))]]        
-        ctr_world =  w.wcs_pix2world(ctr_pix,0)
+        ctr_world =  w.wcs_pix2world(nx/2.,ny/2.,0)
         this_row['ctr_ra'] = ctr_world[0]
         this_row['ctr_dec'] = ctr_world[1]
 
         # Pixel scale
         pix_scale = wcs.utils.proj_plane_pixel_scales(w)
         this_row['pix_scale_x'] = pix_scale[0]
-        this_row['pix_scale_y'] = pix_scale[1]        
+        this_row['pix_scale_y'] = pix_scale[1]
+
+        #for this_field in this_row.colnames:
+        #    print(this_field, this_row[this_field])
         
     tab.write(outfile, format='fits', overwrite=True)
 
@@ -404,7 +408,7 @@ def index_image_list(
 do_fetch = False
 do_check = False
 do_flist = True
-do_index = False
+do_index = True
 
 do_unwise = False
 do_sdss = False
@@ -428,34 +432,37 @@ if do_fetch:
 if do_check:
     pass
         
-if index:
-    if do_sdss:
-        if do_flist:
-            test = compile_list_of_images(survey='sdss')
-        if do_index:
-            test = index_image_list(survey='sdss')
+if do_flist:
 
+    if do_sdss:
+        test = compile_list_of_images(survey='sdss')
+        
     if do_galex:
-        if do_flist:
-            test = compile_list_of_images(survey='galex')
-        if do_index:
-            test = index_image_list(survey='galex')
+        test = compile_list_of_images(survey='galex')
 
     if do_unwise:
-        if do_flist:
-            test = compile_list_of_images(survey='unwise_custom')
-            #test = compile_list_of_images(survey='unwise_allwise')
-            #test = compile_list_of_images(survey='unwise_neowise')
-        if do_index:
-            test = index_image_list(survey='unwise_custom')
-            #test = index_image_list(survey='unwise_allwise')
-            #test = index_image_list(survey='unwise_neowise')
+        test = compile_list_of_images(survey='unwise_custom')
+        #test = compile_list_of_images(survey='unwise_allwise')
+        #test = compile_list_of_images(survey='unwise_neowise')
 
     if do_gaia:
-        if do_flist:
-            test = compile_list_of_images(survey='gaia')
-        if do_index:
-            test = index_image_list(survey='gaia')
+        test = compile_list_of_images(survey='gaia')
+        
+if do_index:
+    
+    if do_sdss:
+        test = index_image_list(survey='sdss')
+
+    if do_galex:
+        test = index_image_list(survey='galex')
+
+    if do_unwise:
+        test = index_image_list(survey='unwise_custom')
+        #test = index_image_list(survey='unwise_allwise')
+        #test = index_image_list(survey='unwise_neowise')
+
+    if do_gaia:        
+        test = index_image_list(survey='gaia')
             
 #test = compile_list_of_images(survey='unwise_allwise')
 #test = compile_list_of_images(survey='unwise_neowise')
