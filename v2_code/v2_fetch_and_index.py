@@ -4,8 +4,12 @@
 
 # What's in here:
 
-# - wget the galex, unwise, and allwise data, rsync SDSS imaging
-# - create tables listing files and indexes of these files
+# FETCH: wget the galex, unwise, and allwise data, rsync SDSS
+# imaging. Check that we have all the files for each survey.
+
+# INDEX: create tables listing files and indexes of these files for
+# each survey. These indexes are appropriate to create mosaics for
+# individual galaxies.
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Imports
@@ -36,7 +40,7 @@ def unwise_fetch(
     TBD adding file checking against the provided file list.
     """
     
-# Alternative:
+# Alternative to unwise.me:
 # https://portal.nersc.gov/project/cosmo/data/unwise/neo9/unwise-coadds/fulldepth/
     
     if version == 'neo9':
@@ -66,7 +70,7 @@ def unwise_fetch(
             wget_call = 'wget -P '+ out_dir + ' '+target+this_row['fname'].strip()
             os.system(wget_call)
     else:
-        print("This is a big call, you should run this by hand.")
+        print("This is a big call, you should run this by hand. I will print it but not run it.")
         this_call = 'wget -nH -r -P '+prefix+' '+target
         print(this_call)
         #if dry_run == False:
@@ -95,17 +99,21 @@ def sdss_fetch(
 
     print(this_call)
     if dry_run == False:
-        os.system(this_call)
+        print("This is a big call, you should run this by hand. I will print it but not run it.")        
+        #os.system(this_call)
 
     return()
 
 def galex_fetch():
 
     # wget_galex_list.txt
+
+    # TBD implement incremental pull / file checking
     
     pass
 
 def gaia_fetch():
+    
     pass
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -293,37 +301,31 @@ def index_image_list(
             list_table = index_dir + 'galex_tile_list.fits'
             outfile = index_dir+'galex_tile_index.fits'            
 
-        if survey == 'unwise_custom' and (list_table == None):
+        if survey == 'unwise_custom':
             print("")
             print("Indexing custom UNWISE tiles")
-            print("(this is a recursive call)")
             print("")
-            index_dir = '../../working_data/galex/index/'
-            for subsample in ['localvolume','localgroup',
-                              'largeleda', 'smallleda', 'manga']:
-                list_table = index_dir + 'unwise_custom_' + \
-                    subsample+'_list.fits'
-                outfile = index_dir+'unwise_custom_'+subsample+'_index.fits'
-                index_image_list(
-                    survey='unwise_custom',
-                    list_table = list_table, outfile=outfile,
-                    start_id = start_id, stop_id = stop_id,
-                    do_all = do_all)
-                return()
+            index_dir = '../../working_data/unwise/index/'
+            list_table = index_dir + 'unwise_custom_list.fits'
+            outfile = index_dir+'unwise_custom_index.fits'
 
         if survey == 'unwise_allwise':
             print("")
             print("Indexing UNWISE allwise tiles.")
             print("")
-
-            pass
+            
+            index_dir = '../../working_data/unwise/index/'
+            list_table = index_dir + 'unwise_allwise_list.fits'
+            outfile = index_dir+'unwise_allwise_index.fits'
 
         if survey == 'unwise_neowise':
             print("")
             print("Indexing UNWISE neowise tiles.")
             print("")
 
-            pass
+            index_dir = '../../working_data/unwise/index/'
+            list_table = index_dir + 'unwise_neowise_list.fits'
+            outfile = index_dir+'unwise_neowise_index.fits'
 
         if survey == 'gaia':
             print("")
@@ -442,18 +444,18 @@ def index_image_list(
 
 do_fetch = False
 do_check = False
-do_flist = True
+do_flist = False
 do_index = False
 
-do_unwise = True
+do_unwise = False
 do_sdss = False
 do_galex = False
 do_gaia = False
 
 if do_fetch:
     if do_unwise:
-        unwise_fetch(dry_run=True, incremental=False, version='neo9')
-        unwise_fetch(dry_run=True, incremental=False, version='allwise')
+        unwise_fetch(dry_run=False, incremental=True, version='neo9')
+        #unwise_fetch(dry_run=True, incremental=False, version='allwise')
 
     if do_galex:
         galex_fetch(dry_run=True, incremental=False)
