@@ -15,6 +15,7 @@ import os, glob, time
 import numpy as np
 from astropy.table import Table, Column, vstack
 import astropy.io.fits as fits
+import astropy.io.ascii as ascii
 import astropy.wcs as wcs
 from astropy.utils.console import ProgressBar
 from astropy.wcs.utils import proj_plane_pixel_scales
@@ -42,20 +43,34 @@ def unwise_fetch(
         prefix = '/data/fft_scratch/leroy.42/allsky/unwise_neo9/'
         target = 'https://unwise.me/data/neo9/unwise-coadds/fulldepth/'
         list_file = 'unwise_neowise_find.lst'
-
+        extra_nonsense = 'data/neo9/unwise-coadds/fulldepth/'
     if version == 'allwise':
         prefix = '/data/fft_scratch/leroy.42/allsky/unwise_allwise/'
-        target = 'https://unwise.me/data/neo9/unwise-coadds/fulldepth/'
+        target = 'https://unwise.me/data/allwise/unwise-coadds/fulldepth/'
         list_file = 'unwise_allwise_find.lst'
+        extra_nonsense = 'data/allwise/unwise-coadds/fulldepth/'
 
     if incremental:
         tab = ascii.read(list_file, data_start=0, names=['fname'])
-        # TBD
+        fname_root = prefix + extra_nonsense
+        tab['found'] = False
+        print("Identifying missing files.")
+        for this_row in ProgressBar(tab):
+            this_fname = fname_root + this_row['fname'].strip()
+            if os.path.isfile(this_fname):
+                this_row['found'] = True
+        needed_tab = tab[tab['found']==False]
+        for this_row in needed_tab:
+            out_file = (fname_root + this_row['fname'].strip())
+            out_dir = out_file[:(-1*len((out_file.split('/'))[-1]))]            
+            wget_call = 'wget -P '+ out_dir + ' '+target+this_row['fname'].strip()
+            os.system(wget_call)
     else:
+        print("This is a big call, you should run this by hand.")
         this_call = 'wget -nH -r -P '+prefix+' '+target
         print(this_call)
-        if dry_run == False:
-            os.system(this_call)
+        #if dry_run == False:
+        #    os.system(this_call)
 
     return()
 
