@@ -1,15 +1,24 @@
 # Routines to fetch images and data from across the web to provide the
-# raw material for the atlas, run checks, and index these files for
-# use in atlas constuction.
+# raw material for the z0MGS atlas, run checks, and index these files
+# for use in atlas constuction.
 
 # What's in here:
 
-# FETCH: wget the galex, unwise, and allwise data, rsync SDSS
-# imaging. Check that we have all the files for each survey.
+# FETCH: wget the galex, unWISE, and allWISE data, rsync SDSS
+# imaging. Check that we have all the files for each survey. For
+# unwise this will implement a wget to retrieve any missing files.
 
 # INDEX: create tables listing files and indexes of these files for
 # each survey. These indexes are appropriate to create mosaics for
 # individual galaxies.
+
+# Indexing takes several hours (less than a day) for GALEX and the
+# unWISE all-sky surveys. It is less than an hour for the unwise
+# custom call.
+
+# This all includes some directory structure that's local to each
+# system (and you need a place to stash O(20 TB) of stuff). It's not
+# expected that this needs to be run in many places.
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Imports
@@ -35,9 +44,9 @@ def unwise_fetch(
         ):
     """Use WGET to transfer the all-sky versions of unwise NEOWISE 9
     (deepest current UNWISE for bands 1 and 2) and ALLWISE (has W3 and
-    W4 but also has the median filter on).
-
-    TBD adding file checking against the provided file list.
+    W4 but also has the median filter on). You will want to modify
+    this to your own local system (recommend scratch space since these
+    data are available on the web).
     """
     
 # Alternative to unwise.me:
@@ -46,12 +55,12 @@ def unwise_fetch(
     if version == 'neo9':
         prefix = '/data/fft_scratch/leroy.42/allsky/unwise_neo9/'
         target = 'https://unwise.me/data/neo9/unwise-coadds/fulldepth/'
-        list_file = 'unwise_neowise_find.lst'
+        list_file = '../support_files/unwise_neowise_find.lst'
         extra_nonsense = 'data/neo9/unwise-coadds/fulldepth/'
     if version == 'allwise':
         prefix = '/data/fft_scratch/leroy.42/allsky/unwise_allwise/'
         target = 'https://unwise.me/data/allwise/unwise-coadds/fulldepth/'
-        list_file = 'unwise_allwise_find.lst'
+        list_file = '../support_files/unwise_allwise_find.lst'
         extra_nonsense = 'data/allwise/unwise-coadds/fulldepth/'
 
     if incremental:
@@ -88,6 +97,9 @@ def sdss_fetch(
     """
 
     os.system(cd_to_dir)
+
+    # See:
+    # ../support_files/sdss_rsync_call.sh
     
     dry_run_call = 'rsync -avz --dry-run --include="*/" --include="frame-*.fits.bz2" --exclude="*" rsync://dtn.sdss.org/dr9/boss/photoObj/frames/ '+out_dir
     full_call =    'rsync -avz --include="*/" --include="frame-*.fits.bz2" --exclude="*" rsync://dtn.sdss.org/dr9/boss/photoObj/frames/ '+out_dir
@@ -106,13 +118,16 @@ def sdss_fetch(
 
 def galex_fetch():
 
-    # wget_galex_list.txt
+    # See ../support_files/wget_galex_list.txt
 
     # TBD implement incremental pull / file checking
     
     pass
 
 def gaia_fetch():
+
+    # This can be done via globus from Flatiron, otherwise write a
+    # call here to wget the ESA DR3.
     
     pass
 
@@ -126,8 +141,9 @@ def compile_list_of_images(
         selection=None,
         tab_dir=None,
         tab_file=None):
-    """
-    Compile a list of image files.
+    """Compile a list of image files for one of our surveys. Creates a
+    table that can then be used in indexing.
+
     """
 
     # Specify input and output for surveys
@@ -139,8 +155,13 @@ def compile_list_of_images(
             print("Compiling list of all files in SDSS DR12 frames directory.")
             print("")
             
-            root_dir = '/data/fourier/leroy.42/allsky/sdss_dr12/frames/'
-            selection = '*/*/*/*.fits.bz2'
+            root_dir = '/data/fourier/leroy.42/allsky/sdss_dr12/frames/301/'
+
+            # Search for only g band files, the other bands cover the
+            # same footprints and we can swap out names.
+
+            # selection = '*/*/*.fits.bz2'
+            selection = '*/*/frame-g*.fits.bz2'
             tab_dir = '../../working_data/sdss/index/'
             tab_file = 'sdss_frame_list.fits'
 
@@ -239,7 +260,10 @@ def compile_list_of_images(
             print("Compiling list of all files in NEOWISE neowise directory.")
             print("")
 
-            # TBD
+            root_dir = '/data/fft_scratch/leroy.42/allsky/unwise_neo9/data/neo9/unwise-coadds/fulldepth/'
+            selection = '*/*/*-w*-img-m.fits'
+            tab_dir = '../../working_data/unwise/index/'
+            tab_file = 'unwise_neowise_list.fits'
 
         if survey == 'gaia':
             print("")
@@ -278,9 +302,10 @@ def index_image_list(
         survey = None,
         list_table = None,
         outfile = None,
-        do_all_frames=False):
+        do_all_frames=False,
+        incremental=False):
     """
-    Read a list of FITS files and build these into an index.
+    Read a table  of FITS files and build these into an index.
     """
 
     if survey is not None:
@@ -355,7 +380,14 @@ def index_image_list(
     tab['filter'] = ' ' * 100
         
     if survey == 'sdss':
+        tab['u'] = False
+        tab['g'] = False
+        tab['r'] = False
+        tab['i'] = False
+        tab['z'] = False
         tab['exptime'] = np.nan
+        tab['filled'] = False
+        increment_to_write = 1000
 
     if survey.count('unwise') > 0:
         pass
@@ -364,21 +396,27 @@ def index_image_list(
         tab['rrhr_fname'] = ' ' * 150
         tab['flag_fname'] = ' ' * 150
         tab['bgsub_fname'] = ' ' * 150
+
+    # If doing an sdss incremental call read the table file from disk
+    # to pick up where we left off.
+    if (survey == 'sdss') & incremental:
+        print("Reading the incremental file from disk.")
+        tab = Table.read(outfile, format='fits')
         
     counter = 0
 
     for this_row in ProgressBar(tab):
 
+        # If we're in incremental mode, skip finished rows
+        if (survey == 'sdss') & incremental:
+            if this_row['filled']:
+                continue            
+            
         # Read, extract header and wcs from file
         this_fname = this_row['fname']
         this_hdulist = fits.open(this_fname)
         this_header = this_hdulist[0].header
         w = wcs.WCS(this_header)
-
-        # Survey specific items
-        if survey == 'sdss':            
-            this_row['filter'] = this_header['FILTER'].strip()
-            this_row['exptime'] = float(this_header['EXPTIME'])
 
         if survey.count('unwise') > 0:
             if this_fname.count('w1') > 0:
@@ -429,7 +467,29 @@ def index_image_list(
 
         #for this_field in this_row.colnames:
         #    print(this_field, this_row[this_field])
-        
+
+        # Survey specific items
+        if survey == 'sdss':            
+            this_row['exptime'] = float(this_header['EXPTIME'])
+            for this_filter in ['u','g','r','i','z']:
+                filter_fname = this_fname.replace('frame-g','frame-'+this_filter)
+                if os.path.isfile(filter_fname):
+                    this_row[this_filter] = True
+                else:
+                    print("Missing ", filter_fname)
+
+            this_row['filled'] = True
+            
+        counter += 1
+
+        # For the big SDSS job write our progress
+        if (survey == 'sdss'):
+            if counter % increment_to_write == 0:
+                print("")
+                print("Writing incremental table.")
+                print("")
+                tab.write(outfile, format='fits', overwrite=True)
+                
     tab.write(outfile, format='fits', overwrite=True)
 
     stop_time = time.time()
@@ -444,18 +504,24 @@ def index_image_list(
 
 do_fetch = False
 do_check = False
-do_flist = False
-do_index = False
+do_flist = True
+do_index = True
 
 do_unwise = False
-do_sdss = False
+do_sdss = True
 do_galex = False
 do_gaia = False
 
+do_custom_unwise = False
+do_allwise = False
+do_neowise = False
+
 if do_fetch:
     if do_unwise:
-        unwise_fetch(dry_run=False, incremental=True, version='neo9')
-        #unwise_fetch(dry_run=True, incremental=False, version='allwise')
+        if do_unwise:
+            unwise_fetch(dry_run=True, incremental=False, version='neo9')
+        if do_allwise:
+            unwise_fetch(dry_run=True, incremental=False, version='allwise')
 
     if do_galex:
         galex_fetch(dry_run=True, incremental=False)
@@ -467,43 +533,47 @@ if do_fetch:
         gaia_fetch(dry_run=True)
         
 if do_check:
-    pass
+    if do_unwise:
+        if do_neowise:
+            unwise_fetch(dry_run=False, incremental=True, version='neo9')
+        if do_allwise:
+            unwise_fetch(dry_run=False, incremental=True, version='allwise')
         
 if do_flist:
+    if do_unwise:
+        if do_custom_unwise:
+            test = compile_list_of_images(survey='unwise_custom')
+        if do_allwise:
+            test = compile_list_of_images(survey='unwise_allwise')
+        if do_neowise:
+            test = compile_list_of_images(survey='unwise_neowise')
+
+    if do_galex:
+        test = compile_list_of_images(survey='galex')
 
     if do_sdss:
         test = compile_list_of_images(survey='sdss')
         
-    if do_galex:
-        test = compile_list_of_images(survey='galex')
-
-    if do_unwise:
-        test = compile_list_of_images(survey='unwise_custom')
-        #test = compile_list_of_images(survey='unwise_allwise')
-        #test = compile_list_of_images(survey='unwise_neowise')
-
     if do_gaia:
         test = compile_list_of_images(survey='gaia')
         
 if do_index:
     
-    if do_sdss:
-        test = index_image_list(survey='sdss')
+    if do_unwise:
+        if do_custom_unwise:
+            test = index_image_list(survey='unwise_custom')
+        if do_allwise:
+            test = index_image_list(survey='unwise_allwise')
+        if do_neowise:
+            test = index_image_list(survey='unwise_neowise')
 
     if do_galex:
         test = index_image_list(survey='galex')
 
-    if do_unwise:
-        test = index_image_list(survey='unwise_custom')
-        #test = index_image_list(survey='unwise_allwise')
-        #test = index_image_list(survey='unwise_neowise')
+    if do_sdss:
+        #test = index_image_list(survey='sdss')
+        test = index_image_list(survey='sdss', incremental=True)
 
     if do_gaia:        
         test = index_image_list(survey='gaia')
-            
-#test = compile_list_of_images(survey='unwise_allwise')
-#test = compile_list_of_images(survey='unwise_neowise')
-#test = compile_list_of_images(survey='gaia')
 
-#test = index_sdss_frames()
-#test = index_sdss_frames(do_all=True, identifier='')

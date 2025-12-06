@@ -146,10 +146,10 @@ def galex_process_one_galaxy(
         for this_band in bands:
 
             outfile_image = working_dirs['staged']+ \
-                target['Z0MGS_NAME']+'_'+this_band+'_mjysr.fits'
+                target['Z0MGS_NAME'].strip()+'_'+this_band+'_mjysr.fits'
 
             outfile_weight = working_dirs['staged']+ \
-                target['Z0MGS_NAME']+'_'+this_band+'_weight.fits'
+                target['Z0MGS_NAME'].strip()+'_'+this_band+'_weight.fits'
 
             skip = False
             if incremental:
@@ -276,7 +276,9 @@ def galex_process_one_galaxy(
                 center_tol = 3.0*u.arcsec,
             )
 
-            # TBD convolution to native resolution
+            # TBD Convert from Jy/pixel to MJy/sr
+            
+            # TBD Convolve MJy/sr to native resolution            
             
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make star masks

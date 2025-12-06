@@ -52,7 +52,8 @@ def build_target_table(
     # Definitions
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-    # These are tables where we keep data on the z0mgs subsamples.
+    # These are tables where we keep the definition of the z0mgs
+    # subsamples. Could revise this later.
 
     subsample_tables = {
         'localgroup':table_dir+'unwise_v2_index_localgroup.fits',
