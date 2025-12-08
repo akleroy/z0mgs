@@ -2,17 +2,30 @@
 
 # What's in here:
 
+# FILE and GALAXY management
 # - routines to create tables of galaxies to loop over
+# - routines to manage the directory structure
+
+# IMAGE BUILDING
+# - routines to make new headers
+# - routine to identify which memebers of an index matter to a new image
+# - mosaicking routines
+
+# STARS
 # - routines to query Gaia and create stacks of images of stars
 # - routines to predict stellar fluxes from Gaia
 # - routines to make an image of stellar fluxes for various bands
 
-# TBD
+# MASKS
+# - make a mask of galaxies based on a file
+
+# BACKGROUNDS
 # - routines to fit linear and planar backgrounds
 
 # Imports
 import os
 import numpy as np
+import math
 
 from astropy.convolution import convolve_fft
 from astropy.coordinates import SkyCoord
@@ -22,30 +35,60 @@ import astropy.units as u
 from astropy.utils.console import ProgressBar
 import astropy.wcs as wcs
 from astropy.wcs.utils import proj_plane_pixel_scales
+from astropy.stats import mad_std
 
 from astroquery.gaia import Gaia
 
-from reproject import reproject_interp
+from reproject import reproject_interp, reproject_exact
+
+from scipy.interpolate import RegularGridInterpolator
+
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+from astropy.visualization import simple_norm, LogStretch, PercentileInterval
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Construct tables of galaxies to be processed
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-# This manages tables with the relevant format to create a table that
+# This manages tables and subsample definitions to create a table that
 # the atlas construction pipelines will loop over. It assumes that the
 # information about the galaxies comes from somewhere external.
 
+# TBD - refactor this to be simpler in terms of what's in the tables
+# of galaxies of interest. Each subsample gets a list and center
+# coords and a size. The size can have use-defined aspects.
+
 def build_target_table(
-        subsamples=None,
+        subsamples=['all'],
         table_dir='../../measurements/',
         just_galaxy=None,
         skip_galaxy=None,
         start_galaxy=None,
         stop_galaxy=None,
 ):
-    """
-    Build and return a table of targets for use in z0mgs optical, UV,
+    """Build and return a table of targets for use in z0mgs optical, UV,
     or other atlas construction.
+
+    Parameters
+    ----------
+
+    subsamples : Default ['all']. List of subsamples (strings) to
+    include in the output table.
+
+    table_dir : Directory where the tables defining the subsamples are
+    found.
+
+    just_galaxy : List of galaxies to include. Default empty (i.e., include all).
+
+    skip_galaxy : List of galaxies to omit. Default empty.
+    
+    start_galaxy : Index of galaxy to start at. Useful to break apart
+    large calls into smaller ones.
+
+    stop_galaxy : Index of galaxy to stop at. Useful to break apart
+    large calls into smaller ones.
+
     """
 
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -64,9 +107,9 @@ def build_target_table(
     }
     subsample_list = subsample_tables.keys()
 
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
     # Selections
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     
     # Define which subsamples we are working with
     
@@ -81,9 +124,9 @@ def build_target_table(
 
         subsamples = subsample_list
 
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Load the tables
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
 
     targets_tab = None
     for this_subsample in subsamples:
@@ -99,10 +142,10 @@ def build_target_table(
             targets_tab = this_tab
         else:
             targets_tab = vstack(targets_tab, this_tab)
-    
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    # Downselect
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Downselect    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
 
     # Initialize a mask
     targets_tab['COUNTER'] = 0
@@ -140,10 +183,10 @@ def build_target_table(
     # Down select to manual selection
     targets_tab =  targets_tab[targets_tab['USE_THIS_ROW']]
     
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Return
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
     return(targets_tab)
     
 def build_tab_for_one_target(
@@ -155,9 +198,16 @@ def build_tab_for_one_target(
         dec_ctr = 30.0,
         extent_arcmin = 1.0,
 ):
-    """Routine to make a table for just one target based on coords, to be
-    fed into atlas creation. Helper routine to allow the pipeline to
-    be run one target at a time.
+    """Routine to make a table for just one target based on
+    coords. Contains the necessary information to be fed into atlas
+    creation, but otherwise minimal. 
+
+    Helper routine to allow the pipeline to be run one new target at a
+    time. To run on just one galaxy already in the subsample tables
+    instead use build_target_table with a 'just' parameter.
+
+    Parameter definitions (TBD)
+
     """
     
     ctr_coords = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
@@ -188,6 +238,187 @@ def build_tab_for_one_target(
     gal_tab = Table(gal_dict)
 
     return(gal_tab)
+
+# Make/check directory structure (convenience function)
+
+def make_z0mgs_directories(
+        root_dir='../../working_data/',
+        surveys=['galex','unwise','sdss']):
+    """Routine to make the z0mgs directory structure expected by the
+    other programs.
+    """
+    
+    subsample_list = [
+        'largeleda','smallleda',
+        'localgroup','localvolume',
+        'manga','other']
+
+    stages_list = [
+        'staged', 'convolved',
+        'final', 'index', 'masks',
+        'bkgrd', 'star_stacks',
+    ]
+
+    for this_survey in surveys:
+
+        if not os.path.isdir(root_dir+this_survey):
+            os.system('mkdir '+root_dir+this_survey)
+
+        for this_stage in stages_list:
+            this_dir = root_dir + this_survey + '/' + this_stage
+            if not os.path.isdir(this_dir):
+                os.system('mkdir '+this_dir)
+
+            for this_subsample in subsample_list:
+                this_dir = root_dir + this_survey + '/' + \
+                    this_stage + '/' + this_subsample
+                if not os.path.isdir(this_dir):
+                    os.system('mkdir '+this_dir)
+
+    return()
+    
+
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# Define new images
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+def make_simple_header(center_coord, pix_scale,
+                       extent_x = None, extent_y = None,
+                       nx = None, ny = None,
+                       return_header=False):
+    """Make a simple centered FITS header.
+
+    
+    Parameters
+    ----------
+
+    center_coord : `~astropy.coordinates.SkyCoord` object or
+        array-like Sky coordinates of the image center. If array-like
+        then (ra, dec) in decimal degrees assumes.
+
+    pix_scale : required. Size in decimal degrees of a pixel. Can be
+        an array in which case it is pixel scale along x and y (e.g.,
+        as returned by proj_pixel_scales).
+
+    extent_x : the angular extent of the image along the x coordinate
+
+    extent_y : the angular extent of the image along the y coordinate
+
+    nx : the number of x pixels (not needed with extent_x and pix_scale)
+
+    ny : the number of y pixels (not needed with extent_y and pix_scale)
+
+    """
+    
+    # Figure out the center, working with types and units
+    if isinstance(center_coord, SkyCoord):
+        ra_ctr = center_coord.ra.degree
+        dec_ctr = center_coord.dec.degree
+    else:
+        ra_ctr, dec_ctr = center_coord
+        if hasattr(ra_ctr, 'unit'):
+            ra_ctr = ra_ctr.to(u.deg).value
+            dec_ctr = dec_ctr.to(u.deg).value
+
+    if pix_scale is None:
+        print("Pixel scale not specified. Returning.")
+        return()
+            
+    # Figure out extent
+    if (nx is not None) and (ny is not None):
+        if isinstance(pix_scale, np.ndarray):
+            extent_x = pix_scale[0] * nx
+            extent_y = pix_scale[1] * ny
+        else:
+            extent_x = pix_scale * nx
+            extent_y = pix_scale * ny
+    elif (extent_x is not None) and (extent_y is not None):
+        if isinstance(pix_scale, np.ndarray):
+            nx = int(np.ceil(extent_x*0.5 / pix_scale[0]) * 2 + 1)
+            ny = int(np.ceil(extent_y*0.5 / pix_scale[1]) * 2 + 1)
+        else:
+            nx = int(np.ceil(extent_x*0.5 / pix_scale) * 2 + 1)
+            ny = int(np.ceil(extent_y*0.5 / pix_scale) * 2 + 1)            
+    else:
+        print("Extent not specified. Returning.")
+        return()
+
+    hdu = fits.PrimaryHDU()
+    
+    hdu.header = fits.Header()
+    hdu.header['NAXIS'] = 2
+    hdu.header['NAXIS1'] = nx
+    hdu.header['NAXIS2'] = ny
+    
+    hdu.header['CTYPE1'] = 'RA---TAN'
+    hdu.header['CRVAL1'] = ra_ctr
+    hdu.header['CRPIX1'] = np.float16((nx / 2) * 1 - 0.5)
+
+    hdu.header['CTYPE2'] = 'DEC--TAN'
+    hdu.header['CRVAL2'] = dec_ctr
+    hdu.header['CRPIX2'] = np.float16((ny / 2) * 1 - 0.5)
+    
+    if isinstance(pix_scale, np.ndarray):    
+        hdu.header['CDELT1'] = -1.0 * pix_scale[0]
+        hdu.header['CDELT2'] = 1.0 * pix_scale[1]
+    else:
+        hdu.header['CDELT1'] = -1.0 * pix_scale
+        hdu.header['CDELT2'] = 1.0 * pix_scale
+            
+    hdu.header['EQUINOX'] = 2000.0
+    hdu.header['RADESYS'] = 'FK5'
+
+    if return_header:
+        return(hdu.header)
+    else:
+        return(hdu)
+
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# Manage index-image overlaps
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+def find_index_overlap(
+        index_file = None,
+        index_tab = None,
+        index_coords = None,
+        index_extent = None,
+        center_coord = None,
+        image_extent = None,
+        selection_dict = {},
+):
+    
+    if index_tab is None:
+        index_tab = (Table.read(index_file, format='fits'))
+
+    if index_coords is None:
+        index_coords = SkyCoord(
+            ra=np.array(index_tab['ctr_ra'])*u.deg,
+            dec=np.array(index_tab['ctr_dec'])*u.deg,
+            frame='icrs')
+
+    # Center to corner extent of the image
+    if index_extent is None:
+        index_extent = np.sqrt(
+            (0.5*index_tab['nx']*index_tab['pix_scale_x'])**2 + 
+            (0.5*index_tab['ny']*index_tab['pix_scale_y'])**2)
+        
+    if not isinstance(center_coord, SkyCoord):
+        ra_ctr, dec_ctr = center_coord
+        if hasattr(ra_ctr, 'unit'):
+            ra_ctr = ra_ctr.to(u.deg).value
+            dec_ctr = dec_ctr.to(u.deg).value
+        center_coord = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
+
+    # Find tiles within half of the image extent + tile extent (i.e., that overlap)
+    separations = np.array(index_coords.separation(center_coord))
+    tolerance = np.array(index_extent + 0.5*image_extent)
+    tiles_overlap = separations < tolerance
+        
+    for this_key, this_value in selection_dict.items():
+        tiles_overlap *= (index_tab[this_key] == this_value)
+
+    overlap_tab = index_tab[tiles_overlap]
+    return(overlap_tab)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Query GAIA for use identifying foreground stars
@@ -355,41 +586,12 @@ def query_gaia(
     return([first_part,query]) 
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-# Make cutouts around GAIA sources (or any sources)
+# Make cutouts around GAIA sources
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 # Make small cutouts around a set of Gaia sources. This is in
 # principle useful to test the PSF in an image or to model how to
 # convert stellar fluxes to the atlas bands.
-
-def build_centered_header(
-        ra_ctr=None, dec_ctr=None,
-        pix_scale=None, half_width_pix=None,
-        return_header=False):
-    """Build a fiducial 2-d header centered at the specified (ra, dec)
-    location.
-    """
-    full_width_pix = 2*half_width_pix+1
-    
-    hdu = fits.PrimaryHDU()
-
-    hdu.header['NAXIS'] = 2
-    hdu.header['NAXIS1'] = full_width_pix
-    hdu.header['NAXIS2'] = full_width_pix
-    hdu.header['CTYPE1'] = 'RA---TAN'
-    hdu.header['CRVAL1'] = ra_ctr
-    hdu.header['CRPIX1'] = half_width_pix+1
-    hdu.header['CDELT1'] = -1.0*pix_scale
-    hdu.header['CTYPE2'] = 'DEC--TAN'
-    hdu.header['CRVAL2'] = dec_ctr
-    hdu.header['CRPIX2'] = half_width_pix+1
-    hdu.header['CDELT2'] = pix_scale
-    hdu.header['EQUINOX'] = 2000.
-
-    if return_header:
-        return(hdu.header)
-    else:
-        return(hdu)
 
 def extract_one_gaia_cutout(
         hdu_image, hdu_target,
@@ -441,10 +643,10 @@ def extract_gaia_stack(
     n_rows = len(gaia_table)
 
     # Initialize the stack
-    stack_hdu = build_centered_header(
-        ra_ctr=0.0, dec_ctr=0.0,
+    stack_hdu = make_simple_header(
+        center_coord=(0.0*u.deg, 0.0*u.deg),
         pix_scale=target_pix_scale,
-        half_width_pix=half_width_pix)
+        nx=half_width_pix*2+1, ny=half_width_pix*2+1)
     stack_hdu.header['NAXIS'] = 3
     stack_hdu.header['NAXIS3'] = n_rows
     stack_hdu.header['CRVAL3'] = 0
@@ -485,7 +687,7 @@ def extract_gaia_stack(
     return(stack_hdu)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-# Related to predicting a stellar flux from Gaia
+# Related to predicting a stellar flux from Gaia or 2MASS
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 # Predict a stellar flux at WISE or GALEX from Gaia or 2MASS Ks
@@ -512,12 +714,12 @@ def pred_star_flux_from_gaia(
 
     # coefficient in flux = 10.**(-1.0*mag/2.5)*coefficient
     mag_to_jy = {
-        'fuv': 27.07*gauss_7p5_intens_to_flux,
-        'nuv': 13060.2*gauss_7p5_intens_to_flux,
-        'w1': 829914.*gauss_7p5_intens_to_flux,
-        'w2': 450745.*gauss_7p5_intens_to_flux,
-        'w3': 77349.7*gauss_7p5_intens_to_flux,
-        'w4': 8398.*gauss_15_intens_to_flux,
+        'fuv': 27.07*gauss7p5_intens_to_flux,
+        'nuv': 13060.2*gauss7p5_intens_to_flux,
+        'w1': 829914.*gauss7p5_intens_to_flux,
+        'w2': 450745.*gauss7p5_intens_to_flux,
+        'w3': 77349.7*gauss7p5_intens_to_flux,
+        'w4': 8398.*gauss15_intens_to_flux,
     }
 
     flux_dict = {}
@@ -544,12 +746,12 @@ def pred_star_flux_from_ks(
 
     # coefficient in flux = 10.^(-1.0d*mag/2.5)*coefficient
     mag_to_jy = {
-        'fuv': 1.35*gauss_7p5_intens_to_flux,
-        'nuv': 202.0*gauss_7p5_intens_to_flux,
-        'w1': 164900.*gauss_7p5_intens_to_flux,
-        'w2': 91800.*gauss_7p5_intens_to_flux,
-        'w3': 16800.*gauss_7p5_intens_to_flux,
-        'w4': 1550.*gauss_15_intens_to_flux,
+        'fuv': 1.35*gauss7p5_intens_to_flux,
+        'nuv': 202.0*gauss7p5_intens_to_flux,
+        'w1': 164900.*gauss7p5_intens_to_flux,
+        'w2': 91800.*gauss7p5_intens_to_flux,
+        'w3': 16800.*gauss7p5_intens_to_flux,
+        'w4': 1550.*gauss15_intens_to_flux,
     }
 
     flux_dict = {}
@@ -571,6 +773,7 @@ def build_star_flux_image(
         gaia_s2n_cut = 3.5,
         center_coord = None,
         center_tol = 3.0*u.arcsec,
+        overwrite=True,
 ):
     """
     Build an image in Jy with flux.
@@ -618,16 +821,16 @@ def build_star_flux_image(
     if gaia_tab is not None:
 
         # Identify the Gaia sources within the image
-        gaia_ra = gaia_tab['ra'] * u.deg
-        gaia_dec =  gaia_tab['dec'] * u.deg
+        gaia_ra = gaia_tab['ra']
+        gaia_dec =  gaia_tab['dec']
         gaia_coords = SkyCoord(ra=gaia_ra, dec=gaia_dec, frame='icrs')
         
         gaia_pix = out_wcs.world_to_pixel(gaia_coords)
         gaia_x = gaia_pix[0]
         gaia_y = gaia_pix[1]
 
-        in_image = (gaia_x >= 0) & (gaia_x < nx) \
-            & (gaia_y >= 0) & (gaia_y < ny)
+        in_image = (gaia_x >= 0) & (gaia_x <= (nx-1)) \
+            & (gaia_y >= 0) & (gaia_y <= (ny-1))
 
         gaia_tab = gaia_tab[in_image]
         gaia_coords = gaia_coords[in_image]
@@ -658,19 +861,33 @@ def build_star_flux_image(
                     
         # Predict the flux for each 
         gaia_fluxes = pred_star_flux_from_gaia(
-            g_mag = gaia_tab['g_mag'],
-            bp = gaia_tab['bp'],
-            rp = gaia_tab['rp'],
+            g_mag = gaia_tab['phot_g_mean_mag'],
+            bp = gaia_tab['phot_bp_mean_mag'],
+            rp = gaia_tab['phot_rp_mean_mag'],
             parallax = gaia_tab['parallax']
         )
         
         # Add the flux of each Gaia star to the image. Must be a
         # better way to do this.
-        for ii, this_flux in enumerate(gaia_fluxes):
-            this_x = gaia_x[ii]
-            this_y = gaia_y[ii]
-            out_map[this_y, this_x] += this_flux
-        
+        for ii, this_flux in enumerate(gaia_fluxes[band]):
+            # TBD - interpolate linearly between four pix
+            method = 'nearest'
+            if method == 'nearest':
+                this_x = int(round(gaia_x[ii]))
+                this_y = int(round(gaia_y[ii]))
+                out_map[this_y, this_x] += this_flux
+            if method == 'interp':
+                low_x = int(math.floor(gaia_x[ii]))
+                high_x = int(math.ceil(gaia_x[ii]))
+                frac_x = (gaia_x[ii] - low_x)/(1.0*high_x - 1.0*low_x)
+                low_y = int(math.floor(gaia_y[ii]))
+                high_y = ceil(math.ceil(gaia_y[ii]))                
+                frac_y = (gaia_y[ii] - low_y)/(1.0*high_y - 1.0*low_y)
+                out_map[low_y, low_x] = (1.0-frac_x)*(1.0-frac_y)*this_flux
+                out_map[low_y, high_x] = frac_x*(1.0-frac_y)*this_flux
+                out_map[high_y, low_x] = (1.0-frac_x)*frac_y*this_flux
+                out_map[high_y, high_x] = frac_x*frac_y*this_flux               
+                
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # If supplied add the 2MASS based stars to the image
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -679,15 +896,15 @@ def build_star_flux_image(
     if ks_tab is None and ks_file is not None:
 
         ks_tab = Table.read(ks_file, format='fits')
-
+        
         # Identify the Gaia sources within the image
-        ks_ra = ks_tab['ra'] * u.deg
-        ks_dec =  ks_tab['dec'] * u.deg
+        ks_ra = ks_tab['RA'] * u.deg
+        ks_dec =  ks_tab['DEC'] * u.deg
         ks_coords = SkyCoord(ra=ks_ra, dec=ks_dec, frame='icrs')
         
         ks_pix = out_wcs.world_to_pixel(ks_coords)
-        ks_x = pixel_coords[0]
-        ks_y = pixel_coords[1]
+        ks_x = ks_pix[0]
+        ks_y = ks_pix[1]
 
         in_image = (ks_x >= 0) & (ks_x < nx) \
             & (ks_y >= 0) & (ks_y < ny)
@@ -710,15 +927,28 @@ def build_star_flux_image(
                     
         # Predict the flux for each 
         ks_fluxes = pred_star_flux_from_ks(
-            ks_mag = ks_tab['ks_mag'],
+            ks_mag = ks_tab['KS_MAG'],
         )
         
-        # Add the flux of each Gaia star to the image. Must be a
+        # Add the flux of each 2MASS star to the image. Must be a
         # better way to do this.
-        for ii, this_flux in enumerate(ks_fluxes):
-            this_x = ks_x[ii]
-            this_y = ks_y[ii]
-            out_map[this_y, this_x] += this_flux        
+        for ii, this_flux in enumerate(ks_fluxes[band]):
+            method = 'nearest'
+            if method == 'nearest':            
+                this_x = int(round(ks_x[ii]))
+                this_y = int(round(ks_y[ii]))
+                out_map[this_y, this_x] += this_flux        
+            if method == 'interp':
+                low_x = int(math.floor(ks_x[ii]))
+                high_x = int(math.ceil(ks_x[ii]))
+                frac_x = (ks_x[ii] - low_x)/(1.0*high_x - 1.0*low_x)
+                low_y = int(math.floor(ks_y[ii]))
+                high_y = ceil(math.ceil(ks_y[ii]))                
+                frac_y = (ks_y[ii] - low_y)/(1.0*high_y - 1.0*low_y)
+                out_map[low_y, low_x] = (1.0-frac_x)*(1.0-frac_y)*this_flux
+                out_map[low_y, high_x] = frac_x*(1.0-frac_y)*this_flux
+                out_map[high_y, low_x] = (1.0-frac_x)*frac_y*this_flux
+                out_map[high_y, high_x] = frac_x*frac_y*this_flux               
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Return and write to disk if requested
@@ -728,12 +958,12 @@ def build_star_flux_image(
     
     # Write to disk
     if outfile is not None:
-        out_hdu.writeto(outfile)
+        out_hdu.writeto(outfile, overwrite=overwrite)
 
     return(out_hdu)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-# Build galaxy masks
+# Build masks
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 def build_galaxy_mask(
@@ -846,8 +1076,6 @@ def build_galaxy_mask(
         this_ra = this_gal['RA_DEG'] * u.deg
         this_dec = this_gal['DEC_DEG'] * u.deg
         this_coords = SkyCoord(ra=this_ra, dec=this_dec, frame='icrs')
-
-        print(this_gal['INCL_DEG'], this_gal['POSANG_DEG'])
         
         if use_orient:
             this_incl = this_gal['INCL_DEG']*u.deg
@@ -891,6 +1119,61 @@ def build_galaxy_mask(
 
     return(out_hdu)
 
+def build_star_mask(
+        image_file = None,
+        image_hdu = None,
+        star_file = None,
+        star_hdu = None,
+        outfile = None,
+        clip_level = None,
+        rms_fac = 3.0,
+        rms_value = None,
+        show = False,
+        pause = False,
+        overwrite = True,
+):
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Read the image and star prediction
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    if image_hdu is None:        
+        image_hdu = fits.open(image_file)[0]
+
+    if star_hdu is None:        
+        star_hdu = fits.open(star_file)[0]
+        
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Determine the clip level
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    if clip_level is None:
+
+        if rms_value is None:
+
+            rms_value = mad_std(image_hdu.data)
+
+        clip_level = rms_value * rms_fac
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Make the mask
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    star_mask = star_hdu.data >= clip_level
+    star_mask_hdr = star_hdu.header
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Return and write
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    star_mask_hdu = fits.PrimaryHDU(star_mask, star_mask_hdr)
+    
+    # Write to disk
+    if outfile is not None:
+        star_mask_hdu.writeto(outfile, overwrite=overwrite)
+
+    return(star_mask_hdu)
+    
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to deprojection
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -1044,20 +1327,16 @@ def deproject(
     else:
         return radius_deg, projang_deg
 
-
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to convolution
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-def z0mgs_kernel_name(
-        from_band = None,
-        to_band = None):
+def z0mgs_psf_name(
+        band = None,
+):
     """
-    Return kernel name for use in convolution.
+    Return a file path to a PSF file
     """
-
-    # TBD - add file checking and more flexibility on directories
-    
     psf_dir = '/data/bell-tycho/leroy.42/ellohess/kernels/PSF_FITS_Files/'
 
     psf_dict = {}
@@ -1068,9 +1347,20 @@ def z0mgs_kernel_name(
     psf_dict['w3'] = 'PSF_Corrected_WISE_ATLAS_11.6_added_wing.fits'
     psf_dict['w4'] = 'PSF_Corrected_WISE_ATLAS_22.1_added_wing.fits'
 
-    if to_band == 'native' or to_band == 'psf':
-        return(psf_dir + psf_dict)
+    if band in psf_dict:
+        psf_name = psf_dir+psf_dict[band]
+        return(psf_name)
+    else:
+        return(None)
 
+def z0mgs_kernel_name(
+        from_res = None,
+        to_res = None):
+    """
+    Return kernel name for use in convolution.
+    """
+
+    # TBD - add file checking and more flexibility on directories
     kernel_dir = '../../kernels/'
 
     kernel_bands = {
@@ -1087,10 +1377,37 @@ def z0mgs_kernel_name(
     }
     
     kernel_name = kernel_dir + 'Kernel_LoRes_' + \
-        kernel_bands[from_band] + '_to_' + \
-        kernel_bands[to_band] + '.fits'
+        kernel_bands[from_res] + '_to_' + \
+        kernel_bands[to_res] + '.fits'
     
     return(kernel_name)
+
+def get_pixscale(hdu):
+    """From PJPIPE. Helper function used in convolve. Get pixel scale from
+header. Checks HDU header and returns a pixel scale
+
+    Args:
+
+        hdu: hdu to get pixel scale for
+
+    """
+
+    PIXEL_SCALE_NAMES = ["XPIXSIZE", "CDELT1", "CD1_1", "PIXELSCL"]
+
+    for pixel_keyword in PIXEL_SCALE_NAMES:
+        try:
+            try:
+                pix_scale = np.abs(float(hdu.header[pixel_keyword]))
+            except ValueError:
+                continue
+            if pixel_keyword in ["CDELT1", "CD1_1"]:
+                pix_scale = wcs.WCS(hdu.header).proj_plane_pixel_scales()[0].value * 3600
+                # pix_scale *= 3600
+            return pix_scale
+        except KeyError:
+            pass
+
+    raise Warning("No pixel scale found")
 
 def convolve_image_with_kernel(
         image_file=None,
@@ -1166,7 +1483,7 @@ def convolve_image_with_kernel(
         else:
             # Most common other case
             sci_ext = 'PRIMARY'
-                
+            
     if 'ERR' in ext_list:
         use_err = True
     else:
@@ -1185,6 +1502,11 @@ def convolve_image_with_kernel(
         if use_err:
             image_hdu["ERR"].data[(image_hdu[sci_ext].data == 0)] = np.nan
 
+    #print(np.nansum(image_hdu[sci_ext].data))
+    #plt.imshow(image_hdu[sci_ext].data, origin='lower')
+    #plt.imshow(kernel_data, origin='lower')
+    #plt.show()
+            
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Regrid the kernel for use with convolve
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -1244,8 +1566,13 @@ def convolve_image_with_kernel(
         image_hdu[sci_ext].data,
         kernel_interp,
         allow_huge=True,
+        boundary='fill',
+        fill_value=0.0,
+        # This is debateable either way but I think for most z0mgs
+        # cases this mimics previous work and is what we want.
+        nan_treatment='fill',
         preserve_nan=True,
-        fill_value=np.nan,
+        psf_pad=True,
     )
     
     # If an error map is present, convolve errors (with kernel**2,
@@ -1257,9 +1584,14 @@ def convolve_image_with_kernel(
             convolve_fft(
                 image_hdu["ERR"].data ** 2,
                 kernel_interp ** 2,
-                preserve_nan=True,
                 allow_huge=True,
                 normalize_kernel=False,
+                boundary='fill',
+                nan_treatment='fill',
+                # TBD - The fill value here is no good but no good options
+                fill_value=0.0,
+                preserve_nan=True,
+                psf_pad=True,
             )
         )
         
@@ -1268,14 +1600,199 @@ def convolve_image_with_kernel(
         image_hdu["ERR"].data = conv_err
         
     if outfile is not None:
-        image_hdu.writeto(file_out, overwrite=overwrite)
+        image_hdu.writeto(outfile, overwrite=overwrite)
 
     return(image_hdu)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# Related to basic image manipulation
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+def jypix_to_mjysr(
+        image_fname=None,
+        image_hdu=None,
+        hdu_to_use=0,
+        outfile=None,
+        overwrite=True):
+
+    if image_hdu is None:
+        image_hdu = fits.open(image_fname)[hdu_to_use]
+
+    # Could logic check on input units. Now assume Jy/beam
+
+    # Calculate pixel area        
+    this_wcs = wcs.WCS(image_hdu.header)
+    pix_scale_deg = proj_plane_pixel_scales(this_wcs)
+    pix_sr = np.abs(pix_scale_deg[0]*pix_scale_deg[1])* \
+        (np.pi/180.)**2
+
+    # Rescale from Jy/pix to MJy/sr
+    rescaled_image = image_hdu.data/1E6/pix_sr
+
+    # Update header
+    updated_hdr = image_hdu.header
+    updated_hdr['BUNIT'] = 'MJy/sr'
+
+    # Create new HDU
+    out_hdu = fits.PrimaryHDU(data=rescaled_image, header=updated_hdr)    
+    if outfile is not None:
+        out_hdu.writeto(outfile, overwrite=overwrite)
+    return(out_hdu)
+    
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to background subtraction
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-def subtract_z0mgs_background():
+def fit_z0mgs_background(
+        image_fname=None,
+        image_hdu=None,
+        mask_fname_list=None,
+        mask_hdu_list=None,
+        weight_fname=None,
+        weight_hdu=None,
+        outfile=None,
+        method='itermed',
+        niter=5,
+        ):
+    """
+    Fit a background to an image.
+    """
 
-    pass
+    # Read the image
+    
+    # Initialize the background
+
+    # Initialize the rejected pixels mask
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+    # Masking
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    # Read and stack supplied list of masks
+
+    # Read the aperture/coordinate definition and mask galaxy
+    
+    # Mask out regions to be ignored
+
+    # (check for pathological case)
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Estimate the noise
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    # Take the mad-based RMS
+    
+    # Scale by normalized weights (if provided) to get a local noise
+    # map (especially important for GALEX)
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Iteratively subtract a median
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    for ii in range(niter):
+
+        # Identify 
+        
+        pass
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Mode/histogram based calculation
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    # Not iterative - use bins defined by RMS
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Plane fit
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Median radial profile
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Calculate stats
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    # Standard deviation
+
+    # Mad-based noise
+
+    # Rejected fraction
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Write to disk if desired
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    # Background
+
+    # Rejected pixel mask
+    
+    return(bkgrd_hdu)
+        
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# Related to visualization
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+def show_z0mgs_image(
+        image_fname = None,
+        image_hdu = None,
+        image_hdu_to_use = 0,
+        rms = None,
+        mask_hdu = None,
+        mask_fname = None,
+        mask_hdu_to_use = 0,
+        mask_levels = None,
+        show = False,
+        outfile = None,
+        title = 'Z0MGS Image',
+        ):
+    """Plot a z0mgs image on some standard stretches optionally with a
+    mask contour.
+    """
+
+    if image_hdu is None:
+        image_hdu = fits.open(image_fname)[image_hdu_to_use]
+
+    image_data = image_hdu.data
+    image_wcs = wcs.WCS(image_hdu.header)
+
+    mask_data = None
+    if mask_hdu is None:
+        if mask_fname is not None:
+            mask_hdu = fits.open(mask_fname)[mask_hdu_to_use]
+    if mask_hdu is not None:
+        mask_data = mask_hdu.data
+    if mask_levels is None:
+        mask_levels = [1.0]
+        
+    fig = plt.figure(figsize=(14, 8))
+
+    this_norm = simple_norm(image_data, 'log', percent=99.5)
+    
+    ax1 = fig.add_subplot(1, 2, 1, projection=image_wcs)
+    ax1.imshow(image_data, origin='lower', cmap='Greys', norm=this_norm)
+    if mask_data is not None:
+        ax1.contour(mask_data*1.0, levels=mask_levels, colors='red', alpha=0.7)
+    ax1.set_title(title + ' (log scale)')
+    ax1.coords[0].set_axislabel('R.A.')
+    ax1.coords[1].set_axislabel('Dec.')
+
+    if rms is None:
+        ind_for_mad = np.where((image_data != 0.0) & np.isfinite(image_data))
+        rms = mad_std(image_data[ind_for_mad])
+        
+    ax2 = fig.add_subplot(1, 2, 2, projection=image_wcs)
+    ax2.imshow(image_data, origin='lower', cmap='Greys', vmin=-5.*rms, vmax=+10.*rms)
+    if mask_data is not None:
+        ax2.contour(mask_data*1.0, levels=mask_levels, colors='red', alpha=0.7)
+    ax2.set_title(title + ' (linear)')
+    ax2.coords[0].set_axislabel('R.A.')
+    ax2.coords[1].set_axislabel('Dec.')
+
+    plt.tight_layout()
+    if show:
+        plt.show()
+    
+    return()
+    
+# Show image, radial profile, high stretch, histogram.

@@ -133,6 +133,8 @@ def galex_process_one_galaxy(
             'final':working_dirs,
             'gaia':working_dirs,
         }
+
+    this_name = target['Z0MGS_NAME'].strip()
         
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Stage the images
@@ -146,10 +148,10 @@ def galex_process_one_galaxy(
         for this_band in bands:
 
             outfile_image = working_dirs['staged']+ \
-                target['Z0MGS_NAME'].strip()+'_'+this_band+'_mjysr.fits'
+                this_name+'_'+this_band+'_mjysr.fits'
 
             outfile_weight = working_dirs['staged']+ \
-                target['Z0MGS_NAME'].strip()+'_'+this_band+'_weight.fits'
+                this_name+'_'+this_band+'_weight.fits'
 
             skip = False
             if incremental:
@@ -161,7 +163,7 @@ def galex_process_one_galaxy(
             dec_ctr = target['DEC_CTR']
             size_deg = target['TRC_DEC'] - target['BLC_DEC']
 
-            print("Staging: ", target['Z0MGS_NAME'])
+            print("Staging: ", this_name)
             print("... RA, Dec center: ", ra_ctr, dec_ctr)
             print("... size in deg: ", size_deg)
             print("... to: ", outfile_image)
@@ -202,10 +204,10 @@ def galex_process_one_galaxy(
         for this_band in bands:
 
             staged_image_file = working_dirs['staged']+ \
-                target['Z0MGS_NAME']+'_'+this_band+'_mjysr.fits'
+                this_name+'_'+this_band+'_mjysr.fits'
 
             galaxy_mask_file = working_dirs['masks']+ \
-                target['Z0MGS_NAME']+'_'+this_band+'_galmask.fits'
+                this_name+'_'+this_band+'_galmask.fits'
 
             skip = False
             if incremental:
@@ -246,28 +248,36 @@ def galex_process_one_galaxy(
             
         for this_band in bands:
 
-            staged_image = working_dirs['staged']+ \
-                target['Z0MGS_NAME']+'_'+this_band+'_mjysr.fits'
-
+            staged_fname = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+            
             gaia_file = working_dirs['gaia']+ \
-                target['Z0MGS_NAME']+'_gaia_dr3.fits'
+                this_name+'_gaia_dr3.fits'
 
-            star_flux_image = working_dirs['masks']+\
-                target['Z0MGS_NAME']+'_'+this_band+'_starflux.fits'
+            star_flux_fname = working_dirs['masks']+\
+                this_name+'_'+this_band+'_starflux.fits'
+
+            star_intens_fname = working_dirs['masks']+\
+                this_name+'_'+this_band+'_starintens.fits'
             
             # Query GAIA if needed but skip if present            
-            query_gaia(
-                ra_min = target['BLC_RA'],
-                ra_max = target['TRC_RA'],
-                dec_min = target['RLC_RA'],
-                dec_max = target['TRC_RA'],
-                outfile=gaia_file,
-                skip_if_present=skip_query_if_present)
+
+            # TBD patched
+            gaia_file = working_dirs['gaia'].replace('test_data','working_data') + \
+                this_name+'_gaia_dr3.fits'
+
+            #query_gaia(
+            #    ra_min = target['BLC_RA'],
+            #    ra_max = target['TRC_RA'],
+            #    dec_min = target['RLC_RA'],
+            #    dec_max = target['TRC_RA'],
+            #    outfile=gaia_file,
+            #    skip_if_present=skip_query_if_present)
 
             # Build an image of stellar flux
             build_star_flux_image(
-                template_file = staged_image,
-                outfile = star_flux_image,
+                template_file = staged_fname,
+                outfile = star_flux_fname,
                 band = this_band,
                 gaia_file = gaia_file,
                 ks_file = ks_file,
@@ -276,9 +286,20 @@ def galex_process_one_galaxy(
                 center_tol = 3.0*u.arcsec,
             )
 
-            # TBD Convert from Jy/pixel to MJy/sr
+            star_intens_hdu = fits.HDUList(
+                [jypix_to_mjysr(image_fname=star_flux_fname)])
+
+            pix_to_native_kernel = \
+                z0mgs_psf_name(band=this_band)
             
-            # TBD Convolve MJy/sr to native resolution            
+            convolve_image_with_kernel(                
+                image_hdu=star_intens_hdu,
+                outfile=star_intens_fname,
+                kernel_file=pix_to_native_kernel,
+                blank_zeros=False,
+            )
+
+            # TBD - convolve to Gaussians etc.
             
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make star masks
@@ -289,9 +310,26 @@ def galex_process_one_galaxy(
     
     if 'star_mask' in tasks:
 
-        # TBD clipping routine - should be pretty simple
+        staged_fname = working_dirs['staged']+ \
+            this_name+'_'+this_band+'_mjysr.fits'
+                
+        star_intens_fname = working_dirs['masks']+\
+            this_name+'_'+this_band+'_starintens.fits'
+
+        build_star_mask(
+        image_file = None,
+        image_hdu = None,
+        star_file = None,
+        star_hdu = None,
+        outfile = None,
+        clip_level = None,
+        rms_fac = 3.0,
+        rms_value = None,
+        show = False,
+        pause = False,
+        overwrite = True,
+)
         
-        pass
     
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make supporting coordinate images
@@ -301,6 +339,8 @@ def galex_process_one_galaxy(
     
     if 'coord_mask' in tasks:
 
+        # TBD deproject call - should be simple
+        
         pass
 
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -308,8 +348,23 @@ def galex_process_one_galaxy(
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     
     if 'convol' in tasks:
-        
-        pass
+
+        for target_res in ['gauss7p5', 'gauss15', 'gauss20']:
+            kern_to_this_res = z0mgs_kernel_name(
+                from_res=this_band, to_res=target_res)
+
+            staged_fname = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+
+            convolved_fname = working_dirs['convolved']+ \
+                this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
+            
+            convolve_image_with_kernel(
+                image_file=staged_fname,
+                outfile=convolved_fname,
+                kernel_file=kern_to_this_res,
+                overwrite=True
+            )
     
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Fit and subtract a background
@@ -355,63 +410,28 @@ def extract_galex_stamp(
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Make a target header
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    
-    pix_scale = 1.5/3600.
-    nx = int(np.ceil(size_deg / pix_scale))
-    ny = nx
 
-    target_hdr = fits.Header()
-    target_hdr['NAXIS'] = 2
-    target_hdr['NAXIS1'] = nx
-    target_hdr['NAXIS2'] = ny
+    center_coord = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')    
+    pix_scale = np.array([1.5/3600.,1.5/3600.])
+    nx = int(np.ceil(size_deg / pix_scale[0]))
+    ny = int(np.ceil(size_deg / pix_scale[1]))
+    print("... pixel scale, nx, ny: ", pix_scale, nx, ny)
     
-    target_hdr['CTYPE1'] = 'RA---TAN'
-    target_hdr['CRVAL1'] = ra_ctr
-    target_hdr['CRPIX1'] = np.float16((nx / 2) * 1 - 0.5)
-    target_hdr['CDELT1'] = -1.0 * pix_scale
-    
-    target_hdr['CTYPE2'] = 'DEC--TAN'
-    target_hdr['CRVAL2'] = dec_ctr
-    target_hdr['CRPIX2'] = np.float16((ny / 2) * 1 - 0.5)
-    target_hdr['CDELT2'] = 1.0 * pix_scale
-    
-    target_hdr['EQUINOX'] = 2000.0
-    target_hdr['RADESYS'] = 'FK5'
-
+    target_hdr = make_simple_header(
+        center_coord, pix_scale, nx=nx, ny=ny, return_header=True)    
     target_hdr['BUNIT'] = 'MJy/sr'
-
     target_wcs = wcs.WCS(target_hdr)
     
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Find contributing tiles
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    
-    # Read and parse the index if needed
-    if index_tab is None:
-        index_tab = (Table.read(index_file, format='fits'))
-        index_coords = SkyCoord(ra=np.array(index_tab['ctr_ra'])*u.deg,
-                                dec=np.array(index_tab['ctr_dec'])*u.deg,
-                                frame='icrs')
-        
-    # Define the distance to flag some overlap
-    galex_tile_size_deg = 1.6
-    tolerance = (size_deg+galex_tile_size_deg)*u.deg
 
-    # Coordinate for center of this field
-    this_field_center = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
-
-    # Distances
-    separations = index_coords.separation(this_field_center)
-
-    # Identify overlap
-    tiles_overlap = (separations < tolerance)
-    if band == 'fuv':
-        tiles_overlap *= index_tab['filter'] == 'fuv'
-    else:
-        tiles_overlap *= index_tab['filter'] == 'nuv'
-        
-    # Create a table of only tiles of interest
-    overlap_tab = index_tab[tiles_overlap]
+    overlap_tab = find_index_overlap(
+        index_file = index_file,
+        center_coord = center_coord,
+        image_extent = size_deg,
+        selection_dict = {'filter':band},
+    )    
     n_overlap = len(overlap_tab)
     
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -427,7 +447,7 @@ def extract_galex_stamp(
     
     for ii, this_overlap_row in enumerate(overlap_tab):
         
-        print("... processing image ", ii, " of ", n_overlap)
+        print("... processing tile ", ii, " of ", n_overlap)
 
         # Can use background subtracted or integrated images, we
         # prefer to do the background subtraction ourself.

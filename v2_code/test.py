@@ -1,7 +1,10 @@
 from v2_galex_build_atlas import *
 
 galex_build_atlas(
-    tasks=['stage','galaxy_mask'],
+    #tasks=['stage','star_pred','galaxy_mask','convolve'],
+    #tasks=['galaxy_mask'],
+    #tasks=['star_pred'],
+    tasks=['stage'],
     subsamples='largeleda',
     root_dir='../../test_data/galex/',
     #just_galaxy='PGC47404',
