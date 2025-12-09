@@ -45,6 +45,7 @@ from astroquery.gaia import Gaia
 from reproject import reproject_interp, reproject_exact
 
 from spectral_cube import SpectralCube, LazyMask, Projection
+from radio_beam import Beam
 
 from scipy.interpolate import RegularGridInterpolator
 
@@ -292,7 +293,8 @@ def make_simple_header(center_coord, pix_scale,
                        extent_x = None, extent_y = None,
                        nx = None, ny = None,
                        return_header=False):
-    """Make a simple centered FITS header.
+    """Make a simple 2D FITS header centered on the coordinate of interest
+    with a user-specififed pixel scale and extent.
 
     
     Parameters
@@ -392,6 +394,11 @@ def find_index_overlap(
         image_extent = None,
         selection_dict = {},
 ):
+    """Given a tabular index of tiles and a coord + extent for a new
+    image, find all tiles in the index that could contribute to the
+    new tile.
+
+    """
     
     if index_tab is None:
         index_tab = (Table.read(index_file, format='fits'))
@@ -781,8 +788,13 @@ def build_star_flux_image(
         center_tol = 3.0*u.arcsec,
         overwrite=True,
 ):
-    """
-    Build an image in Jy with flux.
+    """Build a flux image in Jy/pixel containing predicted fluxes of stars
+    known from Gaia and 2MASS in the specified band.
+
+    # TBD Interp is untested.
+
+    # TBD The models could be improved!
+
     """
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -989,8 +1001,9 @@ def build_galaxy_mask(
         pause = False,
         overwrite = True,
 ):
-    """Use the galaxy database table to build a mask of galaxies (other
-    than the target).
+    """Use an external galaxy database table to build a mask of galaxies
+    (other than the target) in a provided field of view.
+
     """
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
@@ -1138,7 +1151,10 @@ def build_star_mask(
         pause = False,
         overwrite = True,
 ):
-
+    """
+    Accept an input prediction file and create a mask.
+    """
+    
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Read the image and star prediction
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -1341,8 +1357,11 @@ def z0mgs_psf_name(
         band = None,
 ):
     """
-    Return a file path to a PSF file
+    Return a file path to a PSF file for the specified band.
+
+    TBD Error trapping.
     """
+    
     psf_dir = '/data/bell-tycho/leroy.42/ellohess/kernels/PSF_FITS_Files/'
 
     psf_dict = {}
@@ -1362,8 +1381,8 @@ def z0mgs_psf_name(
 def z0mgs_kernel_name(
         from_res = None,
         to_res = None):
-    """
-    Return kernel name for use in convolution.
+    """Return kernel name for use in convolution from the band or kernel
+    'from_res' to the band or kernel 'to_res.'
     """
 
     # TBD - add file checking and more flexibility on directories
@@ -1390,7 +1409,7 @@ def z0mgs_kernel_name(
 
 def get_pixscale(hdu):
     """From PJPIPE. Helper function used in convolve. Get pixel scale from
-header. Checks HDU header and returns a pixel scale
+    header. Checks HDU header and returns a pixel scale
 
     Args:
 
@@ -1611,11 +1630,48 @@ def convolve_image_with_kernel(
     return(image_hdu)
 
 def convolve_image_with_gauss(
+        image_file=None,
+        image_hdu=None,
+        starting_res=None,
+        target_res=None,
+        nan_treatment='fill',
+        dtype=np.float32,
+        outfile=None,
+        overwrite=True
+
 ):
-    # TBD implement spectral cube projection version here
+    print("Convolving with Gaussian")
+            
+    if image_hdu is None:
+        print("... file: ", image_file)
+        image_hdu = fits.open(image_file)
+
+    proj = Projection.from_hdu(image_hdu)
+
+    if starting_res is not None:
+        old_proj = proj
+        starting_beam = Beam(starting_res)
+        proj = proj.with_beam(starting_beam)
+        print("... starting from ", starting_beam)
     
-    pass
+    proj.allow_huge_operations = True
+
+    target_beam = Beam(major=target_res)
+    print("... target ", target_beam)
     
+    convolved_proj = proj.convolve_to(
+        target_beam,
+        nan_treatment=nan_treatment, fill_value=0.0,
+        allow_huge=True)
+
+    out_hdu = fits.PrimaryHDU(
+        np.array(convolved_proj.filled_data[:], dtype=dtype),
+        header=convolved_proj.header)
+        
+    if outfile is not None:
+        out_hdu.writeto(outfile, overwrite=overwrite)
+
+    return(out_hdu)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to basic image manipulation

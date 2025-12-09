@@ -1,4 +1,11 @@
-# Imports
+# GALEX atlas creation
+
+# What's in here:
+
+# TBD:
+
+# - galaxy mask creation can be sped by 2x by doing it only once.
+
 import os
 
 from astropy.table import Table
@@ -60,6 +67,16 @@ def galex_build_atlas(
     n_targets = len(target_table)
 
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # Define Gaussian resolutions
+    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+    res_dict = {
+        'gauss7p5':7.5,
+        'gauss15':15.,
+        'gauss20':20.,
+        }
+    
+    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Loop over targets
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
         
@@ -80,6 +97,7 @@ def galex_build_atlas(
         galex_process_one_galaxy(
             target = this_target_row,
             working_dirs = this_working_dirs,
+            res_dict=res_dict,
             tasks = tasks,
             bands = bands,
             pause = pause,
@@ -96,6 +114,7 @@ def galex_process_one_galaxy(
         tasks=['all'],
         bands=['fuv','nuv'],
         working_dirs='./',
+        res_dict={},
         pause=False,
         incremental=False,
         show = False,
@@ -121,12 +140,13 @@ def galex_process_one_galaxy(
              'galaxy_mask',
              'plot_galaxy_mask',
              'star_pred',
+             'plot_star_pred',             
              'star_mask',
              'plot_star_mask',
              'coord_mask',
              'plot_coord_mask',
              'bkgrd',
-             'convol']
+             'convolve']
 
     if not isinstance(working_dirs, dict):
         working_dirs = {
@@ -292,7 +312,7 @@ def galex_process_one_galaxy(
             show_z0mgs_image(
                 image_fname = staged_image_file,
                 mask_fname = galaxy_mask_file,
-                mask_levels = [1.],
+                mask_levels = [0.99],
                 show = False,
                 outfile = galaxy_mask_file.replace('.fits','.png'),
                 title = this_name+' '+this_band,
@@ -311,22 +331,23 @@ def galex_process_one_galaxy(
     
     if 'star_pred' in tasks:
 
+        print("Predicting stellar fluxes.")
         skip_query_if_present = True
 
         ks_file = '../../measurements/tab_2mass_stars.fits'
             
         for this_band in bands:
 
-            staged_fname = working_dirs['staged']+ \
+            staged_image_file = working_dirs['staged']+ \
                 this_name+'_'+this_band+'_mjysr.fits'
             
             gaia_file = working_dirs['gaia']+ \
                 this_name+'_gaia_dr3.fits'
 
-            star_flux_fname = working_dirs['masks']+\
+            star_flux_file = working_dirs['masks']+\
                 this_name+'_'+this_band+'_starflux.fits'
 
-            star_intens_fname = working_dirs['masks']+\
+            star_intens_file = working_dirs['masks']+\
                 this_name+'_'+this_band+'_starintens.fits'
             
             # Query GAIA if needed but skip if present            
@@ -335,6 +356,8 @@ def galex_process_one_galaxy(
             gaia_file = working_dirs['gaia'].replace('test_data','working_data') + \
                 this_name+'_gaia_dr3.fits'
 
+            print("... ensuring Gaia catalog present")
+            
             #query_gaia(
             #    ra_min = target['BLC_RA'],
             #    ra_max = target['TRC_RA'],
@@ -343,10 +366,12 @@ def galex_process_one_galaxy(
             #    outfile=gaia_file,
             #    skip_if_present=skip_query_if_present)
 
+            print("... building a stellar flux image")
+                        
             # Build an image of stellar flux
             build_star_flux_image(
-                template_file = staged_fname,
-                outfile = star_flux_fname,
+                template_file = staged_image_file,
+                outfile = star_flux_file,
                 band = this_band,
                 gaia_file = gaia_file,
                 ks_file = ks_file,
@@ -355,21 +380,34 @@ def galex_process_one_galaxy(
                 center_tol = 3.0*u.arcsec,
             )
 
+            print("... convolving the stellar flux image to intensity")
+            
             star_intens_hdu = fits.HDUList(
-                [jypix_to_mjysr(image_fname=star_flux_fname)])
+                [jypix_to_mjysr(image_fname=star_flux_file)])
 
             pix_to_native_kernel = \
                 z0mgs_psf_name(band=this_band)
+
+            print("... ... to native resolution")
             
             convolve_image_with_kernel(                
                 image_hdu=star_intens_hdu,
-                outfile=star_intens_fname,
+                outfile=star_intens_file,
                 kernel_file=pix_to_native_kernel,
                 blank_zeros=False,
             )
 
-            # TBD - convolve to Gaussians etc.
-
+            for res_tag, res_in_arcsec in res_dict.items():
+                print("... ... to resolution ", res_tag)                
+                convolve_image_with_gauss(
+                    image_hdu=star_intens_hdu,
+                    starting_res = 0. * u.arcsec,
+                    target_res = res_in_arcsec * u.arcsec,
+                    outfile = star_intens_file.replace(
+                        '.fits','_'+res_tag+'.fits'),
+                    overwrite=True,
+                )
+        
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make star masks
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%        
@@ -379,27 +417,39 @@ def galex_process_one_galaxy(
     
     if 'star_mask' in tasks:
 
-        staged_fname = working_dirs['staged']+ \
-            this_name+'_'+this_band+'_mjysr.fits'
+        for this_band in bands:
+            
+            staged_image_file = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
                 
-        star_intens_fname = working_dirs['masks']+\
-            this_name+'_'+this_band+'_starintens.fits'
+            star_intens_file = working_dirs['masks']+\
+                this_name+'_'+this_band+'_starintens.fits'
+                
+            star_mask_file = working_dirs['masks']+\
+                this_name+'_'+this_band+'_mask.fits'
 
-        build_star_mask(
-            image_file = None,
-            image_hdu = None,
-            star_file = None,
-            star_hdu = None,
-            outfile = None,
-            clip_level = None,
-            rms_fac = 3.0,
-            rms_value = None,
-            show = False,
-            pause = False,
-            overwrite = True,
-        )
+            if this_band == 'fuv':
+                this_rms = 10.**(-3.5)
+            
+            if this_band == 'nuv':
+                this_rms = 10.**(-3.0)
+                
+            build_star_mask(
+                image_file = staged_image_file,
+                star_file = star_intens_file,
+                outfile = star_mask_file,
+                rms_value = this_rms,
+                rms_fac = 3.0,
+                overwrite = True,
+            )
         
     if 'plot_star_mask' in tasks:
+
+        for this_band in bands:
+            
+            star_intens_file = working_dirs['masks']+\
+                this_name+'_'+this_band+'_starintens.fits'
+        
 
         pass
 
@@ -419,24 +469,32 @@ def galex_process_one_galaxy(
     # Do the convolution
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     
-    if 'convol' in tasks:
+    if 'convolve' in tasks:
 
-        for target_res in ['gauss7p5', 'gauss15', 'gauss20']:
-            kern_to_this_res = z0mgs_kernel_name(
-                from_res=this_band, to_res=target_res)
+        print("Convolving images ...")
 
-            staged_fname = working_dirs['staged']+ \
-                this_name+'_'+this_band+'_mjysr.fits'
+        for this_band in bands:
 
-            convolved_fname = working_dirs['convolved']+ \
-                this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
+            print("... ... ", this_band)
             
-            convolve_image_with_kernel(
-                image_file=staged_fname,
-                outfile=convolved_fname,
-                kernel_file=kern_to_this_res,
-                overwrite=True
-            )
+            for target_res in res_dict.keys():
+                print("... to "+target_res)
+                
+                kern_to_this_res = z0mgs_kernel_name(
+                    from_res=this_band, to_res=target_res)
+                
+                staged_fname = working_dirs['staged']+ \
+                    this_name+'_'+this_band+'_mjysr.fits'
+                
+                convolved_fname = working_dirs['convolved']+ \
+                    this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
+            
+                convolve_image_with_kernel(
+                    image_file=staged_fname,
+                    outfile=convolved_fname,
+                    kernel_file=kern_to_this_res,
+                    overwrite=True
+                )
     
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Fit and subtract a background
