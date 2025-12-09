@@ -134,19 +134,21 @@ def galex_process_one_galaxy(
         tasks = [tasks]
     
     if tasks == ['all']:
-        tasks = \
-            ['stage',
-             'plot_stage',
-             'galaxy_mask',
-             'plot_galaxy_mask',
-             'star_pred',
-             'plot_star_pred',             
-             'star_mask',
-             'plot_star_mask',
-             'coord_mask',
-             'plot_coord_mask',
-             'bkgrd',
-             'convolve']
+        tasks = [ 
+            'stage',
+            'plot_stage',
+            'convolve',
+            'plot_convolve',
+            'coord_mask',
+            'plot_coord_mask',             
+            'galaxy_mask',
+            'plot_galaxy_mask',
+            'star_pred',
+            'star_mask',
+            'plot_star_mask',
+            'bkgrd',
+            'plot_bkgrd',
+        ]
 
     if not isinstance(working_dirs, dict):
         working_dirs = {
@@ -247,7 +249,72 @@ def galex_process_one_galaxy(
                 value_string = this_band+' [relative response]',
                 rms = this_rms
             )
+
+    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # Do the convolution
+    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    
+    if 'convolve' in tasks:
+
+        print("Convolving images ...")
+
+        for this_band in bands:
+
+            print("... ... ", this_band)
             
+            for target_res in res_dict.keys():
+                print("... to "+target_res)
+                
+                kern_to_this_res = z0mgs_kernel_name(
+                    from_res=this_band, to_res=target_res)
+                
+                staged_image_file = working_dirs['staged']+ \
+                    this_name+'_'+this_band+'_mjysr.fits'
+                
+                convolved_image_file = working_dirs['convolved']+ \
+                    this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
+                
+                convolve_image_with_kernel(
+                    image_file=staged_image_file,
+                    outfile=convolved_image_file,
+                    kernel_file=kern_to_this_res,
+                    blank_zeros=False,
+                    overwrite=True
+                )
+
+    if 'plot_convolve' in tasks:
+
+        for this_band in bands:
+
+            print("... ... ", this_band)
+            
+            for this_res in res_dict.keys():
+                print("... res "+this_res)
+                                
+                convolved_image_file = working_dirs['convolved']+ \
+                    this_name+'_'+this_band+'_mjysr_'+this_res+'.fits'
+
+                show_z0mgs_image(
+                    image_fname = staged_image_file,
+                    show = False,
+                    outfile = convolved_image_file.replace('.fits','.png'),
+                    title = this_name+' '+this_band+' '+this_res,
+                    value_string = this_band+' [MJy/sr]',
+                    rms = this_rms
+                )
+
+    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # Make supporting coordinate images
+    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+    # Create images of galactocentric radius.
+    
+    if 'coord_mask' in tasks:
+
+        # TBD deproject call - should be simple
+        
+        pass
+                
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make galaxy masks
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -452,50 +519,7 @@ def galex_process_one_galaxy(
         
 
         pass
-
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    # Make supporting coordinate images
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-    # Create images of galactocentric radius.
-    
-    if 'coord_mask' in tasks:
-
-        # TBD deproject call - should be simple
-        
-        pass
-
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    # Do the convolution
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    
-    if 'convolve' in tasks:
-
-        print("Convolving images ...")
-
-        for this_band in bands:
-
-            print("... ... ", this_band)
-            
-            for target_res in res_dict.keys():
-                print("... to "+target_res)
-                
-                kern_to_this_res = z0mgs_kernel_name(
-                    from_res=this_band, to_res=target_res)
-                
-                staged_fname = working_dirs['staged']+ \
-                    this_name+'_'+this_band+'_mjysr.fits'
-                
-                convolved_fname = working_dirs['convolved']+ \
-                    this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
-            
-                convolve_image_with_kernel(
-                    image_file=staged_fname,
-                    outfile=convolved_fname,
-                    kernel_file=kern_to_this_res,
-                    overwrite=True
-                )
-    
+   
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Fit and subtract a background
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%

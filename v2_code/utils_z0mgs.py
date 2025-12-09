@@ -1440,7 +1440,7 @@ def convolve_image_with_kernel(
         kernel_file=None,
         kernel_hdu=None,
         outfile=None,
-        blank_zeros=True,
+        blank_zeros=False,
         force_jwst_syntax=False,
         overwrite=True,
 ):
