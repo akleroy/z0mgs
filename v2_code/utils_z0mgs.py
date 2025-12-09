@@ -22,11 +22,12 @@
 # BACKGROUNDS
 # - routines to fit linear and planar backgrounds
 
-# Imports
+# Basics
 import os
 import numpy as np
 import math
 
+# Astropy stuff
 from astropy.convolution import convolve_fft
 from astropy.coordinates import SkyCoord
 import astropy.io.fits as fits
@@ -37,12 +38,17 @@ import astropy.wcs as wcs
 from astropy.wcs.utils import proj_plane_pixel_scales
 from astropy.stats import mad_std
 
+# This can be deprecated once we pull Gaia down
 from astroquery.gaia import Gaia
 
+# Convolution and reprojection
 from reproject import reproject_interp, reproject_exact
+
+from spectral_cube import SpectralCube, LazyMask, Projection
 
 from scipy.interpolate import RegularGridInterpolator
 
+# Visualization
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from astropy.visualization import simple_norm, LogStretch, PercentileInterval
@@ -1604,6 +1610,13 @@ def convolve_image_with_kernel(
 
     return(image_hdu)
 
+def convolve_image_with_gauss(
+):
+    # TBD implement spectral cube projection version here
+    
+    pass
+    
+
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to basic image manipulation
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -1745,6 +1758,7 @@ def show_z0mgs_image(
         show = False,
         outfile = None,
         title = 'Z0MGS Image',
+        value_string = 'image',
         ):
     """Plot a z0mgs image on some standard stretches optionally with a
     mask contour.
@@ -1755,7 +1769,10 @@ def show_z0mgs_image(
 
     image_data = image_hdu.data
     image_wcs = wcs.WCS(image_hdu.header)
-
+    if np.sum(np.isfinite(image_data)) == 0:
+        print("Image empty: ", image_fname)
+        image_data = np.zeros_like(image_data)
+    
     mask_data = None
     if mask_hdu is None:
         if mask_fname is not None:
@@ -1770,7 +1787,8 @@ def show_z0mgs_image(
     this_norm = simple_norm(image_data, 'log', percent=99.5)
     
     ax1 = fig.add_subplot(1, 2, 1, projection=image_wcs)
-    ax1.imshow(image_data, origin='lower', cmap='Greys', norm=this_norm)
+    this_im = ax1.imshow(image_data, origin='lower', cmap='Greys', norm=this_norm)
+    fig.colorbar(this_im, ax=ax1, fraction=0.05, pad=0.05, label='log10 '+value_string)
     if mask_data is not None:
         ax1.contour(mask_data*1.0, levels=mask_levels, colors='red', alpha=0.7)
     ax1.set_title(title + ' (log scale)')
@@ -1780,9 +1798,12 @@ def show_z0mgs_image(
     if rms is None:
         ind_for_mad = np.where((image_data != 0.0) & np.isfinite(image_data))
         rms = mad_std(image_data[ind_for_mad])
+    meanval = np.nanmean(image_data)
         
     ax2 = fig.add_subplot(1, 2, 2, projection=image_wcs)
-    ax2.imshow(image_data, origin='lower', cmap='Greys', vmin=-5.*rms, vmax=+10.*rms)
+    this_im = ax2.imshow(image_data, origin='lower', cmap='Greys',
+                         vmin=-5.*rms+meanval, vmax=+10.*rms+meanval)
+    fig.colorbar(this_im, ax=ax2, fraction=0.05, pad=0.05, label=value_string)
     if mask_data is not None:
         ax2.contour(mask_data*1.0, levels=mask_levels, colors='red', alpha=0.7)
     ax2.set_title(title + ' (linear)')
@@ -1790,9 +1811,19 @@ def show_z0mgs_image(
     ax2.coords[1].set_axislabel('Dec.')
 
     plt.tight_layout()
+    if outfile:
+        plt.savefig(outfile)
     if show:
         plt.show()
-    
+
+    plt.close()
+        
     return()
-    
-# Show image, radial profile, high stretch, histogram.
+
+# TBD - show image, radial profile, high stretch, histogram.
+
+def show_z0mgs_background(
+):
+    pass
+
+

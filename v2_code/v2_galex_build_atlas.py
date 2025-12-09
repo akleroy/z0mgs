@@ -117,10 +117,14 @@ def galex_process_one_galaxy(
     if tasks == ['all']:
         tasks = \
             ['stage',
+             'plot_stage',
              'galaxy_mask',
+             'plot_galaxy_mask',
              'star_pred',
              'star_mask',
+             'plot_star_mask',
              'coord_mask',
+             'plot_coord_mask',
              'bkgrd',
              'convol']
 
@@ -180,13 +184,49 @@ def galex_process_one_galaxy(
                        dec_ctr=dec_ctr,
                        size_deg=size_deg,
                        index_tab = None,
-                       index_file = '../../working_data/galex/index/galex_tile_index.fits',                       
+                       index_file = '../../working_data/galex/index/galex_tile_index.fits',
                        use_int_files = True,
                        outfile_image = outfile_image,
                        outfile_weight = outfile_weight,
                        show = show,
                        pause = pause,
                        overwrite = True)
+ 
+    if 'plot_stage' in tasks:
+
+        for this_band in bands:
+              
+            staged_image_file = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+            
+            staged_weight_file = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_weight.fits'
+
+            if this_band == 'fuv':
+                this_rms = 10.**(-3.5)
+
+            if this_band == 'nuv':
+                this_rms = 10.**(-3.0)
+
+            print("Plots for: ", this_name, ' ', this_band)
+            
+            show_z0mgs_image(
+                image_fname = staged_image_file,
+                show = False,
+                outfile = staged_image_file.replace('.fits','.png'),
+                title = this_name+' '+this_band,
+                value_string = this_band+' [MJy/sr]',
+                rms = this_rms
+            )
+
+            show_z0mgs_image(
+                image_fname = staged_weight_file,
+                show = False,
+                outfile = staged_weight_file.replace('.fits','.png'),
+                title = this_name+' '+this_band,
+                value_string = this_band+' [relative response]',
+                rms = this_rms
+            )
             
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make galaxy masks
@@ -230,7 +270,36 @@ def galex_process_one_galaxy(
                     show = show,
                     pause = pause,
                     overwrite = overwrite)
-                        
+
+    if 'plot_galaxy_mask' in tasks:
+
+        for this_band in bands:
+
+            staged_image_file = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+
+            galaxy_mask_file = working_dirs['masks']+ \
+                this_name+'_'+this_band+'_galmask.fits'
+
+            if this_band == 'fuv':
+                this_rms = 10.**(-3.5)
+
+            if this_band == 'nuv':
+                this_rms = 10.**(-3.0)
+
+            print("Plots for: ", this_name, ' ', this_band)
+            
+            show_z0mgs_image(
+                image_fname = staged_image_file,
+                mask_fname = galaxy_mask_file,
+                mask_levels = [1.],
+                show = False,
+                outfile = galaxy_mask_file.replace('.fits','.png'),
+                title = this_name+' '+this_band,
+                value_string = this_band+' [MJy/sr]',
+                rms = this_rms
+            )
+                
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make star predictions
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -300,7 +369,7 @@ def galex_process_one_galaxy(
             )
 
             # TBD - convolve to Gaussians etc.
-            
+
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make star masks
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%        
@@ -317,20 +386,23 @@ def galex_process_one_galaxy(
             this_name+'_'+this_band+'_starintens.fits'
 
         build_star_mask(
-        image_file = None,
-        image_hdu = None,
-        star_file = None,
-        star_hdu = None,
-        outfile = None,
-        clip_level = None,
-        rms_fac = 3.0,
-        rms_value = None,
-        show = False,
-        pause = False,
-        overwrite = True,
-)
+            image_file = None,
+            image_hdu = None,
+            star_file = None,
+            star_hdu = None,
+            outfile = None,
+            clip_level = None,
+            rms_fac = 3.0,
+            rms_value = None,
+            show = False,
+            pause = False,
+            overwrite = True,
+        )
         
-    
+    if 'plot_star_mask' in tasks:
+
+        pass
+
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make supporting coordinate images
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%

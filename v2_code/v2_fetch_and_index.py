@@ -253,7 +253,10 @@ def compile_list_of_images(
             print("Compiling list of all files in UNWISE allwise directory.")
             print("")
 
-            # TBD
+            root_dir = '/data/fft_scratch/leroy.42/allsky/unwise_allwise/data/allwise/unwise-coadds/fulldepth/'
+            selection = '*/*/*-w*-img-m.fits'
+            tab_dir = '../../working_data/unwise/index/'
+            tab_file = 'unwise_allwise_list.fits'
             
         if survey == 'unwise_neowise':
             print("")
@@ -507,13 +510,13 @@ do_check = False
 do_flist = True
 do_index = True
 
-do_unwise = False
-do_sdss = True
+do_unwise = True
+do_sdss = False
 do_galex = False
 do_gaia = False
 
 do_custom_unwise = False
-do_allwise = False
+do_allwise = True
 do_neowise = False
 
 if do_fetch:
