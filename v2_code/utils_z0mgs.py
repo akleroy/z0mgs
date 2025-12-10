@@ -251,8 +251,9 @@ def build_tab_for_one_target(
 def make_z0mgs_directories(
         root_dir='../../working_data/',
         surveys=['galex','unwise','sdss']):
-    """Routine to make the z0mgs directory structure expected by the
-    other programs.
+    """Routine to make the z0mgs directory structure expected by the other
+    programs. Includes a hard-coded list of subdirectories and
+    samples.
     """
     
     subsample_list = [
@@ -263,7 +264,7 @@ def make_z0mgs_directories(
     stages_list = [
         'staged', 'convolved',
         'final', 'index', 'masks',
-        'bkgrd', 'star_stacks',
+        'coords', 'bkgrd', 'star_stacks',
     ]
 
     for this_survey in surveys:
@@ -1151,8 +1152,10 @@ def build_star_mask(
         pause = False,
         overwrite = True,
 ):
-    """
-    Accept an input prediction file and create a mask.
+    """Accept an input prediction file and create a mask based on a
+    threshold.
+
+    TBD could be simplified, removing the noise image.
     """
     
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -1188,14 +1191,65 @@ def build_star_mask(
     # Return and write
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     
-    star_mask_hdu = fits.PrimaryHDU(star_mask, star_mask_hdr)
+    star_mask_hdu = fits.PrimaryHDU(data=star_mask, header=star_mask_hdr)
     
     # Write to disk
     if outfile is not None:
         star_mask_hdu.writeto(outfile, overwrite=overwrite)
 
     return(star_mask_hdu)
+
+def stack_masks(
+        mask_fnames = None,
+        mask_hdus = None,        
+        outfile = None,
+        overwrite = True,
+        # TBD - enable nearest neighbor reprojection
+):
+    """
+    Join together maps that are already.
+
+    """
+
+    # Loop over file names
+
+    have_first_mask = False
     
+    for this_fname in mask_fnames:
+        
+        this_hdu = fits.open(this_fname)[0]
+        this_mask = this_hdu.data
+        if not have_first_mask:
+            mask = this_hdu.data
+            mask_hdr = this_hdu.header
+            have_first_mask = True
+        else:
+            mask = mask | this_mask
+
+    # Loop over HDUs
+        
+    for this_other_hdu in mask_hdus:
+
+        this_mask = this_other_hdu.data
+        if not have_first_mask:
+            mask = this_hdu.data
+            mask_hdr = this_hdu.header
+            have_first_mask = True
+        else:
+            mask = mask | this_mask
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Outfile
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    mask_hdu = fits.PrimaryHDU(data = mask, header = mask_hdr)
+    
+    # Write to disk
+    if outfile is not None:
+        mask_hdu.writeto(outfile, overwrite=overwrite)
+
+    return(mask_hdu)
+
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to deprojection
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -1349,6 +1403,24 @@ def deproject(
     else:
         return radius_deg, projang_deg
 
+def make_coord_maps(
+        center_coord=None,
+        incl=0*u.deg,
+        pa=0*u.deg,
+        template_header=None,        
+        outfile_root=None,
+        overwrite=True,
+):
+    """
+    """
+
+    # Error checking on incl and pa
+    
+    # Run deproject
+
+    # Write coords
+    
+    
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to convolution
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -1712,15 +1784,26 @@ def jypix_to_mjysr(
 # Related to background subtraction
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
+def plane_func(data, a, b, c):
+    """
+    Function for plane fitting optimization.
+    """
+    x, y, = data
+    return(a * x + b * y + c)
+    
 def fit_z0mgs_background(
         image_fname=None,
         image_hdu=None,
-        mask_fname_list=None,
-        mask_hdu_list=None,
+        mask_fnames=[],
+        mask_hdus=[],
         weight_fname=None,
         weight_hdu=None,
-        outfile=None,
-        method='itermed',
+        rad_fname = None,
+        rad_hdu = None,
+        fid_rad = 15./3600.,
+        outfile = None,
+        methods=['itermed'],
+        clip_thresh=3.0,
         niter=5,
         ):
     """
@@ -1728,60 +1811,210 @@ def fit_z0mgs_background(
     """
 
     # Read the image
-    
+    if image_hdu is None:
+        image_hdu = fits.open(image_fname)[0]
+    image = image_hdu.data
+    image_hdr = image_hdu.header
+        
+    # Read weights
+    if weight_hdu is None:
+        if weight_fname is None:
+            weight_image = np.isfinite(image_hdu.data)*1.0
+        else:
+            weight_hdu = fits.open(weight_fname)[0]
+            weight_image = weight_hdu.data
+        
     # Initialize the background
-
-    # Initialize the rejected pixels mask
+    bkgrd = np.zeros_like(image)
     
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Masking
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
 
+    have_masks = False
+    if (len(mask_fnames) > 0) | (len(mask_hdus) > 0):
+        have_masks = True
+        
     # Read and stack supplied list of masks
+    if have_masks:
+        mask_hdu = stack_masks(mask_fnames = mask_fnames, mask_hdus = mask_hdus)
+        mask = mask_hdu.data
 
-    # Read the aperture/coordinate definition and mask galaxy
-    
-    # Mask out regions to be ignored
+    # Read the aperture/coordinate definition and mask the galaxy
+    if rad_hdu is None:
+        if rad_fname is not None:
+            rad_hdu = fits.open(rad_fname)[0]
+            rad_mask = rad_hdu <= fid_rad
+            mask = mask | rad_mask
 
-    # (check for pathological case)
-
+    # Mask out regions with no weight
+    mask = mask | (weight_image == 0)
+            
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Estimate the noise
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-    # Take the mad-based RMS
-    
     # Scale by normalized weights (if provided) to get a local noise
-    # map (especially important for GALEX)
+    # map (especially important for GALEX). Assumption is that weight
+    # is integration time-like so that noise \propto weight^(-0.5)
+
+    unmaked_ind = np.where(mask == 0)
+    med_weight_unmasked = np.nanmedian(weight_image[ind])
+    noiselike = 1./np.sqrt(weight_image/med_weight_unmasked)
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Initialize background
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    bkgrd = np.zeros_like(image)
     
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Iteratively subtract a median
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
 
-    for ii in range(niter):
+    if 'itermed' in methods:
 
-        # Identify 
+        print("Using iterative median for background estimation.")
+                
+        # Initialize an aperture and a rejected pixels mask
+        aperture = (mask == 0)
+        rejected = np.zeros_like(aperture,dtype=bool)
         
-        pass
-    
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Mode/histogram based calculation
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+        for ii in range(niter):
 
-    # Not iterative - use bins defined by RMS
-    
+            print("... iteration ", ii)
+            
+            bkgrd_ind = np.where(aperture & (not rejected))
+            if len(bkgrd_ind) == 0:
+                print("No background pixels.")
+                continue
+
+            data_vec = image[bkgrd_ind]
+            noiselike_vec = noiselike[bkgrd_ind]
+
+            # Calculate the median and noise
+            rms = mad_std(data_vec, ignore_nan=True)
+            med_val = np.nanmedian(data_vec)
+
+            # Find the outliers
+            outliers = np.abs(data_vec - med_val) > \
+                (clip_thresh * rms / noiselike_vec)
+
+            # Mask them in the aperture
+            num_outliers = np.sum(outliers)
+            if num_outliers > 0:
+                (rejected[bkgrd_ind])[outliers] = 1
+                
+            print("... rejected outliers ", num_outliers)
+
+        # Incorporate rejected pixels into the mask
+        mask = mask | rejected
+
+        # Record the background
+        bkgrd = bkgrd + med_val
+        image = image - med_val
+            
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Plane fit
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
 
+    if 'planefit' in methods:
+
+        print("Using iterative plane fit for background estimation.")
+
+        # Coordinate images
+        ny, nx = image.shape
+        x_axis = np.arange(nx)
+        y_axis = np.arange(ny)
+        x_img, y_img = np.meshgrid(x_axis, y_axis)
+
+        # Empty plane to start
+        plane_img = np.zeros_like(image)
+
+        # Initialize mask and rejected pixels
+        aperture = (mask == 0)
+        rejected = np.zeros_like(aperture,dtype=bool)
+        
+        for ii in range(niter):
+
+            print("... iteration ", ii)
+            bkgrd_mask = aperture & (not rejected)
+            bkgrd_ind = np.where(bkgrd_mask)
+            if len(bkgrd_ind) == 0:
+                print("No background pixels.")
+                continue
+
+            # Vectorize the data and points
+            data_vec = image[bkgrd_ind]
+            x_vec = x_img[bkgrd_ind]
+            y_vec = y_img[bkgrd_ind]
+
+            # Fit
+            xy_stack = np.vstack([x_vec, y_vec])
+            fit_params, fit_covariance = \
+                curve_fit(plane_func, xy_stack, data_vec)
+            a, b, c = fit_params
+
+            print(f"Fitted plane equation: z = {a:.2f}x + {b:.2f}y + {c:.2f}")
+      
+            # Whole background
+            plane_img = a * x_img + b * y_img + c
+            resid = image - plane_img
+            rms = mad_std(resid, ignore_nan=True)
+                  
+            # Find outliers
+            outliers = (np.abs(resid) > (clip_thresh*rms/noiselike)) * \
+                  bkgrd_mask
+            num_outliers = np.sum(outliers)
+            if num_outliers > 0:
+                  rejected[np.where(outliers)] = 1
+                  
+            print("... rejected outliers ", num_outliers)
+            
+
+        # Incorporate rejected pixels into the mask
+        mask = mask | rejected
+        image = image - plane_img
+        bkgrd = bkgrd + plane_img
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Mode/histogram based calculation
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    if 'mode' in methods:
+
+        print("Using mode of histogram for background estimation.")
+        
+        aperture = (mask == 0)
+        data_vec = image[bkgrd_ind]
+
+        rms = mad_std(data_vec, ignore_nan=True)
+        med_val = np.nanmedian(data_vec)
+        
+        binsize = 0.05 * rms
+        bin_centers = np.arange(-50,51,1.)*binsize + med_val
+        bin_edges = np.concatenate([bin_centers-0.5*binsize,
+                                    np.array([bin_centers[-1]+0.5*binsize])])
+        
+        hist_counts, bin_edges_out = np.histogram(data, bins=bin_edges)
+        max_bin_ind = np.argmax(hist_counts)
+        max_bin_val = bin_centers[max_bin_ind]
+
+        bkgrd = bkgrd + max_bin_val
+        image = image - max_bin_val
+        
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Median radial profile
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
-    
+
+    # TBD
+                  
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Calculate stats
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
 
+    # TBD
+    
     # Standard deviation
 
     # Mad-based noise
@@ -1792,11 +2025,17 @@ def fit_z0mgs_background(
     # Write to disk if desired
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
 
-    # Background
-
-    # Rejected pixel mask
+    bksub_hdu = fits.PrimaryHDU(image, image_hdr)
+    bkgrd_hdu = fits.PrimaryHDU(bkgrd, image_hdr)    
     
-    return(bkgrd_hdu)
+    # Write to disk
+    if outfile is not None:
+        bksub_hdu.writeto(outfile, overwrite=overwrite)
+
+    if outfile_bkgrd is not None:
+        bkkgrd_hdu.writeto(outfile_bkgrd, overwrite=overwrite)
+                  
+    return((bksub_hdu,bkgrd_hdu))
         
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to visualization

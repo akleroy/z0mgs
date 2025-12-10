@@ -51,6 +51,7 @@ def galex_build_atlas(
         'staged':root_dir+'staged/',
         'bkgrd':root_dir+'bkgrd/',        
         'masks':root_dir+'masks/',
+        'coords':root_dir+'coords/',        
         'convolved':root_dir+'convolved/',
         'final':root_dir+'final/',
         'gaia':root_dir+'../gaia/',
@@ -155,6 +156,7 @@ def galex_process_one_galaxy(
             'staged':working_dirs,
             'bkgrd':working_dirs,
             'masks':working_dirs,
+            'coords':working_dirs,            
             'convolved':working_dirs,
             'final':working_dirs,
             'gaia':working_dirs,
@@ -295,12 +297,11 @@ def galex_process_one_galaxy(
                     this_name+'_'+this_band+'_mjysr_'+this_res+'.fits'
 
                 show_z0mgs_image(
-                    image_fname = staged_image_file,
+                    image_fname = convolved_image_file,
                     show = False,
                     outfile = convolved_image_file.replace('.fits','.png'),
                     title = this_name+' '+this_band+' '+this_res,
                     value_string = this_band+' [MJy/sr]',
-                    rms = this_rms
                 )
 
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -311,10 +312,11 @@ def galex_process_one_galaxy(
     
     if 'coord_mask' in tasks:
 
-        # TBD deproject call - should be simple
+        for this_band in bands:
         
-        pass
-                
+            staged_image_file = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
     # Make galaxy masks
     # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
