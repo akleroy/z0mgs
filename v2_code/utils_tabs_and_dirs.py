@@ -76,11 +76,11 @@ def build_target_table(
     # subsamples. Could revise this later.
 
     subsample_tables = {
-        'localgroup':table_dir+'unwise_v2_index_localgroup.fits',
-        'localvolume':table_dir+'unwise_v2_index_localvolume.fits',
-        'largeleda':table_dir+'unwise_v2_index_largeleda.fits',
-        'smallleda':table_dir+'unwise_v2_index_smallleda.fits',
-        'manga':table_dir+'unwise_v2_index_manga.fits',
+        'localgroup':table_dir+'unwise_v2_index_localgroup_v2.fits',
+        'localvolume':table_dir+'unwise_v2_index_localvolume_v2.fits',
+        'largeleda':table_dir+'unwise_v2_index_largeleda_v2.fits',
+        'smallleda':table_dir+'unwise_v2_index_smallleda_v2.fits',
+        'manga':table_dir+'unwise_v2_index_manga_v2.fits',
     }
     subsample_list = subsample_tables.keys()
 
@@ -131,7 +131,7 @@ def build_target_table(
     # Loop on just/skip
     for ii, this_row in enumerate(targets_tab):
 
-        this_name = this_row['Z0MGS_NAME'].strip()
+        this_name = this_row['NAME'].strip()
 
         if just_galaxy is not None:            
             if this_name not in just_galaxy:
@@ -169,11 +169,13 @@ def build_target_table(
 def build_tab_for_one_target(
         name = 'GALNAME',
         pgc = -1,
-        subsample = '',
-        w1_fname = '',
         ra_ctr = 12.0,
         dec_ctr = 30.0,
-        extent_arcmin = 1.0,
+        incl_deg = 0.0,
+        posang_deg = 0.0,
+        rgal_deg = 30./3600.,
+        extent_deg = 1./60.,
+        
 ):
     """Routine to make a table for just one target based on
     coords. Contains the necessary information to be fed into atlas
@@ -188,35 +190,52 @@ def build_tab_for_one_target(
     """
     
     ctr_coords = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
-    offset_deg = extent_arcmin / 60. * np.sqrt(2) * u.deg
-    trc_pa = -45.*u.deg
-    blc_pa = 135.*u.deg
-    trc_coords = ctr_coords.directional_offset_by(trc_pa, offset_deg)
-    blc_coords = ctr_coords.directional_offset_by(blc_pa, offset_deg)
+    
     
     gal_dict = \
-        [{'Z0MGS_NAME':name,
+        [{'NAME':name,
           'PGC':pgc,
-          'SUBSAMPLE':subsample,
-          'W1_FNAME':w1_fname,
-          'RA_CTR':ctr_coords.ra.value,
-          'DEC_CTR':ctr_coords.dec.value,
-          'BLC_RA':blc_coords.ra.value,
-          'BLC_DEC':blc_coords.dec.value,
-          'TRC_RA':trc_coords.ra.value,
-          'TRC_DEC':trc_coords.dec.value,
-          'USE_FUV':1,
-          'USE_NUV':1,
-          'USE_W1':1,
-          'USE_W2':1,
-          'USE_W3':1,
-          'USE_W4':1}]
+          'CTR_RA':ctr_coords.ra.value,
+          'CTR_DEC':ctr_coords.dec.value,
+          'INCL_DEG':incl_deg,
+          'POSANG_DEG':posang_deg,
+          'RGAL_DEG':rgal_deg,
+          'IMSIZE':extent_deg,
+        }]
 
     gal_tab = Table(gal_dict)
 
     return(gal_tab)
 
+
+def clean_up_target_row(
+        gal_dict
+        ):
+    """Very ad hoc/messy script to ensure necessary data to make images
+    are present. Assumes details of our previous calls. Moving forward
+    may not be necessary.
+
+    """
+
+    if (not np.isfinite(gal_dict['POSANG_DEG'].filled(np.nan))):
+        gal_dict['POSANG_DEG'] = 0.0
+        gal_dict['INCL_DEG'] = 0.0
+
+    if (not np.isfinite(gal_dict['INCL_DEG'].filled(np.nan))):
+        gal_dict['INCL_DEG'] = 0.0
+
+    if (not np.isfinite(gal_dict['CTR_RA'].filled(np.nan))):
+        gal_dict['CTR_RA'] = gal_dict['UNWISE_RA']
+        gal_dict['CTR_DEC'] = gal_dict['UNWISE_DEC']
+
+    if (not np.isfinite(gal_dict['RGAL_DEG'].filled(np.nan))):
+        gal_dict['RGAL_DEG'] = 30./3600.
+
+    return(gal_dict)
+    
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Make/check directory structure (convenience function)
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 def make_z0mgs_directories(
         root_dir='../../working_data/',
@@ -231,7 +250,7 @@ def make_z0mgs_directories(
         'localgroup','localvolume',
         'manga','other']
 
-    stages_list = [
+    stage_dir_list = [
         'staged', 'convolved',
         'final', 'index', 'masks',
         'coords', 'bkgrd', 'star_stacks',
@@ -242,7 +261,7 @@ def make_z0mgs_directories(
         if not os.path.isdir(root_dir+this_survey):
             os.system('mkdir '+root_dir+this_survey)
 
-        for this_stage in stages_list:
+        for this_stage in stage_dir_list:
             this_dir = root_dir + this_survey + '/' + this_stage
             if not os.path.isdir(this_dir):
                 os.system('mkdir '+this_dir)
@@ -254,6 +273,10 @@ def make_z0mgs_directories(
                     os.system('mkdir '+this_dir)
 
     return()
+
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# Get files for convolutions
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 def z0mgs_psf_name(
         band = None,

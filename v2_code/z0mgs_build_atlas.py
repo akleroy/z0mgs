@@ -31,7 +31,7 @@ from utils_z0mgs_images import *
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Atlas construction loop
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 def galex_build_atlas(
         tasks='all',
@@ -107,6 +107,9 @@ def galex_build_atlas(
                 this_working_dirs[this_key] = this_dir + \
                     this_target_row['SUBSAMPLE']+'/'        
 
+        # Make sure that we have a position, orientation, etc.
+        target_row = clean_up_target_row(this_target_row)
+                
         galex_process_one_galaxy(
             target = this_target_row,
             working_dirs = this_working_dirs,
@@ -177,21 +180,22 @@ def galex_process_one_galaxy(
 
     if not isinstance(target, dict):
         target = dict(target)
-    
-    this_name = target['Z0MGS_NAME'].strip()
 
-    # TBD - revise this infrastructure to a set of field tags
-    # consistent with the tile index syntax.
-                
+    # Extract values from the target table
+    this_name = target['NAME'].strip()
+    this_pgc = target['PGC']                
     ra_ctr = target['RA_CTR']
     dec_ctr = target['DEC_CTR']
-    size_deg = target['TRC_DEC'] - target['BLC_DEC']
-    
+    center_coord = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
+    pa = target['POSANG_DEG']*u.deg
+    incl = target['INCL_DEG']*u.deg
+    rgal = target['RGAL_DEG']*u.deg
+    size_deg = target['IMSIZE']
+
+    # TBD - overrides file
     if target['PGC'] == 2557:
         print("... special case of M31")
         size_deg = 2.0
-
-    posang_deg = target[]
         
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Stage the images
@@ -282,7 +286,6 @@ def galex_process_one_galaxy(
                 rms = this_rms
             )
 
-
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
     # Make supporting coordinate images
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
@@ -332,18 +335,27 @@ def galex_process_one_galaxy(
             template_hdu = fits.open(staged_image_file)[0]
             template_hdr = template_hdu.header
             template_hdr['BUNIT'] = 'Deg'
-            
+
             radius_deg, projang_deg, major_deg, minor_deg = \
                 deproject(
-                    center_coord=None,
-                    incl=0*u.deg,
-                    pa=0*u.deg,
+                    center_coord = center_coord,
+                    incl=incl,
+                    pa=pa,
                     template_header=template_hdr,
                     return_offset=True,
                     verbose=False)
 
-            rad_hdu = PrimaryHDU(radius_deg, 
-        
+            rad_hdu = PrimaryHDU(data=radius_deg, header=template_hdr)
+            rad_hdu.writeto(rad_file, overwrite=True)
+            
+            theta_hdu = PrimaryHDU(data=theta_deg, header=template_hdr)
+            theta_hdu.writeto(theta_file, overwrite=True)
+
+            major_hdu = PrimaryHDU(data=major_deg, header=template_hdr)
+            major_hdu.writeto(major_file, overwrite=True)
+            
+            minor_hdu = PrimaryHDU(data=minor_deg, header=template_hdr)
+            minor_hdu.writeto(minor_file, overwrite=True)        
         
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Do the convolutions
@@ -375,7 +387,7 @@ def galex_process_one_galaxy(
                 convolved_image_file = working_dirs['convolved']+ \
                     this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
 
-                # TBD - Add masks.
+                # TBD - Add masking of data before convolution.
                 
                 convolve_image_with_kernel(
                     image_file=staged_image_file,
