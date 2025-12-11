@@ -14,7 +14,7 @@
 
 # Indexing takes several hours (less than a day) for GALEX and the
 # unWISE all-sky surveys. It is less than an hour for the unwise
-# custom call.
+# custom call. It takes O(1 week) for SDSS.
 
 # This all includes some directory structure that's local to each
 # system (and you need a place to stash O(20 TB) of stuff). It's not
@@ -500,83 +500,3 @@ def index_image_list(
     print("This took : ", stop_time-start_time, " seconds.")
     
     return(tab)
-        
-# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-# Run the compilation
-# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
-do_fetch = False
-do_check = False
-do_flist = True
-do_index = True
-
-do_unwise = True
-do_sdss = False
-do_galex = False
-do_gaia = False
-
-do_custom_unwise = False
-do_allwise = True
-do_neowise = False
-
-if do_fetch:
-    if do_unwise:
-        if do_unwise:
-            unwise_fetch(dry_run=True, incremental=False, version='neo9')
-        if do_allwise:
-            unwise_fetch(dry_run=True, incremental=False, version='allwise')
-
-    if do_galex:
-        galex_fetch(dry_run=True, incremental=False)
-
-    if do_sdss:
-        sdss_fetch(dry_run=True)
-
-    if do_gaia:
-        gaia_fetch(dry_run=True)
-        
-if do_check:
-    if do_unwise:
-        if do_neowise:
-            unwise_fetch(dry_run=False, incremental=True, version='neo9')
-        if do_allwise:
-            unwise_fetch(dry_run=False, incremental=True, version='allwise')
-        
-if do_flist:
-    if do_unwise:
-        if do_custom_unwise:
-            test = compile_list_of_images(survey='unwise_custom')
-        if do_allwise:
-            test = compile_list_of_images(survey='unwise_allwise')
-        if do_neowise:
-            test = compile_list_of_images(survey='unwise_neowise')
-
-    if do_galex:
-        test = compile_list_of_images(survey='galex')
-
-    if do_sdss:
-        test = compile_list_of_images(survey='sdss')
-        
-    if do_gaia:
-        test = compile_list_of_images(survey='gaia')
-        
-if do_index:
-    
-    if do_unwise:
-        if do_custom_unwise:
-            test = index_image_list(survey='unwise_custom')
-        if do_allwise:
-            test = index_image_list(survey='unwise_allwise')
-        if do_neowise:
-            test = index_image_list(survey='unwise_neowise')
-
-    if do_galex:
-        test = index_image_list(survey='galex')
-
-    if do_sdss:
-        #test = index_image_list(survey='sdss')
-        test = index_image_list(survey='sdss', incremental=True)
-
-    if do_gaia:        
-        test = index_image_list(survey='gaia')
-
