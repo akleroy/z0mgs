@@ -26,9 +26,10 @@ from astropy.wcs.utils import proj_plane_pixel_scales
 
 from reproject import reproject_interp, reproject_adaptive
 
-from utils_z0mgs import *
+from utils_tabs_and_dirs import *
+from utils_z0mgs_images import *
 
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Atlas construction loop
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
@@ -51,9 +52,9 @@ def galex_build_atlas(
     for a single galaxy.
     """
 
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Define tasks
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
     if not isinstance(tasks, list):
         tasks = [tasks]
@@ -68,9 +69,9 @@ def galex_build_atlas(
         'gaia':root_dir+'../gaia/',
     }
 
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Define targets
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
         
     target_table = build_target_table(
         subsamples=subsamples, table_dir=table_dir,
@@ -78,9 +79,9 @@ def galex_build_atlas(
         start_galaxy=start_galaxy, stop_galaxy=stop_galaxy)
     n_targets = len(target_table)
 
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=            
     # Define Gaussian resolutions
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=            
 
     res_dict = {
         'gauss7p5':7.5,
@@ -190,8 +191,8 @@ def galex_process_one_galaxy(
         print("... special case of M31")
         size_deg = 2.0
 
-    
-    
+    posang_deg = target[]
+        
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Stage the images
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
