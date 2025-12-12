@@ -7,6 +7,9 @@ from astropy.table import Table
 from astropy.io import fits
 from astropy import wcs
 from astropy.wcs.utils import proj_plane_pixel_scales
+from astrop.stats import mad_std
+
+from scipy.ndimage import binary_dilation
 
 from reproject import reproject_interp, reproject_adaptive
 
@@ -18,15 +21,14 @@ from utils_z0mgs_images import *
 
 def extract_galex_stamp(
         band = 'fuv',
-        ra_ctr = 0.0,
-        dec_ctr = 0.0,
+        ctr_ra = 0.0,
+        ctr_dec = 0.0,
         size_deg = 0.01,
         index_file = '../../working_data/galex/index/galex_tile_index.fits',
         index_tab = None,
         use_int_files = True,
         outfile_image = None,
         outfile_weight = None,
-        show = False,
         overwrite = True):
     """
     This builds one GALEX image from the individual calibrated tiles.
@@ -38,7 +40,7 @@ def extract_galex_stamp(
     # Make a target header
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-    center_coord = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')    
+    center_coord = SkyCoord(ra=ctr_ra*u.deg, dec=ctr_dec*u.deg, frame='icrs')    
     pix_scale = np.array([1.5/3600.,1.5/3600.])
     nx = int(np.ceil(size_deg / pix_scale[0]))
     ny = int(np.ceil(size_deg / pix_scale[1]))
@@ -223,25 +225,269 @@ def extract_galex_stamp(
 # UNWISE
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-def stage_unwise_custom(
-):
-    pass
+def make_invvar_mask(
+        invvar_fname = None,
+        invvar_hdu = None,
+        invvar_image = None,
+        thresh = 5.0):
+    """
+    Construct a mask based on the inverse variance image.
+    """
+
+    if invvar_image is None:
+
+        if invvar_hdu is None:
+            invvar_hdu = fits.open(invvar_fname)[0]
+
+            invvar_image = invvar_hdu.data
+
+    rms = np.nanstd(invvar_image)
+    med_val = np.nanmedian(invvar_image)
+    resid = (invvar_image - med_val)/rms
+    mask = binary_dilation(resid >= thresh, iterations=5)
+            
+    return(mask)
+
+def unwise_counts_to_mjysr(
+        band = 'w1',
+        pix_scale_as = 2.75):
+    """
+    Convert counts to MJy/sr.
+    """
+
+    vega_to_ab = {
+        'w1':2.683,
+        'w2':3.319,
+        'w3':5.242,
+        'w4':6.604,
+    }
+
+    norm_mag_vega = 22.5
+
+    countspix_to_jypix = \
+        10.**(-1.*(norm_mag_vega+vega_to_ab[band])/2.5)*3631.
+
+    jypix_to_mjysr = 1./1E6/(pix_scale_as/3600.*np.pi/180.)**2
+
+    countspix_to_mjysr = countspix_to_jypix*jypix_to_mjysr
+    
+    return(countspix_to_mjysr)
 
 def extract_unwise_stamp(
         band = 'w1',
-        ra_ctr = 0.0,
-        dec_ctr = 0.0,
-        size_deg = 0.01,
-        source = None,
-        index_file = '../../working_data/unwise/index/galex_tile_index.fits',
+        ctr_ra = 0.0,
+        ctr_dec = 0.0,
+        method = 'copy',
+        tol_deg = 10./3600.,
+        size_deg = 0.01,        
+        index_file = '../../working_data/unwise/index/unwise_custom_index.fits',
         index_tab = None,
-        use_int_files = True,
         outfile_image = None,
-        outfile_weight = None,
-        show = False,
-        overwrite = True):
+        outfile_mask = None,
+        overwrite = True,
+):
+    """
+    """
 
-    pass
+    valid_methods = ['copy','reproject']
+    if method not in valid_methods:
+        print("Invalid method: ", method)
+        print("... allowed methos ", valid_methods)
+        return(None)
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Copying case
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    if method == 'copy':
+
+        print("Copying closest matching tile...")
+        
+        overlap_tab, separations = \
+            find_index_overlap(
+                index_file = index_file,
+                center_coord = center_coord,
+                image_extent = size_deg,
+                selection_dict = {'filter':band},
+                force_tolerance = tol_deg,
+                return_separations = True,
+            )    
+        n_overlap = len(overlap_tab)
+
+        print("... found ", n_overlap, tiles)
+
+        if n_overlap > 0:
+
+            min_ind = np.argmin(separations)
+            overlap_tab = overlap_tab[min_ind]
+            separations = separations[min_ind]
+
+        print("Closest tile center distance: ", seaprations)
+            
+        this_fname = overlap_tab[0]['fname'].strip()
+        this_hdu = fits.open(this_fname)[0]
+        this_hdr = this_hdu.header
+        this_image = this_hdu.data
+
+        print("... converting units.")
+        this_wcs = wcs.WCS(this_hdr)
+        pix_scale_deg = proj_plane_pixel_scales(this_wcs)[0]
+        pix_scale_as = pix_scale_deg*3600.
+        print("... ... pixel scale [as]: ", pix_scale_as)
+        
+        conv_fac = \
+            unwise_counts_to_mjysr(
+                band = band,
+                pix_scale_as = pix_scale_as)
+
+        this_image *= conv_fac
+        this_hdr['BUNIT'] = 'MJy/sr'
+        
+        print("... making an inverse variance mask.")
+        this_invvar_fname = this_fname.replace(
+            '-img-m.fits','-invvar-m.fits')        
+        invvar_mask = make_invvar_mask(
+            invvar_fname=this_invvar_fname)
+        
+        # ................................................
+        # Write to disk
+        # ................................................
+        
+        new_image_hdu = fits.PrimaryHDU(data=this_image, header=this_hdr)
+        
+        if outfile_image is not None:
+            new_image_hdu.writeto(outfile_image, overwrite=overwrite)
+
+        mask_hdr = this_hdr
+        mask_hdr['BUNIT'] = 'Mask'
+        invvar_mask_hdu = fits.PrimaryHDU(data=invvar_mask.astype(int), header=mask_hdr)
+
+        if outfile_mask is not None:        
+            invvar_mask_hdu.writeto(outfile_mask, overwrite=overwrite)
+
+        return(new_image_hdu, invvar_mask_hdu)
+        
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Reprojection case
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    if method == 'reproject':
+
+        # ................................................
+        # Define header
+        # ................................................        
+        
+        center_coord = SkyCoord(ra=ctr_ra*u.deg, dec=ctr_dec*u.deg, frame='icrs')    
+        pix_scale = np.array([2.75/3600.,2.75/3600.])
+        nx = int(np.ceil(size_deg / pix_scale[0]))
+        ny = int(np.ceil(size_deg / pix_scale[1]))
+        print("... pixel scale, nx, ny: ", pix_scale, nx, ny)
+    
+        target_hdr = make_simple_header(
+            center_coord, pix_scale, nx=nx, ny=ny, return_header=True)    
+        target_hdr['BUNIT'] = 'MJy/sr'
+        target_wcs = wcs.WCS(target_hdr)
+    
+        # ................................................
+        # Find overlap
+        # ................................................
+
+        print("Finding all overlapping tiles ...")
+        
+        overlap_tab = \
+            find_index_overlap(
+                index_file = index_file,
+                center_coord = center_coord,
+                image_extent = size_deg,
+                selection_dict = {'filter':band},,
+            )
+        n_overlap = len(overlap_tab)
+        
+        # ................................................
+        # Initialize output
+        # ................................................
+
+        weight_image = np.zeroes((ny, nx))
+        sum_image = np.zeros((ny, nx))
+        mask_image = np.zeros((ny, nx), dtype=int)
+        
+        # ................................................
+        # Loop over tiles, convert, mask then reproject
+        # ................................................        
+
+        for ii, this_overlap_row in overlap_tab:
+
+            print("... processing frame ", ii, " of ", n_overlap)
+
+            # Read and convert units
+            this_fname = this_overlap_row['fname'].strip()
+            this_hdu = fits.open(this_fname)[0]
+            this_hdr = this_hdu.header
+            this_image = this_hdu.data
+            
+            print("... converting units.")
+            this_wcs = wcs.WCS(this_hdr)
+            pix_scale_deg = proj_plane_pixel_scales(this_wcs)[0]
+            pix_scale_as = pix_scale_deg*3600.
+            print("... ... pixel scale [as]: ", pix_scale_as)
+        
+            conv_fac = \
+                unwise_counts_to_mjysr(
+                    band = band,
+                    pix_scale_as = pix_scale_as)
+
+            this_image *= conv_fac
+            this_hdr['BUNIT'] = 'MJy/sr'
+
+            # Make a mask based on the inverse variance
+            
+            print("... making an inverse variance mask.")
+            
+            this_invvar_fname = this_fname.replace(
+                '-img-m.fits','-invvar-m.fits')        
+            invvar_mask = make_invvar_mask(
+                invvar_fname=this_invvar_fname)
+
+            # Reproject image
+            aligned_image, footprint = reproject_interp(
+                (this_image, this_hdr), target_wcs,
+                order='bilinear')
+            
+            # Reproject mask
+            aligned_mask, footprint = reproject_interp(
+                (mask, this_hdr), target_wcs,
+                order='nearest-neighbor')
+
+            # Accumulate
+            sum_image += aligned_image
+            weight_image += np.isfinite(aligned_image)*1.0
+            mask_image += aligned_mask
+            
+        # ................................................
+        # Create full image and write to disk
+        # ................................................        
+
+        full_image = sum_image / weight_image
+        full_mask = (mask_image >= 1.0)
+        
+        full_image_hdu = fits.PrimaryHDU(data=full_image, header=target_hdr)
+        
+        if outfile_image is not None:
+            full_image_hdu.writeto(outfile_image, overwrite=overwrite)
+
+        mask_hdr = target_hdr
+        mask_hdr['BUNIT'] = 'Mask'
+        
+        full_mask_hdu = fits.PrimaryHDU(data=full_mask.astype(int),
+                                          header=mask_hdr)
+        
+        if outfile_mask is not None:        
+            full_mask_hdu.writeto(outfile_mask, overwrite=overwrite)
+            
+        return(full_image_hdu, full_mask_hdu)
+    
+    print("Should not reach here.")
+    return(None)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # SDSS
@@ -249,15 +495,14 @@ def extract_unwise_stamp(
 
 def extract_sdss_stamp(
         band = 'g',
-        ra_ctr = 0.0,
-        dec_ctr = 0.0,
+        ctr_ra = 0.0,
+        ctr_dec = 0.0,
         size_deg = 0.01,
         index_file = '../../working_data/sdss/index/sdss_tile_index.fits',
         index_tab = None,
         use_int_files = True,
         outfile_image = None,
         outfile_weight = None,
-        show = False,
         overwrite = True):
 
     pass

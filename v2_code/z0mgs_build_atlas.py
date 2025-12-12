@@ -55,7 +55,6 @@ def z0mgs_build_atlas(
         table_dir='../../measurements/',
         bands=['fuv','nuv'],
         incremental=False,
-        show = False,
         overwrite = True):
     """Loop to construct one of the z0mgs atlases. Manages construction of
     the list of targets and juggling directories then calls the
@@ -143,7 +142,6 @@ def z0mgs_build_atlas(
             tasks = tasks,
             bands = bands,
             incremental=incremental,
-            show = show,
             overwrite = overwrite)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -162,7 +160,6 @@ def z0mgs_process_one_galaxy(
             'gauss20':20.,
         },
         incremental=False,
-        show = False,
         overwrite = True):
     """
     Build the GALEX z0MGS products for one galaxy.
@@ -244,9 +241,9 @@ def z0mgs_process_one_galaxy(
     # Extract values from the target table
     this_name = target['NAME'].strip()
     this_pgc = target['PGC']                
-    ra_ctr = target['CTR_RA']
-    dec_ctr = target['CTR_DEC']
-    center_coord = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
+    ctr_ra = target['CTR_RA']
+    ctr_dec = target['CTR_DEC']
+    center_coord = SkyCoord(ra=ctr_ra*u.deg, dec=ctr_dec*u.deg, frame='icrs')
     pa = target['POSANG_DEG']*u.deg
     incl = target['INCL_DEG']*u.deg
     rgal = target['RGAL_DEG']*u.deg
@@ -258,7 +255,7 @@ def z0mgs_process_one_galaxy(
         size_deg = 2.0
 
     print("Processing: ", this_name)
-    print("... R.A., Dec. center: ", ra_ctr, dec_ctr)
+    print("... R.A., Dec. center: ", ctr_ra, ctr_dec)
     print("... size in deg: ", size_deg)
         
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
@@ -276,9 +273,6 @@ def z0mgs_process_one_galaxy(
             outfile_image = working_dirs['staged']+ \
                 this_name+'_'+this_band+'_mjysr.fits'
 
-            outfile_weight = working_dirs['staged']+ \
-                this_name+'_'+this_band+'_weight.fits'
-
             skip = False
             if incremental:
                 image_present = os.system.isfile(outfile_image)
@@ -288,23 +282,33 @@ def z0mgs_process_one_galaxy(
                     skip = skip * weight_present
 
             if survey == 'galex' and not skip:
+
+                outfile_weight = working_dirs['staged']+ \
+                    this_name+'_'+this_band+'_weight.fits'
                 
                 extract_galex_stamp(
                     band=this_band,
-                    ra_ctr=ra_ctr,
-                    dec_ctr=dec_ctr,
+                    ctr_ra=ctr_ra,
+                    ctr_dec=ctr_dec,
                     size_deg=size_deg,
                     use_int_files = True,
                     outfile_image = outfile_image,
                     outfile_weight = outfile_weight,
-                    show = show,
                     overwrite = True)
 
             if survey == 'unwise' and not skip:
 
-                print("Unwise staging not implemented yet.")
+                outfile_mask = working_dirs['staged']+ \
+                    this_name+'_'+this_band+'_mask.fits'
                 
-                pass
+                extract_unwise_stamp(
+                    band=this_band,
+                    ctr_ra=ctr_ra,
+                    ctr_dec=ctr_dec,
+                    size_deg=size_deg,
+                    outfile_image = outfile_image,
+                    outfile_mask = outfile_mask,
+                    overwrite = True)
 
             if survey == 'sdss' and not skip:
 
@@ -528,7 +532,6 @@ def z0mgs_process_one_galaxy(
                 rad_fac_to_blank = 1.0,
                 use_orient = True,
                 max_incl = 70.*u.deg,
-                show = show,
                 overwrite = overwrite)
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    

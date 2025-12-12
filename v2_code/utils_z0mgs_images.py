@@ -157,7 +157,9 @@ def find_index_overlap(
         index_extent = None,
         center_coord = None,
         image_extent = None,
+        force_tolerance = None,
         selection_dict = {},
+        return_separations = False,
 ):
     """Given a tabular index of tiles and a coord + extent for a new
     image, find all tiles in the index that could contribute to the
@@ -178,7 +180,11 @@ def find_index_overlap(
 
     image_extent : 
 
+    force_tolerance :
+
     selection dict : 
+
+    return_separations : 
 
     """
     
@@ -204,16 +210,25 @@ def find_index_overlap(
             dec_ctr = dec_ctr.to(u.deg).value
         center_coord = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
 
-    # Find tiles within half of the image extent + tile extent (i.e., that overlap)
+    # Find tiles within half of the image extent + tile extent (i.e.,
+    # that overlap) or a user-set tolerance if supplied
+    
     separations = np.array(index_coords.separation(center_coord))
-    tolerance = np.array(index_extent + 0.5*image_extent)
+    if force_tolerance is None:
+        tolerance = np.array(index_extent + 0.5*image_extent)
+    else:
+        tolerance = force_tolerance
     tiles_overlap = separations < tolerance
         
     for this_key, this_value in selection_dict.items():
         tiles_overlap *= (index_tab[this_key] == this_value)
 
     overlap_tab = index_tab[tiles_overlap]
-    return(overlap_tab)
+
+    if return_separations:
+        return(overlap_tab, separations)
+    else:
+        return(overlap_tab)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Query GAIA for use identifying foreground stars

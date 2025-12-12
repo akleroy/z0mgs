@@ -78,8 +78,8 @@ pro hack_subsample_tables
         new_tab[jj].unwise_dec = dec
      endfor
 
-     rgal_deg = dat.r25_deg
-          
+     new_tab.rgal_deg = dat.r25_deg
+     
      mwrfits, new_tab, outfile, /create
 
      ;fasthist, new_tab.ctr_ra - new_tab.unwise_ra
