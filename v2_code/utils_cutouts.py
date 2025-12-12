@@ -1,4 +1,20 @@
-# Routines to extract cutouts for specific surveys. contains a lot of 
+# Routines to extract cutouts for specific surveys. contains a lot of
+# specifics related to those data sets.
+
+import os
+
+from astropy.table import Table
+from astropy.io import fits
+from astropy import wcs
+from astropy.wcs.utils import proj_plane_pixel_scales
+
+from reproject import reproject_interp, reproject_adaptive
+
+from utils_z0mgs_images import *
+
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# GALEX
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 def extract_galex_stamp(
         band = 'fuv',
@@ -13,7 +29,7 @@ def extract_galex_stamp(
         show = False,
         overwrite = True):
     """
-    This builds one GALEX image from the individual calibrated tiles. 
+    This builds one GALEX image from the individual calibrated tiles.
 
     This is slow.
     """
@@ -202,3 +218,46 @@ def extract_galex_stamp(
         final_weight_hdu.writeto(outfile_weight, overwrite=overwrite)
 
     return(final_image_hdu, final_weight_hdu)
+
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# UNWISE
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+def stage_unwise_custom(
+):
+    pass
+
+def extract_unwise_stamp(
+        band = 'w1',
+        ra_ctr = 0.0,
+        dec_ctr = 0.0,
+        size_deg = 0.01,
+        source = None,
+        index_file = '../../working_data/unwise/index/galex_tile_index.fits',
+        index_tab = None,
+        use_int_files = True,
+        outfile_image = None,
+        outfile_weight = None,
+        show = False,
+        overwrite = True):
+
+    pass
+
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# SDSS
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+def extract_sdss_stamp(
+        band = 'g',
+        ra_ctr = 0.0,
+        dec_ctr = 0.0,
+        size_deg = 0.01,
+        index_file = '../../working_data/sdss/index/sdss_tile_index.fits',
+        index_tab = None,
+        use_int_files = True,
+        outfile_image = None,
+        outfile_weight = None,
+        show = False,
+        overwrite = True):
+
+    pass

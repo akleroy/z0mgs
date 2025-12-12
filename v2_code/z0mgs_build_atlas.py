@@ -14,6 +14,18 @@
 
 # - do better on incremental stuff
 
+# - the order of ops for correctness could be improved to:
+
+# stage ->
+# convolve + mask ->
+# bkfit ->
+# mask + bksub (+ interpolate?) ->
+# convolve
+
+# right now convolving with filled 0s and then subtracting leaves edge
+# artifact where we fill 0s outside the image. Could also patch this
+# (imperfectly) by filling with the image median.
+
 import os
 
 from astropy.table import Table
@@ -25,7 +37,7 @@ from reproject import reproject_interp, reproject_adaptive
 
 from utils_tabs_and_dirs import *
 from utils_z0mgs_images import *
-from utils_cutotus import *
+from utils_cutouts import *
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Atlas construction loop
@@ -275,7 +287,8 @@ def z0mgs_process_one_galaxy(
                     weight_present = os.system.isfile(outfile_weight)
                     skip = skip * weight_present
 
-            if survey == 'galex' and not skip: 
+            if survey == 'galex' and not skip:
+                
                 extract_galex_stamp(
                     band=this_band,
                     ra_ctr=ra_ctr,
@@ -433,8 +446,6 @@ def z0mgs_process_one_galaxy(
                 
                 convolved_image_file = working_dirs['convolved']+ \
                     this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
-
-                # TBD - Add masking of data before convolution.
                 
                 convolve_image_with_kernel(
                     image_file=staged_image_file,
@@ -681,9 +692,6 @@ def z0mgs_process_one_galaxy(
             rad_file = working_dirs['coords']+ \
                 this_name+'_rgal.fits'
 
-            bksub_file = working_dirs['bkgrd']+ \
-                this_name+'_'+this_band+'_mjysr_bksub.fits'
-
             bkgrd_file = working_dirs['bkgrd']+ \
                 this_name+'_'+this_band+'_mjysr_bkgrd.fits'
 
@@ -717,12 +725,49 @@ def z0mgs_process_one_galaxy(
                 weight_fname=weight_file,
                 rad_fname = rad_file,
                 fid_rad = rgal,
-                outfile = bksub_file,
                 outfile_bkgrd = bkgrd_file,                
                 methods = bkgrd_methods,
                 clip_thresh=3.0,
                 niter=5,
             )
+
+            print("... applying background subtraction.")
+
+            # Read the background
+            bkgrd_hdu = fits.open(bkgrd_file)
+            bkgrd = bkgrd_hdu[0].data
+
+            print("... ... to native")
+
+            # Background subtract the native res image
+            staged_image_fname = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+            staged_image_hdu = fits.open(staged_image_fname)[0]
+            staged_image = staged_image_hdu.data
+            staged_image_hdr = staged_image_hdu.header
+            
+            bksub_image_fname = working_dirs['bkgrd']+ \
+                this_name+'_'+this_band+'_mjysr_bksub.fits'
+            bksub_image_hdu = fits.PrimaryHDU(
+                data=staged_image - bkgrd, header=staged_image_hdr)
+            bksub_image_hdu.writeto(bksub_image_fname, overwrite=True)
+
+            # Background subtract the convolved data
+            for this_res_ext in res_dict.keys():
+
+                print("... ... to "+this_res_ext)
+                            
+                this_image_fname = working_dirs['convolved'] + \
+                    this_name+'_'+this_band+'_mjysr_'+this_res_ext+'.fits'
+                this_image_hdu = fits.open(this_image_fname)[0]
+                this_image = this_image_hdu.data
+                this_image_hdr = this_image_hdu.header
+            
+                bksub_image_fname = working_dirs['bkgrd']+ \
+                    this_name+'_'+this_band+'_mjysr_'+this_res_ext+'_bksub.fits'
+                bksub_image_hdu = fits.PrimaryHDU(
+                    data=this_image - bkgrd, header=this_image_hdr)
+                bksub_image_hdu.writeto(bksub_image_fname, overwrite=True)
         
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Plot everything together
