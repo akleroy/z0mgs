@@ -394,7 +394,7 @@ def extract_unwise_stamp(
         # Find overlap
         # ................................................
 
-        print("Finding all overlapping tiles ...")
+        print("Finding all overlapping tiles within ", size_deg*60., " arcmin ...")
         
         overlap_tab = \
             find_index_overlap(
@@ -403,6 +403,7 @@ def extract_unwise_stamp(
                 image_extent = size_deg,
                 selection_dict = {'filter':band},
             )
+        print(overlap_tab)
         n_overlap = len(overlap_tab)
 
         print("... found ", n_overlap, " tiles")
@@ -411,15 +412,15 @@ def extract_unwise_stamp(
         # Initialize output
         # ................................................
 
-        weight_image = np.zeroes((ny, nx))
+        weight_image = np.zeros((ny, nx))
         sum_image = np.zeros((ny, nx))
-        mask_image = np.zeros((ny, nx), dtype=int)
+        mask_image = np.zeros((ny, nx))
         
         # ................................................
         # Loop over tiles, convert, mask then reproject
         # ................................................        
 
-        for ii, this_overlap_row in overlap_tab:
+        for ii, this_overlap_row in enumerate(overlap_tab):
 
             print("... processing frame ", ii, " of ", n_overlap)
 
@@ -452,19 +453,25 @@ def extract_unwise_stamp(
             invvar_mask = make_invvar_mask(
                 invvar_fname=this_invvar_fname)
 
+            print("... reproject and accumulate.")
+            
             # Reproject image
-            aligned_image, footprint = reproject_interp(
+            aligned_image, footprint_image = reproject_interp(
                 (this_image, this_hdr), target_wcs,
                 order='bilinear')
+            aligned_image[footprint_image==0] = 0.0
+            
+            print("Sum - ", np.sum(footprint_image), np.sum(aligned_image))
             
             # Reproject mask
-            aligned_mask, footprint = reproject_interp(
-                (mask, this_hdr), target_wcs,
+            aligned_mask, footprint_mask = reproject_interp(
+                (invvar_mask, this_hdr), target_wcs,
                 order='nearest-neighbor')
-
+            aligned_mask[footprint_mask==0] = 0.0
+            
             # Accumulate
             sum_image += aligned_image
-            weight_image += np.isfinite(aligned_image)*1.0
+            weight_image += footprint_image*1.0
             mask_image += aligned_mask
             
         # ................................................

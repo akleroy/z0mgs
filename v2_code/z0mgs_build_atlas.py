@@ -54,6 +54,7 @@ def z0mgs_build_atlas(
         root_dir='../../working_data/',
         table_dir='../../measurements/',
         bands=None,
+        unwise_method='reproject',
         incremental=False,
         overwrite = True):
     """Loop to construct one of the z0mgs atlases. Manages construction of
@@ -157,6 +158,7 @@ def z0mgs_build_atlas(
             bands = bands,
             working_dirs = this_working_dirs,
             res_dict=res_dict,
+            unwise_method=unwise_method,
             incremental=incremental,
             overwrite = overwrite)
 
@@ -175,6 +177,7 @@ def z0mgs_process_one_galaxy(
             'gauss15':15.,
             'gauss20':20.,
         },
+        unwise_method='reproject',
         incremental=False,
         overwrite = True):
     """
@@ -321,7 +324,7 @@ def z0mgs_process_one_galaxy(
                     size_deg=size_deg,
                     outfile_image = outfile_image,
                     outfile_mask = outfile_mask,
-                    method='copy',
+                    method=unwise_method,
                     overwrite = True)
 
             if survey == 'sdss' and not skip:
