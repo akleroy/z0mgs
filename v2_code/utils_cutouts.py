@@ -7,7 +7,7 @@ from astropy.table import Table
 from astropy.io import fits
 from astropy import wcs
 from astropy.wcs.utils import proj_plane_pixel_scales
-from astrop.stats import mad_std
+from astropy.stats import mad_std
 
 from scipy.ndimage import binary_dilation
 
@@ -302,6 +302,8 @@ def extract_unwise_stamp(
     if method == 'copy':
 
         print("Copying closest matching tile...")
+
+        center_coord = SkyCoord(ra=ctr_ra*u.deg, dec=ctr_dec*u.deg, frame='icrs')
         
         overlap_tab, separations = \
             find_index_overlap(
@@ -314,15 +316,15 @@ def extract_unwise_stamp(
             )    
         n_overlap = len(overlap_tab)
 
-        print("... found ", n_overlap, tiles)
+        print("... found ", n_overlap, " tiles")
 
-        if n_overlap > 0:
+        if n_overlap > 1:
 
             min_ind = np.argmin(separations)
             overlap_tab = overlap_tab[min_ind]
             separations = separations[min_ind]
 
-        print("Closest tile center distance: ", seaprations)
+        print("Closest tile center distance: ", separations)
             
         this_fname = overlap_tab[0]['fname'].strip()
         this_hdu = fits.open(this_fname)[0]
@@ -399,9 +401,11 @@ def extract_unwise_stamp(
                 index_file = index_file,
                 center_coord = center_coord,
                 image_extent = size_deg,
-                selection_dict = {'filter':band},,
+                selection_dict = {'filter':band},
             )
         n_overlap = len(overlap_tab)
+
+        print("... found ", n_overlap, " tiles")
         
         # ................................................
         # Initialize output

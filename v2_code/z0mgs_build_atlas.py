@@ -53,7 +53,7 @@ def z0mgs_build_atlas(
         stop_galaxy=None,
         root_dir='../../working_data/',
         table_dir='../../measurements/',
-        bands=['fuv','nuv'],
+        bands=None,
         incremental=False,
         overwrite = True):
     """Loop to construct one of the z0mgs atlases. Manages construction of
@@ -73,6 +73,21 @@ def z0mgs_build_atlas(
         print("... valid options: ", valid_surveys)
         return
 
+    if survey == 'galex':
+        valid_bands = ['fuv','nuv']
+        if bands is None:
+            band = valid_bands
+
+    if survey == 'unwise':
+        valid_bands = ['w1','w2','w3','w4']
+        if bands is None:
+            band = valid_bands
+
+    if survey == 'sdss':
+        valid_bands = ['u','g','r','i','z']
+        if bands is None:
+            band = valid_bands
+            
     survey_dir = survey + '/'
     
     if not isinstance(tasks, list):
@@ -137,10 +152,11 @@ def z0mgs_build_atlas(
                 
         z0mgs_process_one_galaxy(
             target = this_target_row,
+            tasks = tasks,
+            survey = survey,
+            bands = bands,
             working_dirs = this_working_dirs,
             res_dict=res_dict,
-            tasks = tasks,
-            bands = bands,
             incremental=incremental,
             overwrite = overwrite)
 
@@ -218,17 +234,14 @@ def z0mgs_process_one_galaxy(
             print("Invalid task ", this_task)
             print("Returning ...")
             return()
-        
-    if this_band in ['fuv','nuv']:
+
+    if survey == 'galex':
         fid_rms = 5E-3
             
-    if this_band in ['w1','w2']:
+    if survey == 'unwise':
         fid_rms = 1E-2
 
-    if this_band in ['w3','w4']:
-        fid_rms = 1E-1
-
-    if this_band in ['u','g','r','i','z']:
+    if survey == 'sdss':
         fid_rms = 1E-3
         
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -308,6 +321,7 @@ def z0mgs_process_one_galaxy(
                     size_deg=size_deg,
                     outfile_image = outfile_image,
                     outfile_mask = outfile_mask,
+                    method='copy',
                     overwrite = True)
 
             if survey == 'sdss' and not skip:
@@ -444,6 +458,11 @@ def z0mgs_process_one_galaxy(
                 
                 kern_to_this_res = z0mgs_kernel_name(
                     from_res=this_band, to_res=target_res)
+                if os.path.isfile(kern_to_this_res) == False:
+                    print("... ... kernel not found: ", kern_to_this_res)
+                    print("... ... continuing without it.")
+                    print("... ... create it if it should be there.")
+                    continue
                 
                 staged_image_file = working_dirs['staged']+ \
                     this_name+'_'+this_band+'_mjysr.fits'
@@ -475,6 +494,10 @@ def z0mgs_process_one_galaxy(
                 convolved_image_file = working_dirs['convolved']+ \
                     this_name+'_'+this_band+'_mjysr_'+this_res+'.fits'
 
+                if os.path.isfile(convolved_image_file) == False:
+                    print("... ... file not present ", convolved_image_file)
+                    continue
+    
                 show_z0mgs_image(
                     image_fname = convolved_image_file,
                     outfile = convolved_image_file.replace('.fits','.png'),
@@ -762,6 +785,11 @@ def z0mgs_process_one_galaxy(
                             
                 this_image_fname = working_dirs['convolved'] + \
                     this_name+'_'+this_band+'_mjysr_'+this_res_ext+'.fits'
+
+                if os.path.isfile(this_image_fname) == False:
+                    print("... ... file missing: ", this_image_fname)
+                    continue
+                
                 this_image_hdu = fits.open(this_image_fname)[0]
                 this_image = this_image_hdu.data
                 this_image_hdr = this_image_hdu.header
