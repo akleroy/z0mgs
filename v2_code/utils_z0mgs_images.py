@@ -43,6 +43,7 @@ from spectral_cube import SpectralCube, LazyMask, Projection
 from radio_beam import Beam
 
 from scipy.interpolate import RegularGridInterpolator
+from scipy.optimize import curve_fit
 
 # Visualization
 import matplotlib.pyplot as plt
@@ -976,7 +977,7 @@ def build_star_mask(
     # Make the mask
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
 
-    star_mask = star_hdu.data >= clip_level
+    star_mask = (star_hdu.data >= clip_level)*1.
     star_mask_hdr = star_hdu.header
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -1016,7 +1017,7 @@ def stack_masks(
             mask_hdr = this_hdu.header
             have_first_mask = True
         else:
-            mask = mask | this_mask
+            mask = np.logical_or(mask, this_mask)
 
     # Loop over HDUs
         
@@ -1028,13 +1029,13 @@ def stack_masks(
             mask_hdr = this_hdu.header
             have_first_mask = True
         else:
-            mask = mask | this_mask
+            mask = np.logical_or(mask, this_mask)            
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Outfile
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    
-    mask_hdu = fits.PrimaryHDU(data = mask, header = mask_hdr)
+
+    mask_hdu = fits.PrimaryHDU(mask.astype(int), header = mask_hdr)
     
     # Write to disk
     if outfile is not None:
@@ -1408,9 +1409,9 @@ def convolve_image_with_kernel(
                 allow_huge=True,
                 normalize_kernel=False,
                 boundary='fill',
-                nan_treatment='fill',
-                # TBD - The fill value here is no good but no good options
                 fill_value=0.0,
+                # TBD - The fill value here is no good but no good options
+                nan_treatment='fill',
                 preserve_nan=True,
                 psf_pad=True,
             )
@@ -1531,8 +1532,10 @@ def fit_z0mgs_background(
         weight_hdu=None,
         rad_fname = None,
         rad_hdu = None,
-        fid_rad = 15./3600.,
+        fid_rad = 15./3600.*u.deg,
         outfile = None,
+        outfile_bkgrd = None,        
+        overwrite = True,
         methods=['itermed'],
         clip_thresh=3.0,
         niter=5,
@@ -1575,11 +1578,12 @@ def fit_z0mgs_background(
     if rad_hdu is None:
         if rad_fname is not None:
             rad_hdu = fits.open(rad_fname)[0]
-            rad_mask = rad_hdu <= fid_rad
-            mask = mask | rad_mask
+            rad_image = rad_hdu.data*u.deg
+            rad_mask = rad_image <= fid_rad
+            mask = np.logical_or(mask, rad_mask).astype(int)
 
     # Mask out regions with no weight
-    mask = mask | (weight_image == 0)
+    mask = np.logical_or(mask, (weight_image == 0)).astype(int)
             
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Estimate the noise
@@ -1589,8 +1593,8 @@ def fit_z0mgs_background(
     # map (especially important for GALEX). Assumption is that weight
     # is integration time-like so that noise \propto weight^(-0.5)
 
-    unmaked_ind = np.where(mask == 0)
-    med_weight_unmasked = np.nanmedian(weight_image[ind])
+    unmasked_ind = np.where(mask == 0)
+    med_weight_unmasked = np.nanmedian(weight_image[unmasked_ind])
     noiselike = 1./np.sqrt(weight_image/med_weight_unmasked)
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -1610,16 +1614,26 @@ def fit_z0mgs_background(
         # Initialize an aperture and a rejected pixels mask
         aperture = (mask == 0)
         rejected = np.zeros_like(aperture,dtype=bool)
+
+        converged = False
+        prev_med = np.nan
+        prev_rms = np.nan
+        prev_num_outliers = 0
         
         for ii in range(niter):
 
-            print("... iteration ", ii)
+            if converged:
+                continue
             
-            bkgrd_ind = np.where(aperture & (not rejected))
-            if len(bkgrd_ind) == 0:
+            print("... iteration ", ii+1, " of ", niter)
+            
+            bkgrd_ind = np.where(aperture*(rejected == False))
+            n_bkgrd_pix = len(bkgrd_ind[0])
+            if n_bkgrd_pix == 0:
                 print("No background pixels.")
                 continue
-
+            print("... background pixels: ", n_bkgrd_pix) 
+            
             data_vec = image[bkgrd_ind]
             noiselike_vec = noiselike[bkgrd_ind]
 
@@ -1634,12 +1648,24 @@ def fit_z0mgs_background(
             # Mask them in the aperture
             num_outliers = np.sum(outliers)
             if num_outliers > 0:
-                (rejected[bkgrd_ind])[outliers] = 1
+                rejected[bkgrd_ind] = \
+                    np.logical_or(rejected[bkgrd_ind], outliers)
+
+            converged = False
+            if (med_val == prev_med) & (rms == prev_rms) & \
+               (prev_num_outliers == num_outliers):
+                converged = True
+            else:
+                prev_med = med_val            
+                prev_rms = rms
+                prev_num_outliers = num_outliers
                 
-            print("... rejected outliers ", num_outliers)
+            print("... rejected outliers: ", num_outliers)
+            print("... median value, rms: ", med_val, rms)
+            print("... converged: ", converged)
 
         # Incorporate rejected pixels into the mask
-        mask = mask | rejected
+        mask = np.logical_or(mask, rejected).astype(int)
 
         # Record the background
         bkgrd = bkgrd + med_val
@@ -1665,15 +1691,26 @@ def fit_z0mgs_background(
         # Initialize mask and rejected pixels
         aperture = (mask == 0)
         rejected = np.zeros_like(aperture,dtype=bool)
-        
+
+        converged = False
+        prev_a = np.nan
+        prev_b = np.nan
+        prev_c = np.nan        
+        prev_num_outliers = 0
+ 
         for ii in range(niter):
 
-            print("... iteration ", ii)
-            bkgrd_mask = aperture & (not rejected)
-            bkgrd_ind = np.where(bkgrd_mask)
-            if len(bkgrd_ind) == 0:
+            if converged:
+                continue
+            
+            print("... iteration ", ii+1, " of ", niter)
+
+            bkgrd_ind = np.where(aperture*(rejected == False))
+            n_bkgrd_pix = len(bkgrd_ind[0])
+            if n_bkgrd_pix == 0:
                 print("No background pixels.")
                 continue
+            print("... background pixels: ", n_bkgrd_pix) 
 
             # Vectorize the data and points
             data_vec = image[bkgrd_ind]
@@ -1685,8 +1722,6 @@ def fit_z0mgs_background(
             fit_params, fit_covariance = \
                 curve_fit(plane_func, xy_stack, data_vec)
             a, b, c = fit_params
-
-            print(f"Fitted plane equation: z = {a:.2f}x + {b:.2f}y + {c:.2f}")
       
             # Whole background
             plane_img = a * x_img + b * y_img + c
@@ -1694,17 +1729,31 @@ def fit_z0mgs_background(
             rms = mad_std(resid, ignore_nan=True)
                   
             # Find outliers
-            outliers = (np.abs(resid) > (clip_thresh*rms/noiselike)) * \
-                  bkgrd_mask
-            num_outliers = np.sum(outliers)
+            outliers = (np.abs(resid) > (clip_thresh*rms/noiselike))
+
+            # Mask outliers
+            num_outliers = np.sum(outliers[bkgrd_ind])
             if num_outliers > 0:
                   rejected[np.where(outliers)] = 1
-                  
-            print("... rejected outliers ", num_outliers)
-            
 
+            converged = False
+            if (prev_a == a) & (prev_b == b) & (prev_c == c) \
+               & (prev_num_outliers == num_outliers):
+                converged = True
+            else:
+                prev_a = a
+                prev_b = b
+                prev_c = c
+                prev_num_outliers = num_outliers
+
+            print("... fitted plane equation: z = ", a, " * x + ",
+                  b, " * y + ", c)
+            print("... rejected outliers ", num_outliers)
+            print("... converged: ", converged)
+        
         # Incorporate rejected pixels into the mask
-        mask = mask | rejected
+        mask = np.logical_or(mask, rejected).astype(int)
+
         image = image - plane_img
         bkgrd = bkgrd + plane_img
 
@@ -1717,6 +1766,7 @@ def fit_z0mgs_background(
         print("Using mode of histogram for background estimation.")
         
         aperture = (mask == 0)
+        bkgrd_ind = np.where(aperture)
         data_vec = image[bkgrd_ind]
 
         rms = mad_std(data_vec, ignore_nan=True)
@@ -1727,9 +1777,12 @@ def fit_z0mgs_background(
         bin_edges = np.concatenate([bin_centers-0.5*binsize,
                                     np.array([bin_centers[-1]+0.5*binsize])])
         
-        hist_counts, bin_edges_out = np.histogram(data, bins=bin_edges)
+        hist_counts, bin_edges_out = np.histogram(data_vec, bins=bin_edges)
         max_bin_ind = np.argmax(hist_counts)
         max_bin_val = bin_centers[max_bin_ind]
+
+        print("... binsize: ", binsize)
+        print("... max_bin_x, counts: ", max_bin_val, hist_counts[max_bin_ind])
 
         bkgrd = bkgrd + max_bin_val
         image = image - max_bin_val
@@ -1764,9 +1817,9 @@ def fit_z0mgs_background(
         bksub_hdu.writeto(outfile, overwrite=overwrite)
 
     if outfile_bkgrd is not None:
-        bkkgrd_hdu.writeto(outfile_bkgrd, overwrite=overwrite)
+        bkgrd_hdu.writeto(outfile_bkgrd, overwrite=overwrite)
                   
-    return((bksub_hdu,bkgrd_hdu))
+    return(bksub_hdu,bkgrd_hdu)
         
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Related to visualization

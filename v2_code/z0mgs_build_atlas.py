@@ -1,16 +1,13 @@
-# GALEX atlas creation
+# Loop for atlas creation
 
 # What's in here:
 
 # - infrastructure to loop over subsamples
 # - a pipeline function to reduce one galaxy
-# - galex-specific functions
 
 # TBD:
 
 # - image construction itself seems to be the bottleneck
-
-# - galaxy mask creation can be sped by doing it only once.
 
 # - can save reading the tiles index over and over but this is not
 # - likely to be a large speedup.
@@ -28,51 +25,68 @@ from reproject import reproject_interp, reproject_adaptive
 
 from utils_tabs_and_dirs import *
 from utils_z0mgs_images import *
+from utils_cutotus import *
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Atlas construction loop
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
-def galex_build_atlas(
+def z0mgs_build_atlas(
+        survey='galex',
         tasks='all',
         subsamples=None,
         just_galaxy=None,
         skip_galaxy=None,
         start_galaxy=None,
         stop_galaxy=None,
-        root_dir='../../working_data/galex/',
+        root_dir='../../working_data/',
         table_dir='../../measurements/',
         bands=['fuv','nuv'],
-        pause=False,
         incremental=False,
         show = False,
         overwrite = True):
-    """Loop to construct the GALEX atlas. Manages construction of the
-    list of targets and juggling directories then calls the pipeline
-    for a single galaxy.
+    """Loop to construct one of the z0mgs atlases. Manages construction of
+    the list of targets and juggling directories then calls the
+    pipeline for a single galaxy.
     """
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Define tasks
+    # Define tasks and directories
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+    if isinstance(survey,list):
+        survey = survey[0]
+    valid_surveys = ['galex','unwise','sdss']
+    if survey not in valid_surveys:
+        print("Invalid survey: ", survey)
+        print("... valid options: ", valid_surveys)
+        return
+
+    survey_dir = survey + '/'
+    
     if not isinstance(tasks, list):
         tasks = [tasks]
     
     working_dirs = {
-        'staged':root_dir+'staged/',
-        'bkgrd':root_dir+'bkgrd/',        
-        'masks':root_dir+'masks/',
-        'coords':root_dir+'coords/',        
-        'convolved':root_dir+'convolved/',
-        'final':root_dir+'final/',
-        'gaia':root_dir+'../gaia/',
+        'staged':root_dir+survey_dir+'staged/',
+        'bkgrd':root_dir+survey_dir+'bkgrd/',        
+        'masks':root_dir+survey_dir+'masks/',
+        'coords':root_dir+survey_dir+'coords/',        
+        'convolved':root_dir+survey_dir+'convolved/',
+        'final':root_dir+survey_dir+'final/',
+        'gaia':root_dir+'gaia/',
     }
+
+    # Make sure the directories are present
+    make_z0mgs_directories(
+        root_dir=root_dir, surveys=[survey])    
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Define targets
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
-        
+
+    # Get the list of galaxies. Does not depend on the parent survey.
+    
     target_table = build_target_table(
         subsamples=subsamples, table_dir=table_dir,
         just_galaxy=just_galaxy, skip_galaxy=skip_galaxy,
@@ -80,7 +94,7 @@ def galex_build_atlas(
     n_targets = len(target_table)
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=            
-    # Define Gaussian resolutions
+    # Define target Gaussian resolutions
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=            
 
     res_dict = {
@@ -97,7 +111,7 @@ def galex_build_atlas(
 
         print("")
         print("Processing galaxy "+str(ii)+" of "+str(n_targets)+ \
-              " "+this_target_row["Z0MGS_NAME"])
+              " "+this_target_row["NAME"])
         print("")
 
         this_working_dirs = working_dirs.copy()
@@ -110,13 +124,12 @@ def galex_build_atlas(
         # Make sure that we have a position, orientation, etc.
         target_row = clean_up_target_row(this_target_row)
                 
-        galex_process_one_galaxy(
+        z0mgs_process_one_galaxy(
             target = this_target_row,
             working_dirs = this_working_dirs,
             res_dict=res_dict,
             tasks = tasks,
             bands = bands,
-            pause = pause,
             incremental=incremental,
             show = show,
             overwrite = overwrite)
@@ -125,13 +138,17 @@ def galex_build_atlas(
 # Single galaxy pipeline
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
         
-def galex_process_one_galaxy(
+def z0mgs_process_one_galaxy(
         target=None,
         tasks=['all'],
-        bands=['fuv','nuv'],
+        survey='galex',
+        bands=None,
         working_dirs='./',
-        res_dict={},
-        pause=False,
+        res_dict= {
+            'gauss7p5':7.5,
+            'gauss15':15.,
+            'gauss20':20.,
+        },
         incremental=False,
         show = False,
         overwrite = True):
@@ -140,40 +157,71 @@ def galex_process_one_galaxy(
     """
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Manage the task list and directories
+    # Manage the survey, bands, tasks, and directories
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 
 
+    # Check survey validity
+    valid_surveys = ['galex','unwise','sdss']
+    if survey not in valid_surveys:
+        print("Invalid survey: ", survey)
+        print("... valid options: ", valid_surveys)
+        return
+
+    # Check band validity
+    if survey == 'galex':
+        valid_bands = ['fuv','nuv']
+    if survey == 'sdss':
+        valid_bands = ['u','g','r','i','z']
+    if survey == 'unwise':
+        valid_bands = ['w1','w2','w3','w4']
+
+    if bands is None:
+        bands = valid_bands
+    else:
+        for this_band in bands:
+            if this_band not in valid_bands:
+                print("Invalid band for ", survey, ": ", this_band)
+                print("... valid bands are ", valid_bands)
+
+    # Check task list
     if not isinstance(tasks, list):
         tasks = [tasks]
-    
+
+    valid_tasks = [ 
+        'stage',
+        'plot_stage',
+        'convolve',
+        'plot_convolve',
+        'coord_mask',
+        'galaxy_mask',
+        'star_pred',
+        'star_mask',
+        'bkgrd',
+        'plot_results',
+    ]
+        
     if tasks == ['all']:
-        tasks = [ 
-            'stage',
-            'plot_stage',
-            'convolve',
-            'plot_convolve',
-            'coord_mask',
-            'plot_coord_mask',             
-            'galaxy_mask',
-            'plot_galaxy_mask',
-            'star_pred',
-            'star_mask',
-            'plot_star_mask',
-            'bkgrd',
-            'plot_bkgrd',
-        ]
+        tasks = valid_tasks
 
-    if not isinstance(working_dirs, dict):
-        working_dirs = {
-            'staged':working_dirs,
-            'bkgrd':working_dirs,
-            'masks':working_dirs,
-            'coords':working_dirs,            
-            'convolved':working_dirs,
-            'final':working_dirs,
-            'gaia':working_dirs,
-        }
+    use_tasks = []
+    for this_task in tasks:
+        if this_task not in valid_tasks:
+            print("Invalid task ", this_task)
+            print("Returning ...")
+            return()
+        
+    if this_band in ['fuv','nuv']:
+        fid_rms = 5E-3
+            
+    if this_band in ['w1','w2']:
+        fid_rms = 1E-2
 
+    if this_band in ['w3','w4']:
+        fid_rms = 1E-1
+
+    if this_band in ['u','g','r','i','z']:
+        fid_rms = 1E-3
+        
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Manage the target
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
@@ -184,8 +232,8 @@ def galex_process_one_galaxy(
     # Extract values from the target table
     this_name = target['NAME'].strip()
     this_pgc = target['PGC']                
-    ra_ctr = target['RA_CTR']
-    dec_ctr = target['DEC_CTR']
+    ra_ctr = target['CTR_RA']
+    dec_ctr = target['CTR_DEC']
     center_coord = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
     pa = target['POSANG_DEG']*u.deg
     incl = target['INCL_DEG']*u.deg
@@ -196,22 +244,23 @@ def galex_process_one_galaxy(
     if target['PGC'] == 2557:
         print("... special case of M31")
         size_deg = 2.0
+
+    print("Processing: ", this_name)
+    print("... R.A., Dec. center: ", ra_ctr, dec_ctr)
+    print("... size in deg: ", size_deg)
         
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Stage the images
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
 
-    # Identify which tiles in the full stack of GALEX tiles overlap
-    # this target and use these to construct an intensity and a weight
-    # image for the galaxy.
+    # Call the cutout construction routine. This varies by survey.
 
-    # TBD - This step is slow. Explore options. Including possibly
-    # unzipping GALEX?
+    # TBD - This step is slow for galex. Explore options.
     
-    if 'stage' in tasks:
+    if 'stage' in tasks:        
         
         for this_band in bands:
-
+            
             outfile_image = working_dirs['staged']+ \
                 this_name+'_'+this_band+'_mjysr.fits'
 
@@ -221,31 +270,34 @@ def galex_process_one_galaxy(
             skip = False
             if incremental:
                 image_present = os.system.isfile(outfile_image)
-                weight_present = os.system.isfile(outfile_weight)
-                skip = image_present * weight_present
+                skip = image_present
+                if survey == 'galex':
+                    weight_present = os.system.isfile(outfile_weight)
+                    skip = skip * weight_present
 
-            print("Staging: ", this_name)
-            print("... RA, Dec center: ", ra_ctr, dec_ctr)
-            print("... size in deg: ", size_deg)
-            print("... to: ", outfile_image)
+            if survey == 'galex' and not skip: 
+                extract_galex_stamp(
+                    band=this_band,
+                    ra_ctr=ra_ctr,
+                    dec_ctr=dec_ctr,
+                    size_deg=size_deg,
+                    use_int_files = True,
+                    outfile_image = outfile_image,
+                    outfile_weight = outfile_weight,
+                    show = show,
+                    overwrite = True)
 
-            index_file = \
-                '../../working_data/galex/index/galex_tile_index.fits'
+            if survey == 'unwise' and not skip:
+
+                print("Unwise staging not implemented yet.")
                 
-            if not skip:
-               image, hdr = \
-                   extract_galex_stamp(
-                       band=this_band,
-                       ra_ctr=ra_ctr,
-                       dec_ctr=dec_ctr,
-                       size_deg=size_deg,
-                       index_file = index_file,
-                       use_int_files = True,
-                       outfile_image = outfile_image,
-                       outfile_weight = outfile_weight,
-                       show = show,
-                       pause = pause,
-                       overwrite = True)
+                pass
+
+            if survey == 'sdss' and not skip:
+
+                print("SDSS staging not implemented yet.")
+                
+                pass            
 
     # Plot the images produced in staging. We will make fancier plots
     # later but this provides a quick look.
@@ -256,15 +308,6 @@ def galex_process_one_galaxy(
               
             staged_image_file = working_dirs['staged']+ \
                 this_name+'_'+this_band+'_mjysr.fits'
-            
-            staged_weight_file = working_dirs['staged']+ \
-                this_name+'_'+this_band+'_weight.fits'
-
-            if this_band == 'fuv':
-                this_rms = 10.**(-3.5)
-
-            if this_band == 'nuv':
-                this_rms = 10.**(-3.0)
 
             print("Plots for: ", this_name, ' ', this_band)
             
@@ -274,17 +317,21 @@ def galex_process_one_galaxy(
                 outfile = staged_image_file.replace('.fits','.png'),
                 title = this_name+' '+this_band,
                 value_string = this_band+' [MJy/sr]',
-                rms = this_rms
+                rms = fid_rms,
             )
 
-            show_z0mgs_image(
-                image_fname = staged_weight_file,
-                show = False,
-                outfile = staged_weight_file.replace('.fits','.png'),
-                title = this_name+' '+this_band,
-                value_string = this_band+' [relative response]',
-                rms = this_rms
-            )
+            if survey == 'galex':
+                
+                staged_weight_file = working_dirs['staged']+ \
+                    this_name+'_'+this_band+'_weight.fits'
+            
+                show_z0mgs_image(
+                    image_fname = staged_weight_file,
+                    outfile = staged_weight_file.replace('.fits','.png'),
+                    title = this_name+' '+this_band,
+                    value_string = this_band+' [relative response]',
+                    rms = fid_rms
+                )
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
     # Make supporting coordinate images
@@ -295,22 +342,26 @@ def galex_process_one_galaxy(
     
     if 'coord_mask' in tasks:
 
-        skip = False
-            
-        staged_image_file = working_dirs['staged']+ \
-            this_name+'_nuv_mjysr.fits'
+        print("Constructing coordinate images ... ")
+        
+        # Find a template
+        skip = True
+        template_file = None
+        for this_band in bands:
+            if template_file is not None:
+                continue
+            try_file = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+            if os.path.isfile(try_file):
+                template_file = try_file
+                skip = False
 
-        if os.path.isfile(staged_image_file) == False:
-            staged_image_file = working_dirs['staged']+ \
-                this_name+'_fuv_mjysr.fits'
-            if os.path.isfile(staged_image_file) == False:
-                skip = True
-
+        # Define coord files
         rad_file = working_dirs['coords']+ \
             this_name+'_rgal.fits'
 
-        posang_file = working_dirs['coords']+ \
-            this_name+'_posang.fits'
+        theta_file = working_dirs['coords']+ \
+            this_name+'_theta.fits'
 
         major_file = working_dirs['coords']+ \
             this_name+'_major.fits'
@@ -318,45 +369,41 @@ def galex_process_one_galaxy(
         minor_file = working_dirs['coords']+ \
             this_name+'_minor.fits'        
 
-        if incremental and (skip == False):
-
+        # Proceed if any files are missing
+        if incremental & (skip == False):
             skip = True
-            if not os.path.isfile(rad_file):
-                skip = False
-            if not os.path.isfile(posang_file):
-                skip = False
-            if not os.path.isfile(major_file):
-                skip = False
-            if not os.path.isfile(minor_file):
-                skip = False
+            for this_file in [rad_file, posang_file,
+                              major_file, minor_file]:
+                if not os.path.isfile(this_file):
+                    skip = False
                 
         if not skip:
 
-            template_hdu = fits.open(staged_image_file)[0]
+            template_hdu = fits.open(template_file)[0]
             template_hdr = template_hdu.header
             template_hdr['BUNIT'] = 'Deg'
 
-            radius_deg, projang_deg, major_deg, minor_deg = \
+            radius_deg, theta_deg, major_deg, minor_deg = \
                 deproject(
-                    center_coord = center_coord,
-                    incl=incl,
-                    pa=pa,
-                    template_header=template_hdr,
-                    return_offset=True,
-                    verbose=False)
+                    center_coord = center_coord, incl=incl,  pa=pa,
+                    template_header=template_hdr, return_offset=True)
 
-            rad_hdu = PrimaryHDU(data=radius_deg, header=template_hdr)
+            rad_hdu = fits.PrimaryHDU(data=radius_deg, header=template_hdr)
             rad_hdu.writeto(rad_file, overwrite=True)
             
-            theta_hdu = PrimaryHDU(data=theta_deg, header=template_hdr)
+            theta_hdu = fits.PrimaryHDU(data=theta_deg, header=template_hdr)
             theta_hdu.writeto(theta_file, overwrite=True)
 
-            major_hdu = PrimaryHDU(data=major_deg, header=template_hdr)
+            major_hdu = fits.PrimaryHDU(data=major_deg, header=template_hdr)
             major_hdu.writeto(major_file, overwrite=True)
             
-            minor_hdu = PrimaryHDU(data=minor_deg, header=template_hdr)
+            minor_hdu = fits.PrimaryHDU(data=minor_deg, header=template_hdr)
             minor_hdu.writeto(minor_file, overwrite=True)        
-        
+
+        else:
+
+            print("... ... skipping")
+            
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Do the convolutions
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
@@ -401,6 +448,8 @@ def galex_process_one_galaxy(
                 
     if 'plot_convolve' in tasks:
 
+        print("Plotting convolved images ... ")
+        
         for this_band in bands:
 
             print("... ... ", this_band)
@@ -413,15 +462,14 @@ def galex_process_one_galaxy(
 
                 show_z0mgs_image(
                     image_fname = convolved_image_file,
-                    show = False,
                     outfile = convolved_image_file.replace('.fits','.png'),
                     title = this_name+' '+this_band+' '+this_res,
                     value_string = this_band+' [MJy/sr]',
                 )
 
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Make galaxy masks
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
 
     # Make a mask of known other galaxies in the field. Leverages
     # existing galaxy database. Could farm these tuning parameters out
@@ -433,23 +481,23 @@ def galex_process_one_galaxy(
         gal_tab_file = '/home/leroy.42/idl/galbase/gal_data/gal_base.fits'
         pgc_to_skip = []
 
-        # Find a template image
-
-        skip = False
-            
-        staged_image_file = working_dirs['staged']+ \
-            this_name+'_nuv_mjysr.fits'
-
-        if os.path.isfile(staged_image_file) == False:
-            staged_image_file = working_dirs['staged']+ \
-                this_name+'_fuv_mjysr.fits'
-            if os.path.isfile(staged_image_file) == False:
-                skip = True
+        # Find a template
+        skip = True
+        template_file = None
+        for this_band in bands:
+            if template_file is not None:
+                continue
+            try_file = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+            if os.path.isfile(try_file):
+                template_file = try_file
+                skip = False
         
         galaxy_mask_file = working_dirs['masks']+ \
             this_name+'_galmask.fits'
 
-        if incremental:
+        # Skip if present if incremental mode requested
+        if incremental & (skip == False):
             mask_present = os.system.isfile(galaxy_mask_file)
             skip = mask_present
 
@@ -459,7 +507,7 @@ def galex_process_one_galaxy(
             print("Making a galaxy mask for for: ", this_name)
             
             build_galaxy_mask(
-                template_file = staged_image_file,
+                template_file = template_file,
                 outfile = galaxy_mask_file,
                 gal_tab_file = gal_tab_file,
                 this_pgc = target['PGC'],
@@ -470,36 +518,12 @@ def galex_process_one_galaxy(
                 use_orient = True,
                 max_incl = 70.*u.deg,
                 show = show,
-                pause = pause,
                 overwrite = overwrite)
 
-            
-        if 'plot_galaxy_mask' in tasks:
-
-            galaxy_mask_image = \
-                galaxy_mask_file.replace('.fits','.png')
-            
-            if incremental:
-                image_present = os.system.isfile(galaxy_mask_image)
-                skip = image_present
-
-            this_rms = 10.**(-3.5)
-            if not skip:                
-                show_z0mgs_image(
-                    image_fname = staged_image_file,
-                    mask_fname = galaxy_mask_file,
-                    mask_levels = [0.99],
-                    show = False,
-                    outfile = galaxy_mask_image,
-                    title = this_name+' with galaxy mask',
-                    value_string = this_band+' [MJy/sr]',
-                    rms = this_rms
-                )
-                
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    # Make star predictions
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+    # Make star predictions    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
     # Make a prediction in flux/pixel units of the flux of foreground
     # star point sources in the image and convolve this with a few
     # relevant PSFs to make images. Leverages existing GAIA query or
@@ -516,7 +540,7 @@ def galex_process_one_galaxy(
             
         for this_band in bands:
 
-            staged_image_file = working_dirs['staged']+ \
+            template_file = working_dirs['staged']+ \
                 this_name+'_'+this_band+'_mjysr.fits'
             
             gaia_file = working_dirs['gaia']+ \
@@ -531,8 +555,9 @@ def galex_process_one_galaxy(
             # Query GAIA if needed but skip if present            
 
             # TBD patched
-            gaia_file = working_dirs['gaia'].replace('test_data','working_data') + \
-                this_name+'_gaia_dr3.fits'
+            gaia_file = working_dirs['gaia'] + this_name + '_gaia_dr3.fits'
+            if gaia_file.count('test_data') > 0:
+                gaia_file = gaia_file.replace('test_data','working_data') 
 
             print("... ensuring Gaia catalog present")
 
@@ -552,13 +577,13 @@ def galex_process_one_galaxy(
                         
             # Build an image of stellar flux
             build_star_flux_image(
-                template_file = staged_image_file,
+                template_file = template_file,
                 outfile = star_flux_file,
                 band = this_band,
                 gaia_file = gaia_file,
                 ks_file = ks_file,
                 gaia_s2n_cut = 3.5,
-                center_coord = None,
+                center_coord = center_coord,
                 center_tol = 3.0*u.arcsec,
             )
 
@@ -590,9 +615,9 @@ def galex_process_one_galaxy(
                     overwrite=True,
                 )
         
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Make star masks
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%        
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
 
     # Use the existing stellar prediction images to create masks that
     # blank pixels associated with foreground stars.
@@ -614,266 +639,96 @@ def galex_process_one_galaxy(
                 
             star_mask_file = working_dirs['masks']+\
                 this_name+'_'+this_band+'_mask.fits'
-
-            if this_band == 'fuv':
-                this_rms = 10.**(-3.5)
-            
-            if this_band == 'nuv':
-                this_rms = 10.**(-3.0)
                 
             build_star_mask(
                 image_file = staged_image_file,
                 star_file = star_intens_file,
                 outfile = star_mask_file,
-                rms_value = this_rms,
+                rms_value = fid_rms,
                 rms_fac = 3.0,
                 overwrite = True,
             )
         
-    if 'plot_star_mask' in tasks:
-
-        for this_band in bands:
-            
-            star_intens_file = working_dirs['masks']+\
-                this_name+'_'+this_band+'_starintens.fits'
-        
-            # TBD
-
-   
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
     # Fit and subtract a background
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
     
     if 'bkgrd' in tasks:
 
-        fit_z0mgs_background(
-            image_fname=None,
-            image_hdu=None,
-            mask_fnames=[],
-            mask_hdus=[],
-            weight_fname=None,
-            weight_hdu=None,
-            rad_fname = None,
-            rad_hdu = None,
-            fid_rad = 15./3600.,
-            outfile = None,
-            methods=['itermed'],
-            clip_thresh=3.0,
-            niter=5,
-        )        
+        print("Fitting backgrounds ...")
+
+        for this_band in bands:
+
+            print("... ... ", this_band)
+
+            image_file = working_dirs['staged']+ \
+                this_name+'_'+this_band+'_mjysr.fits'
+            
+            if this_band in ['fuv','nuv']:
+                image_file = working_dirs['convolved']+ \
+                    this_name+'_'+this_band+'_mjysr'+ \
+                    '_gauss20.fits'
+            
+            if this_band in ['w1','w2']:
+                ext_to_fit = ''
+
+            if this_band in ['w3','w4']:
+                ext_to_fit = ''
+
+            if this_band in ['u','g','r','i','z']:
+                ext_to_fit = ''                
+                
+            rad_file = working_dirs['coords']+ \
+                this_name+'_rgal.fits'
+
+            bksub_file = working_dirs['bkgrd']+ \
+                this_name+'_'+this_band+'_mjysr_bksub.fits'
+
+            bkgrd_file = working_dirs['bkgrd']+ \
+                this_name+'_'+this_band+'_mjysr_bkgrd.fits'
+
+            if survey == 'galex':
+                weight_file = working_dirs['staged']+ \
+                    this_name+'_'+this_band+'_weight.fits'
+            else:
+                weight_file = None
+
+            if survey == 'galex':
+                bkgrd_methods = ['itermed','mode','planefit']
+            if survey == 'unwise':
+                bkgrd_methods = ['itermed','planefit']
+            if survey == 'sdss':
+                bkgrd_methods = ['itermed']
+
+            galaxy_mask_file = working_dirs['masks']+ \
+                this_name+'_galmask.fits'
+            
+            star_mask_file = working_dirs['masks']+\
+                this_name+'_'+this_band+'_mask.fits'
+                
+            mask_fname_list = [
+                galaxy_mask_file,
+                star_mask_file,
+            ]
+                
+            fit_z0mgs_background(
+                image_fname=image_file,
+                mask_fnames=mask_fname_list,
+                weight_fname=weight_file,
+                rad_fname = rad_file,
+                fid_rad = rgal,
+                outfile = bksub_file,
+                outfile_bkgrd = bkgrd_file,                
+                methods = bkgrd_methods,
+                clip_thresh=3.0,
+                niter=5,
+            )
         
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-    # Extract a subimage
-    # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+    # Plot everything together
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
         
-    if 'extract' in tasks:
+    if 'plot_results' in tasks:
         
         pass
 
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-# Individual pipeline steps
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-def extract_galex_stamp(
-        band = 'fuv',
-        ra_ctr = 0.0,
-        dec_ctr = 0.0,
-        size_deg = 0.01,
-        index_file = '../../working_data/galex/index/galex_tile_index.fits',
-        index_tab = None,
-        use_int_files = True,
-        outfile_image = None,
-        outfile_weight = None,
-        show = False,
-        pause = False,
-        overwrite = True):
-    """
-    This builds one GALEX image from the individual calibrated tiles. 
-
-    This is slow.
-    """
-    
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Make a target header
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-    center_coord = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')    
-    pix_scale = np.array([1.5/3600.,1.5/3600.])
-    nx = int(np.ceil(size_deg / pix_scale[0]))
-    ny = int(np.ceil(size_deg / pix_scale[1]))
-    print("... pixel scale, nx, ny: ", pix_scale, nx, ny)
-    
-    target_hdr = make_simple_header(
-        center_coord, pix_scale, nx=nx, ny=ny, return_header=True)    
-    target_hdr['BUNIT'] = 'MJy/sr'
-    target_wcs = wcs.WCS(target_hdr)
-    
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Find contributing tiles
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-    overlap_tab = find_index_overlap(
-        index_file = index_file,
-        center_coord = center_coord,
-        image_extent = size_deg,
-        selection_dict = {'filter':band},
-    )    
-    n_overlap = len(overlap_tab)
-    
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Initialize output
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-    weight_image = np.zeros((ny, nx))
-    sum_image = np.zeros((ny, nx))
-
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Loop over tiles
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
-    
-    for ii, this_overlap_row in enumerate(overlap_tab):
-        
-        print("... processing tile ", ii, " of ", n_overlap)
-
-        # Can use background subtracted or integrated images, we
-        # prefer to do the background subtraction ourself.
-        
-        if use_int_files:
-            this_image_fname = this_overlap_row['fname'].strip()
-        else:
-            this_image_fname = this_overlap_row['bgsub_fname'].strip()            
-
-        # Relative response file name
-        this_rrhr_fname = this_overlap_row['rrhr_fname'].strip()
-
-        # Flag file name
-        this_flag_fname = this_overlap_row['flag_fname'].strip()
-
-        # Read in the image
-        image_hdu = fits.open(this_image_fname)
-        image = image_hdu[0].data
-        
-        # Check if the image is empty (in which case we skip this
-        # file). Could refine the index to do this.
-        
-        if np.sum(np.isfinite(image)*(image != 0)) == 0:
-            print("... ... no finite or non-zero values. Proceeding.")
-            continue
-
-        tile_hdr = image_hdu[0].header
-        if 'CDELT1' not in tile_hdr:
-            print("... ... no astrometry found. Proceeding.")
-
-        # Read in the response
-        rrhr_hdu = fits.open(this_rrhr_fname)
-        rrhr = rrhr_hdu[0].data
-        rrhr_hdr = rrhr_hdu[0].header
-
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-        # Read in and apply flags
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-        print("... ... reading and applying flags.")
-        
-        # Read in the flags
-        flag_hdu = fits.open(this_flag_fname)
-
-        # Align the flags to the image using nearest neighbor
-        # alignment to preserve precise pixel values.
-        tile_wcs = wcs.WCS(tile_hdr)
-        aligned_flags, footprint = reproject_interp(
-            flag_hdu[0], tile_wcs,
-            order='nearest-neighbor')
-        aligned_flags[np.where(footprint == 0)] = 1024
-
-        flag_mask = (((aligned_flags % 256) % 128) % 64) >= 32
-
-        image[flag_mask] = np.nan
-        rrhr[flag_mask] = np.nan
-        
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-        # Convert units
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-        print("... ... unit conversion.")
-                
-        # Counts per second to Jy transformation. Based on
-        # http://galexgi.gsfc.nasa.gov/docs/galex/FAQ/counts_background.html
-        #
-        # for GALEX FUV:
-        # mAB = -2.5 log10 CPS + 18.82
-        # for GALEX NUV:
-        # mAB = -2.5 log10 CPS + 20.08
-        #
-        # then mAB = -2.5 log10 (f_nu / 3630.8)
-
-        if band == 'fuv':
-            cpstojy = 0.000107647
-            target_hdr['CPSTOJY'] = (cpstojy, 'FUV value')
-        else:
-            cpstojy = 3.37289e-05
-            target_hdr['CPSTOJY'] = (cpstojy, 'NUV value')
-
-        image = cpstojy*image/1E6            
-            
-        # Assume square and will be decimal degrees
-        pix_scale_deg = proj_plane_pixel_scales(tile_wcs)[0]
-        pix_sr = (np.pi/180.*pix_scale_deg)**2
-        image /= pix_sr
-
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-        # Align the image and response to the target header
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
-
-        print("... ... align and accumulate.")
-        
-        # Image
-        aligned_image, footprint = reproject_interp(
-            (image, tile_hdr), target_wcs,
-            order='bilinear')        
-        #aligned_image, footprint = reproject_adaptive(
-        #    (image, tile_hdr), target_wcs,
-        #    bad_value_mode='ignore')
-        aligned_image[np.where(footprint == 0)] = np.nan
-
-        # RRHR
-        aligned_rrhr, footprint = reproject_interp(
-            (rrhr, rrhr_hdr), target_wcs,
-            order='bilinear')
-        #aligned_rrhr, footprint = reproject_adaptive(
-        #    (rrhr, tile_hdr), target_wcs,
-        #    bad_value_mode='ignore')
-        aligned_rrhr[np.where(footprint == 0)] = 0.0
-        
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-        # Accumulate
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-        im_ind = \
-            np.where((aligned_rrhr > 0.0)*np.isfinite(aligned_rrhr)* \
-                     np.isfinite(aligned_image))
-
-        sum_image[im_ind] = sum_image[im_ind]+ \
-            (aligned_image[im_ind]*aligned_rrhr[im_ind])
-        weight_image[im_ind] = weight_image[im_ind]+ \
-            aligned_rrhr[im_ind]
-
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    # Construct final image
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-    
-    final_image = sum_image/weight_image
-
-    # Construct HDUs and write if requested
-    
-    final_image_hdu = fits.PrimaryHDU(data=final_image, header=target_hdr)
-    if outfile_image is not None:
-        final_image_hdu.writeto(outfile_image, overwrite=overwrite)
-
-    response_hdr = target_hdr
-    response_hdr['BUNIT'] = 'WEIGHT'
-    final_weight_hdu = fits.PrimaryHDU(data=weight_image, header=response_hdr)
-    if outfile_weight is not None:
-        final_weight_hdu.writeto(outfile_weight, overwrite=overwrite)
-
-    return(final_image_hdu, final_weight_hdu)

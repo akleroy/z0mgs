@@ -216,19 +216,19 @@ def clean_up_target_row(
     may not be necessary.
 
     """
-
-    if (not np.isfinite(gal_dict['POSANG_DEG'].filled(np.nan))):
+    
+    if (not np.isfinite(float(gal_dict['POSANG_DEG']))):
         gal_dict['POSANG_DEG'] = 0.0
         gal_dict['INCL_DEG'] = 0.0
 
-    if (not np.isfinite(gal_dict['INCL_DEG'].filled(np.nan))):
+    if (not np.isfinite(float(gal_dict['INCL_DEG']))):
         gal_dict['INCL_DEG'] = 0.0
 
-    if (not np.isfinite(gal_dict['CTR_RA'].filled(np.nan))):
+    if (not np.isfinite(float(gal_dict['CTR_RA']))):
         gal_dict['CTR_RA'] = gal_dict['UNWISE_RA']
         gal_dict['CTR_DEC'] = gal_dict['UNWISE_DEC']
 
-    if (not np.isfinite(gal_dict['RGAL_DEG'].filled(np.nan))):
+    if (not np.isfinite(float(gal_dict['RGAL_DEG']))):
         gal_dict['RGAL_DEG'] = 30./3600.
 
     return(gal_dict)
