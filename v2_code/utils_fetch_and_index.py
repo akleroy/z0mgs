@@ -26,12 +26,15 @@
 
 import os, glob, time
 import numpy as np
+
 from astropy.table import Table, Column, vstack
 import astropy.io.fits as fits
 import astropy.io.ascii as ascii
 import astropy.wcs as wcs
 from astropy.utils.console import ProgressBar
 from astropy.wcs.utils import proj_plane_pixel_scales
+from astropy.coordinates import SkyCoord, ICRS
+from astropy.coordinates.representation import CartesianRepresentation, SphericalRepresentation
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Fetch various surveys from their archives
@@ -130,6 +133,28 @@ def gaia_fetch():
     # call here to wget the ESA DR3.
     
     pass
+
+def gaia_convert_to_fits():
+    """Gaia serves their tables as ecsv but these are slow for astropy to
+    read. Convert to FITS tables which read quickly (could also
+    presumably write a sharper CSV reader). This reduces read time by
+    about 30x.
+    """
+    
+    working_dir = '/data/fft_scratch/leroy.42/allsky/gaia/'
+    selection = '*.csv'
+
+    flist = glob.glob(working_dir+selection)
+    for this_fname in ProgressBar(flist):
+        this_tab = Table.read(this_fname, format='ascii.ecsv')
+        outfile = this_fname.replace('.csv','.fits')
+        print("Will write to: ", outfile)
+        if os.path.isfile(outfile):
+            print("... it exists already.")
+            continue
+        this_tab.write(outfile, format='fits')
+
+    return()
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Index the fetched surveys
@@ -273,7 +298,11 @@ def compile_list_of_images(
             print("Compiling list of all files in GAIA directory.")
             print("")
 
-            # TBD
+            root_dir = '/data/fft_scratch/leroy.42/allsky/gaia/'
+            #selection = '*.csv'
+            selection = '*.fits'
+            tab_dir = '../../working_data/gaia/index/'
+            tab_file = 'gaia_list.fits'
             
     # Find the relevant files
     
@@ -298,7 +327,7 @@ def compile_list_of_images(
     return(tab)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-# Loop over the files
+# Index the properties of the files
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
 def index_image_list(
@@ -360,8 +389,16 @@ def index_image_list(
             print("Indexing GAIA tables.")
             print("")
 
-            pass
+            index_dir = '../../working_data/gaia/index/'
+            list_table = 'gaia_list.fits'
+            outfile = 'gaia_index.fits'
 
+            index_gaia_tables(
+                list_table=index_dir+list_table,
+                outfile=index_dir+outfile)
+
+            return()
+            
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Loop over table
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -500,3 +537,57 @@ def index_image_list(
     print("This took : ", stop_time-start_time, " seconds.")
     
     return(tab)
+
+def index_gaia_tables(
+        list_table = None,
+        outfile = None,
+):
+    """
+    Index the gaia tables.
+    """
+
+    start_time = time.time()
+
+    # Read table
+    index = Table.read(list_table, format='fits')
+    n_files = len(index)
+    
+    # Initialize output
+    for this_field in ['ctr_ra','ctr_dec','extent']:
+        index[this_field] = np.nan
+
+    for this_row in ProgressBar(index):
+
+        this_tab = Table.read(this_row['fname'], format='ascii.ecsv')
+
+        fid_dist = 10.*u.mpc
+        eq_coords = SkyCoord(ra=this_tab['ra'], dec=this_tab['dec'], distance=fid_dist, frame='icrs')
+        cart_coords = eq_coords.cartesian
+
+        mean_x = np.mean(cart_coords.x)
+        mean_y = np.mean(cart_coords.y)
+        mean_z = np.mean(cart_coords.z)
+
+        cart_rep = CartesianRepresentation(mean_x, mean_y, mean_z)
+        sphere_rep = cart_rep.represent_as(SphericalRepresentation)
+        ctr_coord = SkyCoord(sphere_rep).transform_to(ICRS)
+        
+        #ctr_coord = (SkyCoord(x=mean_x, y=mean_y, z=mean_z, representation_type='cartesian')).transform_to('icrs')
+        this_row['ctr_ra'] = ctr_coord[0]
+        this_row['ctr_dec'] = ctr_coord[1]
+
+        separations = eq_coords.separation(ctr_coord)
+        max_extent = np.max(separations)
+
+        this_row['extent'] = max_extent
+        print(this_row)
+        
+    index.write(outfile, format='fits', overwrite=True)
+        
+    stop_time = time.time()
+    
+    print("This took : ", stop_time-start_time, " seconds.")
+    
+    return(index)
+
+    

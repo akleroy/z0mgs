@@ -23,6 +23,7 @@ from astropy.utils.console import ProgressBar
 import astropy.wcs as wcs
 from astropy.wcs.utils import proj_plane_pixel_scales
 from astropy.stats import mad_std
+from astropy.coordinates import SkyCoord
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Construct tables of galaxies to be processed
@@ -190,7 +191,6 @@ def build_tab_for_one_target(
     """
     
     ctr_coords = SkyCoord(ra=ra_ctr*u.deg, dec=dec_ctr*u.deg, frame='icrs')
-    
     
     gal_dict = \
         [{'NAME':name,
