@@ -220,7 +220,7 @@ def z0mgs_process_one_galaxy(
         res_ext_for_bkgrd = '_gauss20'
         preconv_res_dict = {
             'gauss20':20.,
-        }        
+        }
     if survey == 'sdss':
         valid_bands = ['u','g','r','i','z']
         fid_rms = 1E-3
@@ -711,13 +711,6 @@ def z0mgs_process_one_galaxy(
             else:
                 weight_file = None
 
-            if survey == 'galex':
-                bkgrd_methods = ['itermed','mode','planefit']
-            if survey == 'unwise':
-                bkgrd_methods = ['itermed','planefit']
-            if survey == 'sdss':
-                bkgrd_methods = ['itermed']
-
             galaxy_mask_file = working_dirs['masks']+ \
                 this_name+'_galmask.fits'
             
@@ -728,7 +721,19 @@ def z0mgs_process_one_galaxy(
                 galaxy_mask_file,
                 star_mask_file,
             ]
+            
+            if survey == 'galex':
+                bkgrd_methods = ['itermed','mode']
+
+            if survey == 'sdss':
+                bkgrd_methods = ['itermed','mode']        
+
+            if an_unwise_survey and (this_band in ['w1','w2']):
+                bkgrd_methods = ['itermed','mode']
                 
+            if an_unwise_survey and (this_band in ['w3','w4']):
+                bkgrd_methods = ['itermed','mode','planefit']
+            
             fit_z0mgs_background(
                 image_fname = image_file,
                 mask_fnames = mask_fname_list,
@@ -802,7 +807,7 @@ def z0mgs_process_one_galaxy(
                     this_name+'_'+this_band+'_mjysr_bksub.fits'
                 
                 convolved_image_file = working_dirs['bkgrd']+ \
-                    this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
+                    this_name+'_'+this_band+'_mjysr_bksub_'+target_res+'.fits'
                 
                 convolve_image_with_kernel(
                     image_file=staged_image_file,
