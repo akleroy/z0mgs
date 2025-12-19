@@ -35,6 +35,7 @@ from astropy.utils.console import ProgressBar
 from astropy.wcs.utils import proj_plane_pixel_scales
 from astropy.coordinates import SkyCoord, ICRS
 from astropy.coordinates.representation import CartesianRepresentation, SphericalRepresentation
+import astropy.units as u
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Fetch various surveys from their archives
@@ -299,8 +300,7 @@ def compile_list_of_images(
             print("")
 
             root_dir = '/data/fft_scratch/leroy.42/allsky/gaia/'
-            #selection = '*.csv'
-            selection = '*.fits'
+            selection = '*.fits' # converted from .csv
             tab_dir = '../../working_data/gaia/index/'
             tab_file = 'gaia_list.fits'
             
@@ -558,10 +558,12 @@ def index_gaia_tables(
 
     for this_row in ProgressBar(index):
 
-        this_tab = Table.read(this_row['fname'], format='ascii.ecsv')
+        #this_tab = Table.read(this_row['fname'], format='ascii.ecsv')
+        this_tab = Table.read(this_row['fname'], format='fits')
 
         fid_dist = 10.*u.mpc
-        eq_coords = SkyCoord(ra=this_tab['ra'], dec=this_tab['dec'], distance=fid_dist, frame='icrs')
+        eq_coords = SkyCoord(ra=this_tab['ra'], dec=this_tab['dec'],
+                             distance=fid_dist, frame='icrs')
         cart_coords = eq_coords.cartesian
 
         mean_x = np.mean(cart_coords.x)
@@ -572,14 +574,17 @@ def index_gaia_tables(
         sphere_rep = cart_rep.represent_as(SphericalRepresentation)
         ctr_coord = SkyCoord(sphere_rep).transform_to(ICRS)
         
-        #ctr_coord = (SkyCoord(x=mean_x, y=mean_y, z=mean_z, representation_type='cartesian')).transform_to('icrs')
-        this_row['ctr_ra'] = ctr_coord[0]
-        this_row['ctr_dec'] = ctr_coord[1]
+        #ctr_coord = (SkyCoord(x=mean_x, y=mean_y, z=mean_z,
+        #                      representation_type='cartesian')).transform_to('icrs')
+        
+        #print(float(ctr_coord.ra.deg), float(ctr_coord.dec.deg))
+        this_row['ctr_ra'] = float(ctr_coord.ra.deg)
+        this_row['ctr_dec'] = float(ctr_coord.dec.deg)
 
         separations = eq_coords.separation(ctr_coord)
-        max_extent = np.max(separations)
-
-        this_row['extent'] = max_extent
+        max_extent = np.max(np.array(separations.deg,dtype=float))
+        
+        this_row['extent'] = float(max_extent)
         print(this_row)
         
     index.write(outfile, format='fits', overwrite=True)
