@@ -68,7 +68,7 @@ def z0mgs_build_atlas(
 
     if isinstance(survey,list):
         survey = survey[0]
-    valid_surveys = ['galex','unwise','sdss']
+    valid_surveys = ['galex','unwise','unwise_custom','allwise','neowise','sdss']
     if survey not in valid_surveys:
         print("Invalid survey: ", survey)
         print("... valid options: ", valid_surveys)
@@ -78,18 +78,26 @@ def z0mgs_build_atlas(
         valid_bands = ['fuv','nuv']
         if bands is None:
             band = valid_bands
+        survey_dir = 'galex/'
 
-    if survey == 'unwise':
+    if (survey == 'unwise') | (survey == 'unwise_custom') \
+       | (survey=='allwise'):
         valid_bands = ['w1','w2','w3','w4']
         if bands is None:
             band = valid_bands
+        survey_dir = 'unwise/'
 
+    if survey == 'neowise':
+        valid_bands = ['w1','w2','w3','w4']
+        if bands is None:
+            band = valid_bands
+        survey_dir = 'unwise/'
+            
     if survey == 'sdss':
         valid_bands = ['u','g','r','i','z']
         if bands is None:
             band = valid_bands
-            
-    survey_dir = survey + '/'
+        survey_dir = 'sdss/'
     
     if not isinstance(tasks, list):
         tasks = [tasks]
@@ -189,20 +197,43 @@ def z0mgs_process_one_galaxy(
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 
 
     # Check survey validity
-    valid_surveys = ['galex','unwise','sdss']
+    valid_surveys = ['galex','unwise','allwise','neowise','sdss']
     if survey not in valid_surveys:
         print("Invalid survey: ", survey)
         print("... valid options: ", valid_surveys)
         return
 
-    # Check band validity
-    if survey == 'galex':
+    # Key data for survey
+
+    an_unwise_survey = \
+        ((survey == 'unwise') | (survey == 'neowise') \
+         | (survey == 'allwise'))
+    
+    # ... by default fit the background to the native res native res
+    res_ext_for_bkgrd = ''
+    preconv_res_dict = {}
+    
+    if survey == 'galex':        
         valid_bands = ['fuv','nuv']
+        fid_rms = 5E-3
+        # ... for galex smooth before background
+        res_ext_for_bkgrd = '_gauss20'
+        preconv_res_dict = {
+            'gauss20':20.,
+        }        
     if survey == 'sdss':
         valid_bands = ['u','g','r','i','z']
+        fid_rms = 1E-3
     if survey == 'unwise':
         valid_bands = ['w1','w2','w3','w4']
-
+        fid_rms = 1E-2
+    if survey == 'neowise':
+        valid_bands = ['w1','w2']
+        fid_rms = 1E-2
+    if survey == 'allwise':
+        valid_bands = ['w1','w2','w3','w4']
+        fid_rms = 1E-2
+        
     if bands is None:
         bands = valid_bands
     else:
@@ -210,7 +241,7 @@ def z0mgs_process_one_galaxy(
             if this_band not in valid_bands:
                 print("Invalid band for ", survey, ": ", this_band)
                 print("... valid bands are ", valid_bands)
-
+                
     # Check task list
     if not isinstance(tasks, list):
         tasks = [tasks]
@@ -218,13 +249,14 @@ def z0mgs_process_one_galaxy(
     valid_tasks = [ 
         'stage',
         'plot_stage',
-        'convolve',
-        'plot_convolve',
+        'convolve_for_bkgrd',
         'coord_mask',
         'galaxy_mask',
         'star_pred',
         'star_mask',
         'bkgrd',
+        'plot_bkgrd',
+        'convolve',
         'plot_results',
     ]
         
@@ -237,15 +269,6 @@ def z0mgs_process_one_galaxy(
             print("Invalid task ", this_task)
             print("Returning ...")
             return()
-
-    if survey == 'galex':
-        fid_rms = 5E-3
-            
-    if survey == 'unwise':
-        fid_rms = 1E-2
-
-    if survey == 'sdss':
-        fid_rms = 1E-3
         
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Manage the target
@@ -312,7 +335,7 @@ def z0mgs_process_one_galaxy(
                     outfile_weight = outfile_weight,
                     overwrite = True)
 
-            if survey == 'unwise' and not skip:
+            if an_unwise_survey and not skip:
 
                 outfile_mask = working_dirs['staged']+ \
                     this_name+'_'+this_band+'_mask.fits'
@@ -325,6 +348,7 @@ def z0mgs_process_one_galaxy(
                     outfile_image = outfile_image,
                     outfile_mask = outfile_mask,
                     method=unwise_method,
+                    survey=survey,
                     overwrite = True)
 
             if survey == 'sdss' and not skip:
@@ -367,6 +391,47 @@ def z0mgs_process_one_galaxy(
                     rms = fid_rms
                 )
 
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Convolve (if needed) before background subtraction
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 
+
+    # Convolve to a specified Gaussian resolution (if relevant) before
+    # background subtraction. The final convolutions will come after
+    # background subtraction below.
+    
+    if 'convolve' in tasks:
+
+        print("Convolving images for background subtraction ...")
+
+        for this_band in bands:
+
+            print("... ... ", this_band)
+            
+            for target_res in preconv_res_dict.keys():
+                print("... to "+target_res)
+                
+                kern_to_this_res = z0mgs_kernel_name(
+                    from_res=this_band, to_res=target_res)
+                if os.path.isfile(kern_to_this_res) == False:
+                    print("... ... kernel not found: ", kern_to_this_res)
+                    print("... ... continuing without it.")
+                    print("... ... create it if it should be there.")
+                    continue
+                
+                staged_image_file = working_dirs['staged']+ \
+                    this_name+'_'+this_band+'_mjysr.fits'
+                
+                convolved_image_file = working_dirs['staged']+ \
+                    this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
+                
+                convolve_image_with_kernel(
+                    image_file=staged_image_file,
+                    outfile=convolved_image_file,
+                    kernel_file=kern_to_this_res,
+                    blank_zeros=False,
+                    overwrite=True
+                )
+                
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
     # Make supporting coordinate images
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
@@ -437,77 +502,8 @@ def z0mgs_process_one_galaxy(
         else:
 
             print("... ... skipping")
+
             
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
-    # Do the convolutions
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
-
-    # Convolve to some specified Gaussian resolutions.
-
-    # TBD - In principle this could come after star masking and could
-    # blank them out of the convolution. This needs to be done before
-    # background subtraction. Add ability to accept a mask.
-    
-    if 'convolve' in tasks:
-
-        print("Convolving images ...")
-
-        for this_band in bands:
-
-            print("... ... ", this_band)
-            
-            for target_res in res_dict.keys():
-                print("... to "+target_res)
-                
-                kern_to_this_res = z0mgs_kernel_name(
-                    from_res=this_band, to_res=target_res)
-                if os.path.isfile(kern_to_this_res) == False:
-                    print("... ... kernel not found: ", kern_to_this_res)
-                    print("... ... continuing without it.")
-                    print("... ... create it if it should be there.")
-                    continue
-                
-                staged_image_file = working_dirs['staged']+ \
-                    this_name+'_'+this_band+'_mjysr.fits'
-                
-                convolved_image_file = working_dirs['convolved']+ \
-                    this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
-                
-                convolve_image_with_kernel(
-                    image_file=staged_image_file,
-                    outfile=convolved_image_file,
-                    kernel_file=kern_to_this_res,
-                    blank_zeros=False,
-                    overwrite=True
-                )
-
-    # Make images of the convolved data.
-                
-    if 'plot_convolve' in tasks:
-
-        print("Plotting convolved images ... ")
-        
-        for this_band in bands:
-
-            print("... ... ", this_band)
-            
-            for this_res in res_dict.keys():
-                print("... res "+this_res)
-                                
-                convolved_image_file = working_dirs['convolved']+ \
-                    this_name+'_'+this_band+'_mjysr_'+this_res+'.fits'
-
-                if os.path.isfile(convolved_image_file) == False:
-                    print("... ... file not present ", convolved_image_file)
-                    continue
-    
-                show_z0mgs_image(
-                    image_fname = convolved_image_file,
-                    outfile = convolved_image_file.replace('.fits','.png'),
-                    title = this_name+' '+this_band+' '+this_res,
-                    value_string = this_band+' [MJy/sr]',
-                )
-
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Make galaxy masks
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
@@ -568,8 +564,6 @@ def z0mgs_process_one_galaxy(
     # star point sources in the image and convolve this with a few
     # relevant PSFs to make images. Leverages existing GAIA query or
     # can make the query if the file is missing.
-
-    # TBD Order here is debatable relative to convolution especially.
     
     if 'star_pred' in tasks:
 
@@ -702,22 +696,9 @@ def z0mgs_process_one_galaxy(
             print("... ... ", this_band)
 
             image_file = working_dirs['staged']+ \
-                this_name+'_'+this_band+'_mjysr.fits'
-            
-            if this_band in ['fuv','nuv']:
-                image_file = working_dirs['convolved']+ \
-                    this_name+'_'+this_band+'_mjysr'+ \
-                    '_gauss20.fits'
-            
-            if this_band in ['w1','w2']:
-                ext_to_fit = ''
-
-            if this_band in ['w3','w4']:
-                ext_to_fit = ''
-
-            if this_band in ['u','g','r','i','z']:
-                ext_to_fit = ''                
-                
+                this_name+'_'+this_band+'_mjysr'+ \
+                res_ext_for_bkgrd+'.fits'
+                            
             rad_file = working_dirs['coords']+ \
                 this_name+'_rgal.fits'
 
@@ -749,15 +730,15 @@ def z0mgs_process_one_galaxy(
             ]
                 
             fit_z0mgs_background(
-                image_fname=image_file,
-                mask_fnames=mask_fname_list,
-                weight_fname=weight_file,
+                image_fname = image_file,
+                mask_fnames = mask_fname_list,
+                weight_fname = weight_file,
                 rad_fname = rad_file,
                 fid_rad = rgal,
                 outfile_bkgrd = bkgrd_file,                
                 methods = bkgrd_methods,
-                clip_thresh=3.0,
-                niter=5,
+                clip_thresh = 3.0,
+                niter = 5,
             )
 
             print("... applying background subtraction.")
@@ -781,32 +762,62 @@ def z0mgs_process_one_galaxy(
                 data=staged_image - bkgrd, header=staged_image_hdr)
             bksub_image_hdu.writeto(bksub_image_fname, overwrite=True)
 
-            # Background subtract the convolved data
-            for this_res_ext in res_dict.keys():
+    if 'plot_bkgrd' in tasks:        
 
-                print("... ... to "+this_res_ext)
-                            
-                this_image_fname = working_dirs['convolved'] + \
-                    this_name+'_'+this_band+'_mjysr_'+this_res_ext+'.fits'
+        for this_band in bands:
 
-                if os.path.isfile(this_image_fname) == False:
-                    print("... ... file missing: ", this_image_fname)
+            print("Plotting background subtraction.")
+            print("... to be implemented.")
+        
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+    # Do the convolutions
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=        
+
+    # Convolve the final products to to some specified Gaussian
+    # resolutions.
+
+    # TBD - masking
+    
+    if 'convolve' in tasks:
+
+        print("Convolving images ...")
+
+        for this_band in bands:
+
+            print("... ... ", this_band)
+            
+            for target_res in res_dict.keys():
+                print("... to "+target_res)
+                
+                kern_to_this_res = z0mgs_kernel_name(
+                    from_res=this_band, to_res=target_res)
+                
+                if os.path.isfile(kern_to_this_res) == False:
+                    print("... ... kernel not found: ", kern_to_this_res)
+                    print("... ... continuing without it.")
+                    print("... ... create it if it should be there.")
                     continue
                 
-                this_image_hdu = fits.open(this_image_fname)[0]
-                this_image = this_image_hdu.data
-                this_image_hdr = this_image_hdu.header
-            
-                bksub_image_fname = working_dirs['bkgrd']+ \
-                    this_name+'_'+this_band+'_mjysr_'+this_res_ext+'_bksub.fits'
-                bksub_image_hdu = fits.PrimaryHDU(
-                    data=this_image - bkgrd, header=this_image_hdr)
-                bksub_image_hdu.writeto(bksub_image_fname, overwrite=True)
-        
+                staged_image_file = working_dirs['bkgrd']+ \
+                    this_name+'_'+this_band+'_mjysr_bksub.fits'
+                
+                convolved_image_file = working_dirs['bkgrd']+ \
+                    this_name+'_'+this_band+'_mjysr_'+target_res+'.fits'
+                
+                convolve_image_with_kernel(
+                    image_file=staged_image_file,
+                    outfile=convolved_image_file,
+                    kernel_file=kern_to_this_res,
+                    blank_zeros=False,
+                    overwrite=True
+                )
+                
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
     # Plot everything together
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
-        
+
+    # Plot the final images.
+    
     if 'plot_results' in tasks:
         
         pass

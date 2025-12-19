@@ -20,6 +20,11 @@
 # system (and you need a place to stash O(20 TB) of stuff). It's not
 # expected that this needs to be run in many places.
 
+# TBD:
+
+# Gaia has some weird tables that have clusters scattered over the
+# sky. Could add machinery to break these apart.
+
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Imports
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%

@@ -38,13 +38,13 @@ from utils_fetch_and_index import *
 
 do_fetch = False
 do_check = False
-do_flist = False
-do_index = False
+do_flist = True
+do_index = True
 
 do_unwise = False
 do_sdss = False
 do_galex = False
-do_gaia = False
+do_gaia = True
 
 do_custom_unwise = False
 do_allwise = False

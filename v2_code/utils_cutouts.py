@@ -279,8 +279,10 @@ def extract_unwise_stamp(
         ctr_dec = 0.0,
         method = 'copy',
         tol_deg = 10./3600.,
-        size_deg = 0.01,        
-        index_file = '../../working_data/unwise/index/unwise_custom_index.fits',
+        size_deg = 0.01,
+        survey = 'unwise',
+        index_dir = '../../working_data/unwise/index/',
+        index_file = None,
         index_tab = None,
         outfile_image = None,
         outfile_mask = None,
@@ -292,9 +294,27 @@ def extract_unwise_stamp(
     valid_methods = ['copy','reproject']
     if method not in valid_methods:
         print("Invalid method: ", method)
-        print("... allowed methos ", valid_methods)
+        print("... allowed methods ", valid_methods)
         return(None)
-    
+
+    valid_surveys = ['unwise', 'unwise_custom', 'allwise', 'neowise']
+    if survey not in valid_surveys:
+        print("Invalid survey: ", survey)
+        print("... allowed surveys ", valid_surveys)
+        return(None)
+
+    if survey == 'unwise':
+        index_file = index_dir + 'unwise_custom_index.fits'
+
+    if survey == 'unwise_custom':
+        index_file = index_dir + 'unwise_custom_index.fits'
+
+    if survey == 'allwise':
+        index_file = index_dir + 'unwise_allwise_index.fits'
+
+    if survey == 'neowise':
+        index_file = index_dir + 'unwise_neowise_index.fits'
+        
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Copying case
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -347,7 +367,13 @@ def extract_unwise_stamp(
         
         print("... making an inverse variance mask.")
         this_invvar_fname = this_fname.replace(
-            '-img-m.fits','-invvar-m.fits')        
+            '-img-m.fits','-invvar-m.fits')
+        if os.path.isfile(this_invvar_fname) == False:
+            this_invvar_fname = this_fname.replace(
+                '-img-m.fits','-invvar-m.fits.gz')
+        if os.path.isfile(this_invvar_fname) == False:
+            print("Cannot find invvar file")
+                
         invvar_mask = make_invvar_mask(
             invvar_fname=this_invvar_fname)
         
@@ -449,7 +475,13 @@ def extract_unwise_stamp(
             print("... making an inverse variance mask.")
             
             this_invvar_fname = this_fname.replace(
-                '-img-m.fits','-invvar-m.fits')        
+                '-img-m.fits','-invvar-m.fits')
+            if os.path.isfile(this_invvar_fname) == False:
+                this_invvar_fname = this_fname.replace(
+                    '-img-m.fits','-invvar-m.fits.gz')
+            if os.path.isfile(this_invvar_fname) == False:
+                print("Cannot find invvar file")
+            
             invvar_mask = make_invvar_mask(
                 invvar_fname=this_invvar_fname)
 
