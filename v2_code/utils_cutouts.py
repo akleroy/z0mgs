@@ -541,11 +541,113 @@ def extract_sdss_stamp(
         ctr_ra = 0.0,
         ctr_dec = 0.0,
         size_deg = 0.01,
-        index_file = '../../working_data/sdss/index/sdss_tile_index.fits',
+        index_dir = '../../working_data/sdss/index/',
+        index_file = 'sdss_frame_index.fits',
         index_tab = None,
-        use_int_files = True,
         outfile_image = None,
         outfile_weight = None,
         overwrite = True):
 
-    pass
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Define new header
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    center_coord = SkyCoord(ra=ctr_ra*u.deg, dec=ctr_dec*u.deg, frame='icrs')    
+    pix_scale = np.array([0.4/3600.,0.4/3600.])
+    nx = int(np.ceil(size_deg / pix_scale[0]))
+    ny = int(np.ceil(size_deg / pix_scale[1]))
+    print("... pixel scale, nx, ny: ", pix_scale, nx, ny)
+    
+    target_hdr = make_simple_header(
+        center_coord, pix_scale, nx=nx, ny=ny, return_header=True)    
+    target_hdr['BUNIT'] = 'MJy/sr'
+    target_wcs = wcs.WCS(target_hdr)
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Find overlap
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    print("Finding all overlapping tiles within ", size_deg*60., " arcmin ...")
+        
+    overlap_tab = \
+        find_index_overlap(
+            index_file = index_dir + index_file,
+            center_coord = center_coord,
+            image_extent = size_deg,
+            #selection_dict = {'filter':band},
+            selection_dict = {band.strip():True},
+        )
+    print(overlap_tab)
+    n_overlap = len(overlap_tab)
+
+    print("... found ", n_overlap, " tiles")
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Initialize output
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    weight_image = np.zeros((ny, nx))
+    sum_image = np.zeros((ny, nx))
+    mask_image = np.zeros((ny, nx))
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Loop over tiles, process, reproject
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    for ii, this_overlap_row in enumerate(overlap_tab):
+
+        print("... processing frame ", ii, " of ", n_overlap)
+
+        # Read and convert units
+        this_fname = this_overlap_row['fname'].strip()
+        this_fname = \
+            this_fname.replace('frame-g-','frame-'+band+'-')
+        if os.path.isfile(this_fname) == False:
+            print("File missing: ", this_fname)
+            continue
+        
+        this_hdu = fits.open(this_fname)[0]
+        this_hdr = this_hdu.header
+        this_image = this_hdu.data
+        
+        print("... converting units.")
+        this_wcs = wcs.WCS(this_hdr)
+        pix_scale_deg = proj_plane_pixel_scales(this_wcs)[0]
+        pix_scale_as = pix_scale_deg*3600.
+        pix_area_sr = (pix_scale_deg*np.pi/180.)**2
+        print("... ... pixel scale [as]: ", pix_scale_as)
+
+        if this_hdr['BUNIT'] != 'nanomaggy':
+            print("WARNING! BUNIT should be nanomaggy but is ", this_hdr['BUNIT'])
+
+        this_image *= 3.631E-6/(pix_area_sr)/1E6
+        this_hdr['BUNIT'] = 'MJy/sr'
+
+        print("... reproject and accumulate.")
+            
+        # Reproject image
+        aligned_image, footprint_image = reproject_interp(
+            (this_image, this_hdr), target_wcs,
+            order='bilinear')
+        aligned_image[footprint_image==0] = 0.0
+        print("... sum of this footprint image: ", np.sum(footprint_image*1.0))
+        
+        # Accumulate
+        sum_image += aligned_image
+        weight_image += footprint_image*1.0
+
+    # ................................................
+    # Create full image and write to disk
+    # ................................................        
+
+    full_image = sum_image / weight_image
+        
+    full_image_hdu = fits.PrimaryHDU(data=full_image, header=target_hdr)
+        
+    if outfile_image is not None:
+        full_image_hdu.writeto(outfile_image, overwrite=overwrite)
+
+    return(full_image_hdu)
+
+
+

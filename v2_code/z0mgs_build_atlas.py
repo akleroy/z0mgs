@@ -14,18 +14,6 @@
 
 # - do better on incremental stuff
 
-# - the order of ops for correctness could be improved to:
-
-# stage ->
-# convolve + mask ->
-# bkfit ->
-# mask + bksub (+ interpolate?) ->
-# convolve
-
-# right now convolving with filled 0s and then subtracting leaves edge
-# artifact where we fill 0s outside the image. Could also patch this
-# (imperfectly) by filling with the image median.
-
 import os
 
 from astropy.table import Table
@@ -197,7 +185,7 @@ def z0mgs_process_one_galaxy(
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= 
 
     # Check survey validity
-    valid_surveys = ['galex','unwise','allwise','neowise','sdss']
+    valid_surveys = ['galex','unwise','unwise_custom','allwise','neowise','sdss']
     if survey not in valid_surveys:
         print("Invalid survey: ", survey)
         print("... valid options: ", valid_surveys)
@@ -206,8 +194,8 @@ def z0mgs_process_one_galaxy(
     # Key data for survey
 
     an_unwise_survey = \
-        ((survey == 'unwise') | (survey == 'neowise') \
-         | (survey == 'allwise'))
+        ((survey == 'unwise') | (survey == 'unwise_custom') | \
+         (survey == 'neowise') | (survey == 'allwise'))
     
     # ... by default fit the background to the native res native res
     res_ext_for_bkgrd = ''
@@ -224,7 +212,7 @@ def z0mgs_process_one_galaxy(
     if survey == 'sdss':
         valid_bands = ['u','g','r','i','z']
         fid_rms = 1E-3
-    if survey == 'unwise':
+    if (survey == 'unwise') | (survey == 'unwise_custom'):
         valid_bands = ['w1','w2','w3','w4']
         fid_rms = 1E-2
     if survey == 'neowise':
@@ -352,11 +340,16 @@ def z0mgs_process_one_galaxy(
                     overwrite = True)
 
             if survey == 'sdss' and not skip:
-
-                print("SDSS staging not implemented yet.")
                 
-                pass            
+                extract_sdss_stamp(
+                    band=this_band,
+                    ctr_ra=ctr_ra,
+                    ctr_dec=ctr_dec,
+                    size_deg=size_deg,
+                    outfile_image = outfile_image,
+                    overwrite = True)
 
+                
     # Plot the images produced in staging. We will make fancier plots
     # later but this provides a quick look.
                
@@ -626,18 +619,36 @@ def z0mgs_process_one_galaxy(
             star_intens_hdu = fits.HDUList(
                 [jypix_to_mjysr(image_fname=star_flux_file)])
 
-            pix_to_native_kernel = \
-                z0mgs_psf_name(band=this_band)
-
             print("... ... to native resolution")
-            
-            convolve_image_with_kernel(                
-                image_hdu=star_intens_hdu,
-                outfile=star_intens_file,
-                kernel_file=pix_to_native_kernel,
-                blank_zeros=False,
-            )
 
+            # Convolve GALEX and WISE to the native PSF
+            
+            if an_unwise_survey | (survey == 'galex'):
+                
+                pix_to_native_kernel = \
+                    z0mgs_psf_name(band=this_band)
+            
+                convolve_image_with_kernel(                
+                    image_hdu=star_intens_hdu,
+                    outfile=star_intens_file,
+                    kernel_file=pix_to_native_kernel,
+                    blank_zeros=False,
+                )
+
+            # For now hard code a single Gaussian PSF for SDSS
+            
+            if (survey == 'sdss'):
+
+                convolve_image_with_gauss(
+                    image_hdu=star_intens_hdu,
+                    starting_res = 0. * u.arcsec,
+                    target_res = 1.35 * u.arcsec,
+                    outfile = star_intens_file,
+                    overwrite=True,
+                )                
+
+            # Convolve to a success of coarser target resolutions
+                
             for res_tag, res_in_arcsec in res_dict.items():
                 print("... ... to resolution ", res_tag)                
                 convolve_image_with_gauss(

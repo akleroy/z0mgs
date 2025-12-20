@@ -506,6 +506,7 @@ def extract_gaia_stack(
 
 def pred_star_flux_from_gaia(
         g_mag = None,
+        g_flux = None,
         bp = None,
         rp = None,
         parallax = None,
@@ -534,6 +535,16 @@ def pred_star_flux_from_gaia(
     gauss15_sr = (15/3600.*np.pi/180./2.0)**2*np.pi/np.log(2)
     gauss15_intens_to_flux = gauss15_sr*1e6
 
+    # Convert the Gaia flux in electrons/s to a flux density in Jy
+    # following
+
+    # https://gea.esac.esa.int/archive/documentation/GDR3/Data_processing/chap_cu5pho/cu5pho_sec_photProc/cu5pho_ssec_photCal.html
+
+    ZPAB = 25.8010
+    c_nu = 10.**(-0.4*(ZPAB+56.10))
+    flux_g_wm2hz  = c_nu*g_flux
+    flux_g_jy = flux_g_wm2hz*1E-26
+    
     # coefficient in flux = 10.**(-1.0*mag/2.5)*coefficient
     mag_to_jy = {
         'fuv': 27.07*gauss7p5_intens_to_flux,
@@ -548,6 +559,10 @@ def pred_star_flux_from_gaia(
     for this_band in mag_to_jy.keys():
         flux_dict[this_band]= mag_to_jy[this_band]* \
             10.**(-1.0*g_mag/2.5)
+        
+    # This is a hack and needs to be updated to use realistic colors.
+    for this_band in ['u','g','r','i','z']:
+        flux_dict[this_band] = flux_g_jy
 
     return(flux_dict)
     
@@ -580,6 +595,10 @@ def pred_star_flux_from_ks(
     for this_band in mag_to_jy.keys():
         flux_dict[this_band]= mag_to_jy[this_band]* \
             10.**(-1.0*ks_mag/2.5)
+
+    # This is a hack and needs to be updated to use realistic colors.
+    for this_band in ['u','g','r','i','z']:
+        flux_dict[this_band] = flux_dict['w1']
         
     return(flux_dict)
 
@@ -689,6 +708,7 @@ def build_star_flux_image(
         # Predict the flux for each 
         gaia_fluxes = pred_star_flux_from_gaia(
             g_mag = gaia_tab['phot_g_mean_mag'],
+            g_flux = gaia_tab['phot_g_mean_flux'],
             bp = gaia_tab['phot_bp_mean_mag'],
             rp = gaia_tab['phot_rp_mean_mag'],
             parallax = gaia_tab['parallax']
