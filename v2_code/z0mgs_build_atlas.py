@@ -392,7 +392,7 @@ def z0mgs_process_one_galaxy(
     # background subtraction. The final convolutions will come after
     # background subtraction below.
     
-    if 'convolve' in tasks:
+    if 'convolve_for_bkgrd' in tasks:
 
         print("Convolving images for background subtraction ...")
 
@@ -402,6 +402,10 @@ def z0mgs_process_one_galaxy(
             
             for target_res in preconv_res_dict.keys():
                 print("... to "+target_res)
+
+                # TBD - If we end up wanting to do this for SDSS need
+                # to add pure Gaussian logic here (see later convolve
+                # step).
                 
                 kern_to_this_res = z0mgs_kernel_name(
                     from_res=this_band, to_res=target_res)
@@ -804,6 +808,37 @@ def z0mgs_process_one_galaxy(
             
             for target_res in res_dict.keys():
                 print("... to "+target_res)
+
+                staged_image_file = working_dirs['bkgrd']+ \
+                    this_name+'_'+this_band+'_mjysr_bksub.fits'
+                
+                convolved_image_file = working_dirs['bkgrd']+ \
+                    this_name+'_'+this_band+'_mjysr_bksub_'+target_res+'.fits'
+                
+                if (survey == 'sdss'):
+                    print("... ... SDSS assuming Gaussian")
+
+                    # Could improve this with more accurate PSFs and
+                    # need to make sure that the BMAJ and BMIN are set
+                    # by convolve_image_with_gauss.
+
+                    print(staged_image_file)
+                    print(convolved_image_file)
+                    print(res_dict[target_res])
+
+                    # TBD - better treatment of the SDSS PSF
+                    
+                    convolve_image_with_gauss(
+                        image_file=staged_image_file,
+                        starting_res = 1.35 * u.arcsec,
+                        target_res = res_dict[target_res] * u.arcsec,
+                        outfile = convolved_image_file,
+                        overwrite=True,
+                    )                
+
+                    continue
+
+                # Otherwise use a custom kernel
                 
                 kern_to_this_res = z0mgs_kernel_name(
                     from_res=this_band, to_res=target_res)
@@ -812,13 +847,7 @@ def z0mgs_process_one_galaxy(
                     print("... ... kernel not found: ", kern_to_this_res)
                     print("... ... continuing without it.")
                     print("... ... create it if it should be there.")
-                    continue
-                
-                staged_image_file = working_dirs['bkgrd']+ \
-                    this_name+'_'+this_band+'_mjysr_bksub.fits'
-                
-                convolved_image_file = working_dirs['bkgrd']+ \
-                    this_name+'_'+this_band+'_mjysr_bksub_'+target_res+'.fits'
+                    continue                
                 
                 convolve_image_with_kernel(
                     image_file=staged_image_file,
