@@ -23,6 +23,13 @@ from astroquery.ipac.irsa import Irsa
 from reproject import reproject_interp
 from reproject.mosaicking import find_optimal_celestial_wcs
 
+from astropy.utils.console import ProgressBar
+
+#import warnings
+#warnings.filterwarnings('ignore', category=UserWarning)
+#import astropy.utils.exceptions
+#warnings.simplefilter('ignore', category=astropy.utils.exceptions.AstropyWarning)                     
+
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Routines to query data from IRSA
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -101,6 +108,7 @@ def search_spherex_images(
             print("Available columns (first 10): ", images.colnames[:10])  # Show first 10 columns
 
     return(images)
+
 
 def download_images(
         images: Table,
@@ -248,6 +256,310 @@ def download_images(
     return(downloaded_files)
 
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
-# Routines to build a cube
+# Routines to support build a cube
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
+def make_wavelength_image(
+        hdu_list = None,
+        use_hdu = None,
+):
+    """Use astropy WCS to construct images of wavelength and bandwidth
+    across a SPHEREx image.
+
+    Feed in the HDUlist for an image and the HDU holding the image of
+    interest. Program returns 
+
+    lam, bw
+
+    The central wavelength and bandwidth of the image in microns.
+    """
+
+    # Testing shows that the various image extensions do produce the
+    # same output images.
+    
+    this_header = hdu_list[use_hdu].header
+    this_shape = hdu_list[use_hdu].data.shape
+    
+    # Key call. Feed the header associated with the desired image,
+    # also pass the parent HDU list to handle distortions/wavelength
+    # lookup, and use the "W"avelength transform.
+
+    # This all relies on astropy being wired under the hood to use the
+    # WCS-WAVE table in the final extension.
+    
+    spectral_wcs = WCS(this_header, fobj=hdu_list, key="W")
+
+    # Turn off spatial distortion terms
+    spectral_wcs.sip = None
+
+    # Create a grid of pixel coords
+    xx, yy = np.mgrid[:this_shape[0],:this_shape[1]]
+    
+    # Evaluate the WCS to get the wavelength and bandwidth
+    lam, bw = spectral_wcs.pixel_to_world(xx, yy)
+    lam_unit = spectral_wcs.wcs.cunit[0]
+    bw_unit = spectral_wcs.wcs.cunit[1]
+
+    # Return images of lambda and bandwidth
+    return((lam, bw))
+
+def make_cube_header(
+        center_coord,
+        pix_scale = 6. / 3600.,
+        extent = None, extent_x = None, extent_y = None,
+        nx = None, ny = None,
+        lam_min = 0.7, lam_max = 5.2, lam_step = 0.02,
+        return_header=False):
+    """Make a #D FITS header centered on the coordinate of interest with a
+    user-specififed pixel scale and extent and wavelength axis.
+
+    
+    Parameters
+    ----------
+
+    center_coord : `~astropy.coordinates.SkyCoord` object or
+        array-like Sky coordinates of the image center. If array-like
+        then (ra, dec) in decimal degrees assumes.
+
+    pix_scale : required. Size in decimal degrees of a pixel. Can be
+        an array in which case it is pixel scale along x and y (e.g.,
+        as returned by proj_pixel_scales).
+
+    extent_x : the angular extent of the image along the x coordinate
+
+    extent_y : the angular extent of the image along the y coordinate
+
+    nx : the number of x pixels (not needed with extent_x and pix_scale)
+
+    ny : the number of y pixels (not needed with extent_y and pix_scale)
+
+    """
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+    # Figure out the center
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    if isinstance(center_coord, str):
+        coordinates = SkyCoord.from_name(center_coord)
+        ra_ctr = coordinates.ra.degree
+        dec_ctr = coordinates.dec.degree
+    elif isinstance(center_coord, SkyCoord):
+        ra_ctr = center_coord.ra.degree
+        dec_ctr = center_coord.dec.degree
+    else:
+        ra_ctr, dec_ctr = center_coord
+        if hasattr(ra_ctr, 'unit'):
+            ra_ctr = ra_ctr.to(u.deg).value
+            dec_ctr = dec_ctr.to(u.deg).value
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Figure out the pixel scale
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    if pix_scale is None:
+        print("Pixel scale not specified. Returning.")
+        return()
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+    # Figure out image extent
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    if extent is not None:
+        extent_x = extent
+        extent_y = extent
+    
+    if (nx is not None) and (ny is not None):
+        if isinstance(pix_scale, np.ndarray):
+            extent_x = pix_scale[0] * nx
+            extent_y = pix_scale[1] * ny
+        else:
+            extent_x = pix_scale * nx
+            extent_y = pix_scale * ny
+    elif (extent_x is not None) and (extent_y is not None):
+        if isinstance(pix_scale, np.ndarray):
+            nx = int(np.ceil(extent_x*0.5 / pix_scale[0]) * 2 + 1)
+            ny = int(np.ceil(extent_y*0.5 / pix_scale[1]) * 2 + 1)
+        else:
+            nx = int(np.ceil(extent_x*0.5 / pix_scale) * 2 + 1)
+            ny = int(np.ceil(extent_y*0.5 / pix_scale) * 2 + 1)            
+    else:
+        print("Extent not specified. Returning.")
+        return()
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Make the wavelength axis
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+
+    lam_array = np.arange(lam_min, lam_max + lam_step, lam_step)
+    nz = len(lam_array)
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Make the FITS header
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=    
+    
+    hdu = fits.PrimaryHDU()    
+    hdu.header = fits.Header()
+    hdu.header['NAXIS'] = 3
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Spatial information
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    hdu.header['NAXIS1'] = nx
+    hdu.header['NAXIS2'] = ny
+    
+    hdu.header['CTYPE1'] = 'RA---TAN'
+    hdu.header['CRVAL1'] = ra_ctr
+    hdu.header['CRPIX1'] = np.float16((nx / 2) * 1 - 0.5)
+
+    hdu.header['CTYPE2'] = 'DEC--TAN'
+    hdu.header['CRVAL2'] = dec_ctr
+    hdu.header['CRPIX2'] = np.float16((ny / 2) * 1 - 0.5)
+    
+    if isinstance(pix_scale, np.ndarray):    
+        hdu.header['CDELT1'] = -1.0 * pix_scale[0]
+        hdu.header['CDELT2'] = 1.0 * pix_scale[1]
+    else:
+        hdu.header['CDELT1'] = -1.0 * pix_scale
+        hdu.header['CDELT2'] = 1.0 * pix_scale
+            
+    hdu.header['EQUINOX'] = 2000.0
+    hdu.header['RADESYS'] = 'FK5'
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Spectral information
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    hdu.header['NAXIS3'] = nz
+    hdu.header['CTYPE3'] = 'WAVE'
+    hdu.header['CUNIT3'] = 'um'
+    hdu.header['CRPIX3'] = 1
+    hdu.header['CRVAL3'] = lam_array[0]
+    hdu.header['CDELT3'] = lam_step
+
+    # Return header or HDU    
+    if return_header:
+        return(hdu.header)
+    else:
+        return(hdu)
+
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+# Routine to actually build a cube
+# &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
+
+def grid_spherex_cube(
+        target_hdu = None,
+        image_list = [],
+        outfile = None,
+        overwrite=True):
+    """
+    """
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Initialize the output
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    target_header = target_hdu.header
+    nx = target_header['NAXIS1']
+    ny = target_header['NAXIS2']
+    nz = target_header['NAXIS3']
+
+    target_header_2d = target_header.copy()
+    target_header_2d['NAXIS'] = 2
+    del target_header_2d['NAXIS3']
+    del target_header_2d['CRVAL3']
+    del target_header_2d['CDELT3']
+    del target_header_2d['CRPIX3']
+    del target_header_2d['CTYPE3']
+    del target_header_2d['CUNIT3']
+    
+    lam_step = target_header['CDELT3']    
+    lam_array = (np.arange(nz)-(target_header['CRPIX3']-1))* \
+        target_header['CDELT3'] + lam_step
+    
+    sum_cube = np.zeros((nz,ny,nx),dtype=np.float32)
+    weight_cube = np.zeros((nz,ny,nx),dtype=np.float32)
+    
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Loop over the image list
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    for this_fname in ProgressBar(image_list):
+
+        this_hdu_list = fits.open(this_fname)
+        hdu_image = this_hdu_list['IMAGE']
+        image_header = hdu_image.header
+        
+        lam, bw = make_wavelength_image(
+            hdu_list = this_hdu_list,
+            use_hdu = 'IMAGE',
+        )
+        hdu_lam = fits.PrimaryHDU(lam, image_header)
+        hdu_bw = fits.PrimaryHDU(bw, image_header)
+
+        # could add zodi subtraction, flag implementation here
+
+        # This is pretty annoyingly inefficient to repeat
+        missing = np.nan
+        
+        reprojected_image, footprint_image = \
+            reproject_interp(hdu_image, target_header_2d, order='bilinear')
+        reprojected_image[footprint_image == 0] = missing
+        
+        reprojected_lam, footprint_lam = \
+            reproject_interp(hdu_lam, target_header_2d, order='bilinear')
+        reprojected_lam[footprint_lam == 0] = missing
+
+        reprojected_bw, footprint_bw = \
+            reproject_interp(hdu_bw, target_header_2d, order='bilinear')
+        reprojected_bw[footprint_bw == 0] = missing        
+
+        min_lam = np.nanmin(reprojected_lam - reprojected_bw - lam_step)
+        max_lam = np.nanmax(reprojected_lam + reprojected_bw + lam_step)
+
+        overlap_pix = np.sum(footprint_image)
+        pix_in_cube = 0.0
+        
+        for zz, this_lam in enumerate(lam_array):
+
+            # Skip this channel of the output cube
+            
+            if this_lam < min_lam:
+                continue
+
+            if this_lam > max_lam:
+                continue
+            
+            #print(this_lam, np.nanmin(np.abs(this_lam - reprojected_lam)), np.nanmax(reprojected_bw))
+
+            delta = np.abs(this_lam - reprojected_lam)
+            weight = delta / lam_step
+            
+            y_ind, x_ind = \
+                np.where(delta <= (lam_step))
+
+            pix_in_cube += len(y_ind)
+            
+            z_ind = np.zeros_like(y_ind,dtype=int)+zz
+
+            sum_cube[z_ind, y_ind, x_ind] = \
+                sum_cube[z_ind, y_ind, x_ind] + \
+                (reprojected_image[y_ind, x_ind]*weight[y_ind, x_ind])
+
+            weight_cube[z_ind, y_ind, x_ind] = \
+                weight_cube[z_ind, y_ind, x_ind] + weight[y_ind, x_ind]
+
+        print(overlap_pix, pix_in_cube)
+            
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Output and return
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    cube = sum_cube / weight_cube
+    cube[np.where(weight_cube == 0.0)] = np.nan
+    
+    new_hdu = fits.PrimaryHDU(cube, target_header)
+    if outfile is not None:
+        new_hdu.writeto(outfile, overwrite=overwrite)
+    
+    return(new_hdu)

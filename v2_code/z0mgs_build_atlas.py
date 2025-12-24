@@ -3,16 +3,39 @@
 # What's in here:
 
 # - infrastructure to loop over subsamples
+
 # - a pipeline function to reduce one galaxy
+
+# 
 
 # TBD:
 
-# - image construction itself seems to be the bottleneck
+# - image construction itself seems to be the bottleneck for both
+#   GALEX and SDSS.
 
 # - can save reading the tiles index over and over but this is not
-# - likely to be a large speedup.
+#   likely to be a large speedup. It's large image reprojections that
+#   seem to be the main bottleneck right now.
 
-# - do better on incremental stuff
+# - do better on incremental stuff. This will be important for ability
+#   to start/restart when we turn giant batches of stuff loose.
+
+# - the GAIA extraction from tables needs to be wired up to use the
+#   tables not the previous web-based queries.
+
+# - SDSS has both level-matching and striping issues. The level
+#   matching should be dealt with during image construction. There's
+#   no real problem holding all the images to be coadded in memory and
+#   levelling them out. Striping ... we'll see.
+
+# - A really good high stretch image and histogram plot showing the
+#   background subtraction quality, masks, etc..
+
+# - Arbitrary regions accepted as masks early on.
+
+# - BMAJ, BMIN, BPA into all cases where we convolve with a Gaussian.
+
+# - Better logic on masks throughout.
 
 import os
 
