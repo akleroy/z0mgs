@@ -3,6 +3,7 @@
 import os, glob, sys
 import numpy as np
 import warnings
+from enum import IntFlag, auto
 
 import urllib.request
 import urllib.error
@@ -272,6 +273,8 @@ def make_wavelength_image(
     lam, bw
 
     The central wavelength and bandwidth of the image in microns.
+
+    Based on IRSA tutorial.
     """
 
     # Testing shows that the various image extensions do produce the
@@ -308,6 +311,8 @@ def make_wavelength_image(
     
     # Evaluate the WCS to get the wavelength and bandwidth
     lam, bw = spectral_wcs.pixel_to_world(xx, yy)
+
+    # Get the units (not used right now)
     lam_unit = spectral_wcs.wcs.cunit[0]
     bw_unit = spectral_wcs.wcs.cunit[1]
 
@@ -336,6 +341,8 @@ def make_cube_header(
         an array in which case it is pixel scale along x and y (e.g.,
         as returned by proj_pixel_scales).
 
+    extent : the angular extent of the image in decimal degrees for both x and y.
+
     extent_x : the angular extent of the image along the x coordinate
 
     extent_y : the angular extent of the image along the y coordinate
@@ -343,6 +350,9 @@ def make_cube_header(
     nx : the number of x pixels (not needed with extent_x and pix_scale)
 
     ny : the number of y pixels (not needed with extent_y and pix_scale)
+
+    lam_min, lam_max, lam_step : minimum, maximum, and channel width
+        for wavelength axis in microns
 
     """
 
@@ -454,6 +464,76 @@ def make_cube_header(
     else:
         return(hdu)
 
+# Potentially useful but interface with numpy is not straightforward.
+
+class SpherexFlag(IntFlag):
+    TRANSIENT = auto()
+    OVERFLOW = auto()
+    SUR_ERROR = auto()
+    BLANK_1 = auto()
+    PHANTOM = auto()
+    REFERENCE = auto()
+    NONFUNC = auto()
+    DICHROIC = auto()
+    BLANK_2 = auto()
+    MISSING_DATA = auto()
+    HOT = auto()
+    COLD = auto()    
+    FULLSAMPLE = auto()
+    BLANK_3 = auto()
+    PHANMISS = auto()
+    NONLINEAR = auto()
+    BLANK_4 = auto()    
+    PERSIST = auto()
+    BLANK_5 = auto()        
+    OUTLIER = auto()
+    BLANK_6 = auto()        
+    SOURCE = auto()
+
+def spherex_flag_dict():
+    """
+    """
+
+    # From the header, flag definitions
+    
+    #HIERARCH MP_TRANSIENT = 0 / Transient detected during SUR                       
+    #HIERARCH MP_OVERFLOW = 1 / Overflow detected during SUR                         
+    #HIERARCH MP_SUR_ERROR = 2 / Error in onboard processing                         
+    #HIERARCH MP_PHANTOM = 4 / Phantom pixel                                         
+    #HIERARCH MP_REFERENCE = 5 / Reference pixel                                     
+    #HIERARCH MP_NONFUNC = 6 / Permanently unusable                                  
+    #HIERARCH MP_DICHROIC = 7 / Low efficiency due to dichroic                       
+    #HIERARCH MP_MISSING_DATA = 9 / Onboard data lost                                
+    #MP_HOT  =                   10 / Hot pixel                                      
+    #MP_COLD =                   11 / Anomalously low signal                         
+    #HIERARCH MP_FULLSAMPLE = 12 / Pixel full sample history is available            
+    #HIERARCH MP_PHANMISS = 14 / Phantom correction was not applied                  
+    #HIERARCH MP_NONLINEAR = 15 / Nonlinearity correction cannot be applied reliably 
+    #HIERARCH MP_PERSIST = 17 / Persistent charge above threshold                    
+    #HIERARCH MP_OUTLIER = 19 / Pixel flagged by Detect Outliers                     
+    #HIERARCH MP_SOURCE = 21 / Pixel mapped to a known source    
+    
+    this_dict = {
+        'TRANSIENT' : 0,
+        'OVERFLOW' : 1,
+        'SUR_ERROR' : 2,
+        'PHANTOM' : 4,
+        'REFERENCE' : 5,
+        'NONFUNC' : 6,
+        'DICHROIC' : 7,
+        'MISSING_DATA' : 9,
+        'HOT' : 10,
+        'COLD' : 11,
+        'FULLSAMPLE' : 12,
+        'PHANMISS' : 14,
+        'NONLINEAR' : 15,
+        'PERSIST' : 17,
+        'OUTLIER' : 19,
+        'SOURCE' : 21,        
+    }
+    
+    return(this_dict)
+    
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 # Routine to actually build a cube
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
@@ -549,13 +629,85 @@ def extract_spherex_sed(
     
     return(tab)
 
+def make_mask_from_flags(
+        flag_image,
+        flags_to_use = ['SUR_ERROR','NONFUNC','MISSING_DATA',
+                        'HOT','COLD','NONLINEAR','PERSIST'],        
+):
+    """
+    """
+
+    # From the explanatory supplement
+
+    # Suggested flags for background estimation masking:
+
+    # OVERFLOW
+    # SUR_ERROR
+    # NONFUNC
+    # MISSING_DATA
+    # HOT
+    # COLD
+    # NONLINEAR
+    # PERSIST
+    # OUTLIER
+    # SOURCE
+    # TRANSIENT
+
+    # Suggested flags for on source photometry:
+
+    # SUR_ERROR
+    # NONFUNC
+    # MISSING_DATA
+    # HOT
+    # COLD
+    # NONLINEAR
+    # PERSIST
+
+    use_flag_ind = []
+    flag_dict = spherex_flag_dict()
+    for this_flag in flags_to_use:
+        try:
+            this_ind = flag_dict[this_flag.upper()]
+        except KeyError:
+            print("Flag unrecognized: ", this_flag)
+            continue
+        use_flag_ind.append(this_ind)
     
+    n_flags = 22
+
+    # Make an array of powers of 2 to cover each relevant bit
+    powers_of_2 = 1 << np.arange(n_flags)
+
+    # Copy the flag image to AND against each flag
+    flag_cube = np.repeat(flag_image[:,:,np.newaxis], n_flags, axis=2)
+    
+    # Use bitwise AND to hash against each flag
+    mask_cube = (flag_cube & powers_of_2) != 0
+    
+    # Initialize the image mask
+    mask = np.zeros_like(flag_image, dtype=bool)
+
+    # Loop over and accumulate the requested flags
+    for ii in np.arange(n_flags):
+
+        if ii not in use_flag_ind:
+            continue
+
+        mask = mask | (mask_cube[:,:,ii])
+        
+    return(mask)
+
 def grid_spherex_cube(
         target_hdu = None,
         image_list = [],
         outfile = None,
         overwrite=True):
-    """
+    """TBD #1: handle the wavelengths better. They're offset right now and
+    don't pay attention to the bandwidth.
+
+    TBD #2: Make a not-a-cube spectrum at each location holding the
+    SED and wavelength.
+
     """
 
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -591,6 +743,8 @@ def grid_spherex_cube(
         
         this_hdu_list = fits.open(this_fname)
         hdu_image = this_hdu_list['IMAGE']
+        hdu_flags = this_hdu_list['FLAGS']
+        hdu_zodi = this_hdu_list['ZODI']        
         image_header = hdu_image.header
         
         lam, bw = make_wavelength_image(
@@ -603,13 +757,22 @@ def grid_spherex_cube(
 
         # could add zodi subtraction, flag implementation here
 
+        mask = make_mask_from_flags(
+            hdu_flags.data,
+            flags_to_use = ['SUR_ERROR','NONFUNC','MISSING_DATA',
+                        'HOT','COLD','NONLINEAR','PERSIST']
+        )
+        masked_data = hdu_image.data
+        masked_data[mask] = np.nan
+        hdu_masked_image = fits.PrimaryHDU(masked_data, image_header)
+        
         # This is pretty annoyingly inefficient to repeat
         missing = np.nan
         
         reprojected_image, footprint_image = \
-            reproject_interp(hdu_image, target_header_2d, order='bilinear')
+            reproject_interp(hdu_masked_image, target_header_2d, order='bilinear')
         reprojected_image[footprint_image == 0] = missing
-        
+
         reprojected_lam, footprint_lam = \
             reproject_interp(hdu_lam, target_header_2d, order='bilinear')
         reprojected_lam[footprint_lam == 0] = missing

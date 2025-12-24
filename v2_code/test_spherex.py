@@ -4,6 +4,7 @@ from utils_spherex import *
 root_dir = '../../test_data/spherex/'
 this_gal = 'ngc5194'
 #this_gal = 'ngc0253'
+#this_gal = 'm33'
 gal_dir = root_dir + this_gal + '/'
 outdir = gal_dir + 'raw/'
 
