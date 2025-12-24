@@ -280,7 +280,10 @@ def make_wavelength_image(
     this_header = hdu_list[use_hdu].header.copy()
     this_shape = hdu_list[use_hdu].data.shape
 
-    # Remove SIP coefficients
+    # Remove SIP coefficients. Mostly this just avoids an annoying
+    # error message, since setting spectral_wcs.sip = None below turns
+    # off their application anyways.
+    
     keywords_to_remove = ['A_?_?', 'B_?_?', 'AP_?_?', 'BP_?_?',
                           '*_ORDER']
     for this_pattern in keywords_to_remove:
@@ -301,7 +304,7 @@ def make_wavelength_image(
     spectral_wcs.sip = None
 
     # Create a grid of pixel coords
-    xx, yy = np.mgrid[:this_shape[0],:this_shape[1]]
+    yy, xx = np.indices(this_shape)
     
     # Evaluate the WCS to get the wavelength and bandwidth
     lam, bw = spectral_wcs.pixel_to_world(xx, yy)
@@ -517,8 +520,8 @@ def extract_spherex_sed(
         
         this_val = hdu_image.data[y_pix, x_pix]
         this_zodi = hdu_zodi.data[y_pix, x_pix]        
-        this_lam = lam[y_pix, x_pix]
-        this_bw = bw[y_pix, x_pix]
+        this_lam = lam.data[y_pix, x_pix]
+        this_bw = bw.data[y_pix, x_pix]
 
         val_ra[counter] = this_val
         zodi_ra[counter] = this_zodi
@@ -594,8 +597,6 @@ def grid_spherex_cube(
             hdu_list = this_hdu_list,
             use_hdu = 'IMAGE',
         )
-
-        print(np.median(lam))
         
         hdu_lam = fits.PrimaryHDU(lam, image_header)
         hdu_bw = fits.PrimaryHDU(bw, image_header)
@@ -613,8 +614,6 @@ def grid_spherex_cube(
             reproject_interp(hdu_lam, target_header_2d, order='bilinear')
         reprojected_lam[footprint_lam == 0] = missing
 
-        print(np.nanmedian(reprojected_lam))
-        
         reprojected_bw, footprint_bw = \
             reproject_interp(hdu_bw, target_header_2d, order='bilinear')
         reprojected_bw[footprint_bw == 0] = missing        
@@ -633,9 +632,7 @@ def grid_spherex_cube(
                 continue
 
             if this_lam > max_lam:
-                continue
-            
-            #print(this_lam, np.nanmin(np.abs(this_lam - reprojected_lam)), np.nanmax(reprojected_bw))
+                continue            
 
             delta = np.abs(this_lam - reprojected_lam)
             weight = delta / lam_step
@@ -646,7 +643,6 @@ def grid_spherex_cube(
             pix_in_cube += len(y_ind)
             
             z_ind = np.zeros_like(y_ind,dtype=int)+zz
-            print(lam_array[zz])
             
             sum_cube[z_ind, y_ind, x_ind] = \
                 sum_cube[z_ind, y_ind, x_ind] + \
@@ -654,8 +650,6 @@ def grid_spherex_cube(
 
             weight_cube[z_ind, y_ind, x_ind] = \
                 weight_cube[z_ind, y_ind, x_ind] + weight[y_ind, x_ind]
-
-        print(this_fname, overlap_pix, pix_in_cube)
             
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Output and return

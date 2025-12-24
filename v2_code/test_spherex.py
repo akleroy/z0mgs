@@ -8,8 +8,8 @@ gal_dir = root_dir + this_gal + '/'
 outdir = gal_dir + 'raw/'
 
 re_download = False
-make_sed = True
-grid_cube = False
+make_sed = False
+grid_cube = True
 
 if re_download:
     
