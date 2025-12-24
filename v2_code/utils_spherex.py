@@ -11,7 +11,7 @@ from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
-from astropy.table import Table
+from astropy.table import Table, QTable
 from astropy import units as u
 from astropy.stats import sigma_clipped_stats
 import astropy.constants as const
@@ -277,8 +277,16 @@ def make_wavelength_image(
     # Testing shows that the various image extensions do produce the
     # same output images.
     
-    this_header = hdu_list[use_hdu].header
+    this_header = hdu_list[use_hdu].header.copy()
     this_shape = hdu_list[use_hdu].data.shape
+
+    # Remove SIP coefficients
+    keywords_to_remove = ['A_?_?', 'B_?_?', 'AP_?_?', 'BP_?_?',
+                          '*_ORDER']
+    for this_pattern in keywords_to_remove:
+        for this_keyword in this_header.copy():
+            if glob.fnmatch.fnmatch(this_keyword, this_pattern):
+                del this_header[this_keyword]
     
     # Key call. Feed the header associated with the desired image,
     # also pass the parent HDU list to handle distortions/wavelength
@@ -447,6 +455,98 @@ def make_cube_header(
 # Routine to actually build a cube
 # &%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%&%
 
+def extract_spherex_sed(
+        target_coord,        
+        image_list = [],
+        outfile = None,
+        overwrite=True):
+    """
+    """
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Get the coordinates
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    
+    if isinstance(target_coord, str):
+        coordinates = SkyCoord.from_name(target_coord)
+        ra_deg = coordinates.ra.degree
+        dec_deg = coordinates.dec.degree
+    elif isinstance(target_coord, SkyCoord):
+        ra_deg = target_coord.ra.degree
+        dec_deg = target_coord.dec.degree
+    else:
+        ra_deg, dec_deg = target_coord
+        if hasattr(ra_deg, 'unit'):
+            ra_deg = ra_deg.to(u.deg).value
+            dec_deg = dec_deg.to(u.deg).value
+
+    target_coord = SkyCoord(
+        ra = ra_deg * u.deg, dec=dec_deg* u.deg,
+        frame = 'icrs')
+                                        
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    # Loop over the image list
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+    val_ra = np.zeros(len(image_list))*np.nan
+    zodi_ra = np.zeros(len(image_list))*np.nan
+    lam_ra = np.zeros(len(image_list))*np.nan
+    bw_ra = np.zeros(len(image_list))*np.nan
+    file_list = []
+    
+    counter = 0
+    
+    for this_fname in ProgressBar(image_list):        
+        
+        this_hdu_list = fits.open(this_fname)
+        hdu_image = this_hdu_list['IMAGE']
+        hdu_zodi = this_hdu_list['ZODI']        
+        image_header = hdu_image.header
+        this_wcs = WCS(image_header)
+        
+        lam, bw = make_wavelength_image(
+            hdu_list = this_hdu_list,
+            use_hdu = 'IMAGE',
+        )
+
+        y_pix, x_pix = this_wcs.world_to_array_index(target_coord)
+        this_shape = hdu_image.data.shape
+        if (y_pix < 0) | (y_pix >= this_shape[0]) | \
+           (x_pix < 0) | (x_pix >= this_shape[1]):
+            continue
+        
+        this_val = hdu_image.data[y_pix, x_pix]
+        this_zodi = hdu_zodi.data[y_pix, x_pix]        
+        this_lam = lam[y_pix, x_pix]
+        this_bw = bw[y_pix, x_pix]
+
+        val_ra[counter] = this_val
+        zodi_ra[counter] = this_zodi
+        lam_ra[counter] = this_lam
+        bw_ra[counter] = this_bw
+        file_list.append(this_fname.split('/')[-1])
+        
+        counter += 1
+
+    flist_ra = np.array(file_list)
+        
+    keep_ind = np.where(np.isfinite(val_ra))
+    val_ra = val_ra[keep_ind]
+    zodi_ra = zodi_ra[keep_ind]
+    lam_ra = lam_ra[keep_ind]
+    bw_ra = bw_ra[keep_ind]
+    flist_ra = flist_ra[keep_ind]
+        
+    tab = QTable([lam_ra*u.um, bw_ra*u.um, val_ra*u.MJy/u.sr, zodi_ra*u.MJy/u.sr,
+                  flist_ra],
+                 names=['lam','bw','val','zodi','fname'])
+
+    if outfile is not None:
+        tab.write(outfile, overwrite=overwrite, format='ascii.ecsv')
+    
+    return(tab)
+
+    
 def grid_spherex_cube(
         target_hdu = None,
         image_list = [],
@@ -475,7 +575,7 @@ def grid_spherex_cube(
     
     lam_step = target_header['CDELT3']    
     lam_array = (np.arange(nz)-(target_header['CRPIX3']-1))* \
-        target_header['CDELT3'] + lam_step
+        lam_step + target_header['CRVAL3']
     
     sum_cube = np.zeros((nz,ny,nx),dtype=np.float32)
     weight_cube = np.zeros((nz,ny,nx),dtype=np.float32)
@@ -484,8 +584,8 @@ def grid_spherex_cube(
     # Loop over the image list
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-    for this_fname in ProgressBar(image_list):
-
+    for this_fname in ProgressBar(image_list):        
+        
         this_hdu_list = fits.open(this_fname)
         hdu_image = this_hdu_list['IMAGE']
         image_header = hdu_image.header
@@ -494,6 +594,9 @@ def grid_spherex_cube(
             hdu_list = this_hdu_list,
             use_hdu = 'IMAGE',
         )
+
+        print(np.median(lam))
+        
         hdu_lam = fits.PrimaryHDU(lam, image_header)
         hdu_bw = fits.PrimaryHDU(bw, image_header)
 
@@ -510,6 +613,8 @@ def grid_spherex_cube(
             reproject_interp(hdu_lam, target_header_2d, order='bilinear')
         reprojected_lam[footprint_lam == 0] = missing
 
+        print(np.nanmedian(reprojected_lam))
+        
         reprojected_bw, footprint_bw = \
             reproject_interp(hdu_bw, target_header_2d, order='bilinear')
         reprojected_bw[footprint_bw == 0] = missing        
@@ -541,7 +646,8 @@ def grid_spherex_cube(
             pix_in_cube += len(y_ind)
             
             z_ind = np.zeros_like(y_ind,dtype=int)+zz
-
+            print(lam_array[zz])
+            
             sum_cube[z_ind, y_ind, x_ind] = \
                 sum_cube[z_ind, y_ind, x_ind] + \
                 (reprojected_image[y_ind, x_ind]*weight[y_ind, x_ind])
@@ -549,7 +655,7 @@ def grid_spherex_cube(
             weight_cube[z_ind, y_ind, x_ind] = \
                 weight_cube[z_ind, y_ind, x_ind] + weight[y_ind, x_ind]
 
-        print(overlap_pix, pix_in_cube)
+        print(this_fname, overlap_pix, pix_in_cube)
             
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
     # Output and return
