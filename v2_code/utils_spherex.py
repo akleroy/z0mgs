@@ -700,6 +700,7 @@ def make_mask_from_flags(
 def grid_spherex_cube(
         target_hdu = None,
         image_list = [],
+        sub_zodi = True,
         outfile = None,
         overwrite=True):
     """TBD #1: handle the wavelengths better. They're offset right now and
@@ -755,14 +756,19 @@ def grid_spherex_cube(
         hdu_lam = fits.PrimaryHDU(lam, image_header)
         hdu_bw = fits.PrimaryHDU(bw, image_header)
 
-        # could add zodi subtraction, flag implementation here
+        # Implement flags and subtract ZODI if requested
 
         mask = make_mask_from_flags(
             hdu_flags.data,
             flags_to_use = ['SUR_ERROR','NONFUNC','MISSING_DATA',
                         'HOT','COLD','NONLINEAR','PERSIST']
         )
-        masked_data = hdu_image.data
+
+        if sub_zodi:
+            masked_data = hdu_image.data - hdu_zodi.data
+        else:
+            masked_data = hdu_image.data
+            
         masked_data[mask] = np.nan
         hdu_masked_image = fits.PrimaryHDU(masked_data, image_header)
         
@@ -789,7 +795,7 @@ def grid_spherex_cube(
         
         for zz, this_lam in enumerate(lam_array):
 
-            # Skip this channel of the output cube
+            # Skip this channel if there's no overlap with the current image
             
             if this_lam < min_lam:
                 continue
@@ -797,6 +803,8 @@ def grid_spherex_cube(
             if this_lam > max_lam:
                 continue            
 
+            # Compare each pixel to the center of the current model
+            
             delta = np.abs(this_lam - reprojected_lam)
             weight = delta / lam_step
             
